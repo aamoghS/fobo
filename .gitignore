@@ -43,3 +43,7 @@ example
 /android
 .neon
 .env
+
+# local AI tool folders
+.claude/
+.agents/

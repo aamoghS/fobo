@@ -75,12 +75,15 @@ titles by visibility (`private` grey block, `busy` block and colour, `open` with
 
 On start, `src/data/live.ts` asks the API for the signed-in user's week, plans, people and You tab, and
 fills the modules in `src/data/` with them, so screens read real data through the same imports.
-Signed out, or with the API unreachable, the mock data stays. Saving the character and finishing
-onboarding write to `/me`.
+Signed out, or with the API unreachable, the mock data stays. Screens redraw after each load and refresh
+when opened or when the app comes back to the foreground (at most every 15 s; Google Calendar sync at most
+once a minute). Saving the character, finishing onboarding, or changing an answer from Capacity Profile
+writes to `/me` and reloads, so the You tab shows the change. Log out restores the sample data.
+Synced calendar events start at half a point an hour (0.5 to 5).
 
 - Sign-in (web, Expo Go, builds): Continue with Google opens `/auth/google/start`; the session comes back
   to `/auth` on the web (`src/app/auth.tsx`, kept in localStorage) or into the app through an in-app
-  browser (`src/lib/google-auth.ts`, kept while the app is open).
+  browser (`src/lib/google-auth.ts`, kept in the phone's secure storage).
 - App setting in `../.env.local`, and in `eas.json` for builds: `EXPO_PUBLIC_API_URL` (the deployed API).
 
 ## Running
