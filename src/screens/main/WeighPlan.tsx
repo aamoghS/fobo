@@ -55,7 +55,6 @@ export function WeighPlan() {
           </>
         ) : (
           <>
-            <Text style={[type.sub, styles.muted, styles.hint]}>Something you’re thinking about saying yes to.</Text>
             <WritePlanCard text={written} onChangeText={setWritten} />
           </>
         )}
