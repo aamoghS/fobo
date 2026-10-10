@@ -17,6 +17,10 @@ export type Person = {
 
 export const people: Person[] = [];
 
+/** Friend requests waiting on you, and the ones you sent. `nextLabel` is their @handle. */
+export const requests: Person[] = [];
+export const sent: Person[] = [];
+
 export const getPerson = (id: string) => people.find((p) => p.id === id);
 
 /** A person's bio, or one written from their next plan when they haven't got one (e.g. live data). */

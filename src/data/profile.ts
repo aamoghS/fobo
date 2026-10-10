@@ -14,6 +14,8 @@ export const profile = {
   name: '',
   title: '',
   email: '',
+  /** The handle friends add you by. */
+  handle: '',
   streak: { days: 0, of: STREAK_DAYS, title: '', detail: '' },
 };
 

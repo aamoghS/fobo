@@ -10,7 +10,7 @@ import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
-import { getPerson, people } from '@/data/people';
+import { getPerson, people, requests } from '@/data/people';
 import { plans } from '@/data/plans';
 import { NOW } from '@/data/week';
 import { dayAndHour } from '@/lib/format';
@@ -47,8 +47,18 @@ export function People() {
           <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             People
           </Text>
-          <IconButton icon="plus" label="Add person" />
+          <IconButton icon="plus" label="Add person" onPress={() => router.push('/people/add')} />
         </View>
+
+        {requests.length > 0 && (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/people/add')} style={styles.requests}>
+            <Icon name="people" size={20} color={color.ink2} />
+            <Text style={[type.bodyStrong, styles.ink, styles.requestsText]}>
+              {requests.length === 1 ? `${requests[0].name} asked to add you` : `${requests.length} people asked to add you`}
+            </Text>
+            <Icon name="chevron" size={19} color={color.ink2} />
+          </Pressable>
+        )}
 
         <Text accessibilityRole="header" style={[type.title, styles.ink, styles.section]}>
           Plans with people
@@ -126,6 +136,8 @@ export function People() {
 }
 
 const styles = StyleSheet.create({
+  requests: { marginTop: space[16], minHeight: 56, paddingHorizontal: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center', borderRadius: radius.row, backgroundColor: color.fill },
+  requestsText: { flex: 1 },
   screen: { flex: 1, backgroundColor: color.ground },
   content: { paddingHorizontal: space.margin, paddingBottom: 200 },
   ink: { color: color.ink },

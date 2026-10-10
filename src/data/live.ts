@@ -9,9 +9,10 @@ import type { Plan } from '@/features/plans/types';
 import { api } from '@/lib/api';
 import { setSession } from '@/lib/session';
 import { refreshToday } from '@/lib/week';
+import { DEFAULT_TINT } from '@fobo/core/options';
 
 import { inviteFrom, invites } from './invites';
-import { people, type Person } from './people';
+import { people, requests, sent, type Person } from './people';
 import { planDetails, plans, tentative, type PlanDetail } from './plans';
 import { achievements, capacity, profile, widget, type Achievement } from './profile';
 import { NO_NEXT, localDay, localNow, mondayOf, resetWeek, setNow, week } from './week';
@@ -24,7 +25,17 @@ type ApiProfile = {
   widget: { label: string; headline: string; next: string; nudge: string | null };
   capacity: typeof capacity;
 };
-type ApiMe = { timezone: string; character: Character | null; onboarding: Record<string, string> | null };
+type ApiMe = { handle: string; timezone: string; character: Character | null; onboarding: Record<string, string> | null };
+type ApiFriend = { id: string; handle: string; name: string | null; tint: string | null; character: Character | null };
+
+// A friend request in the Person shape; nextLabel is their @handle.
+const pending = (f: ApiFriend): Person => ({
+  id: f.id,
+  name: f.name ?? f.handle,
+  tint: (f.tint ?? DEFAULT_TINT) as Person['tint'],
+  nextLabel: `@${f.handle}`,
+  ...(f.character ? { character: f.character } : {}),
+});
 
 /** The phone's timezone, like 'America/New_York'. The API reads and writes local times in it. */
 const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -62,6 +73,8 @@ function clearLive() {
   replace(invites, []);
   for (const key of Object.keys(planDetails)) delete planDetails[key];
   replace(people, []);
+  replace(requests, []);
+  replace(sent, []);
   Object.assign(profile, structuredClone(blankProfile));
   replace(achievements, []);
   Object.assign(widget, blankWidget);
@@ -134,10 +147,11 @@ export async function loadLive(): Promise<boolean> {
   const until = new Date(monday);
   until.setDate(monday.getDate() + 28);
 
-  const [w, list, circle, you] = await Promise.all([
+  const [w, list, circle, friends, you] = await Promise.all([
     api<ApiWeek>('GET', `/week?start=${start}`),
     api<ApiPlan[]>('GET', `/plans?from=${start}T00:00&to=${localDay(until)}T00:00`),
     api<Person[]>('GET', '/people'),
+    api<{ incoming: ApiFriend[]; outgoing: ApiFriend[] }>('GET', '/friends'),
     api<ApiProfile>('GET', '/profile'),
   ]);
 
@@ -145,6 +159,10 @@ export async function loadLive(): Promise<boolean> {
   refreshToday();
   if (w) Object.assign(week, { start: w.start, end: w.end, personalHours: w.personalHours, upNext: w.upNext ?? NO_NEXT });
   if (circle) replace(people, circle);
+  if (friends) {
+    replace(requests, friends.incoming.map(pending));
+    replace(sent, friends.outgoing.map(pending));
+  }
   if (list) {
     // Your plans: not declined ones (turned down in Google Calendar, or deleted in Fobo), and not invites
     // you haven't answered, which wait on Weigh a plan instead.
@@ -161,6 +179,7 @@ export async function loadLive(): Promise<boolean> {
       name: you.profile.name,
       title: you.profile.title ?? '',
       email: you.profile.email ?? '',
+      handle: me.handle,
       streak: you.profile.streak,
     });
     replace(achievements, you.achievements);
