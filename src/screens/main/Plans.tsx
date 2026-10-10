@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { EnergyDrops } from '@/components/EnergyDrops';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
@@ -10,14 +11,14 @@ import { MiniScrap } from '@/components/MiniScrap';
 import { NavFade } from '@/components/NavFade';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
+import { WeekShelf } from '@/components/WeekShelf';
 import { useLiveScreen } from '@/data/live';
-import { week } from '@/data/week';
+import { NOW, week } from '@/data/week';
 import { dayLoad } from '@/features/capacity/day-load';
 import type { Plan } from '@/features/plans/types';
 import { energyDrops } from '@/lib/energy';
 import { daysBetween, timeRange, weekRange, dateTile } from '@/lib/format';
-import { plansOn, todayIso } from '@/lib/week';
-import { withAlpha } from '@/styles/alpha';
+import { plansOn, shelfDays, todayIso } from '@/lib/week';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
@@ -51,9 +52,14 @@ export function Plans() {
           <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
         </View>
 
-        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : <Calendar days={days.slice(0, 3)} onOpen={open} />}
+        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : <Calendar onOpen={open} />}
       </ScrollView>
       <NavFade color={color.ground} />
+      {view === 'calendar' && (
+        <View style={styles.floating}>
+          <Button label="Weigh a plan" onPress={() => router.push('/weigh')} />
+        </View>
+      )}
     </View>
   );
 }
@@ -116,69 +122,85 @@ function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void })
   );
 }
 
-const HOUR_H = 52;
+const HOUR_H = 40;
+const GUTTER = 44;
+/** The shelf is drawn at full size and scaled down over the columns. */
+const SHELF_SCALE = 0.56;
 const minutes = (iso: string) => {
   const d = new Date(iso);
   return d.getHours() * 60 + d.getMinutes();
 };
-const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'am' : 'pm'}`;
+const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
 
-/** Three days side by side on one time grid, sized to the plans in them. */
-function Calendar({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void }) {
-  const all = days.flatMap(plansOn);
-  const first = Math.min(9, ...all.map((p) => Math.floor(minutes(p.start) / 60)));
-  const last = Math.max(18, ...all.map((p) => Math.ceil(minutes(p.end) / 60)));
+/**
+ * The whole week on one time grid (Figma 206:4023): the shelf's characters over their day columns,
+ * each day's date and load, solid scraps of colour for plans, and a line for now.
+ */
+function Calendar({ onOpen }: { onOpen: (p: Plan) => void }) {
+  const days = shelfDays();
+  const all = days.flatMap((d) => d.plans);
+  const first = Math.min(7, ...all.map((p) => Math.floor(minutes(p.start) / 60)));
+  const last = Math.max(21, ...all.map((p) => Math.ceil(minutes(p.end) / 60)));
   const hours = Array.from({ length: last - first }, (_, i) => first + i);
+  const gridH = hours.length * HOUR_H;
+  const nowY = ((minutes(NOW) - first * 60) / 60) * HOUR_H;
 
   return (
-    <View style={[styles.card, styles.calendar]}>
+    <View style={styles.calendar}>
+      {/* Shelf, scaled to sit over the columns. */}
+      <View style={styles.shelfBox} pointerEvents="none">
+        <View style={styles.shelfScaled}>
+          <WeekShelf days={days} labels={false} />
+        </View>
+      </View>
       <View style={styles.calHead}>
         <View style={styles.gutter} />
-        {days.map((date) => {
-          const tile = dateTile(date);
+        {days.map((d) => {
+          const tile = dateTile(d.date);
           return (
-            <View key={date} style={styles.calDay}>
-              <Text style={[type.label, styles.ink]}>{`${tile.weekday} ${tile.day}`}</Text>
-              <Text style={[type.foot, styles.muted]}>{`Load ${load(date)}/${DAY_ROOM}`}</Text>
+            <View key={d.date} style={styles.calDay}>
+              <Text style={[type.foot, styles.muted]}>{d.label}</Text>
+              <Text style={[type.bodyStrong, styles.ink]}>{tile.day}</Text>
+              <Text style={[type.foot, styles.muted]}>{`${load(d.date)}/${DAY_ROOM}`}</Text>
             </View>
           );
         })}
       </View>
 
-      <View style={styles.calBody}>
-        <View style={[styles.gutter, { height: hours.length * HOUR_H }]}>
-          {hours.map((h) => (
-            // Centred on its hour line.
-            <Text key={h} style={[type.foot, styles.muted, styles.hour, { top: (h - first) * HOUR_H - 9 }]}>
-              {hourLabel(h)}
-            </Text>
-          ))}
-        </View>
-        {days.map((date) => (
-          <View key={date} style={[styles.calCol, { height: hours.length * HOUR_H }]}>
-            {hours.map((h) => (
-              <View key={h} style={[styles.hourLine, { top: (h - first) * HOUR_H }]} />
-            ))}
-            {plansOn(date).map((p) => {
-              const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
-              const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 22);
-              const kind = scrapColor[p.kind];
-              return (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
-                  onPress={() => onOpen(p)}
-                  style={[styles.event, { top, height, backgroundColor: withAlpha(kind, 0.14), borderLeftColor: kind }]}>
-                  <Text style={[type.label, styles.ink]} numberOfLines={height > 40 ? 2 : 1}>
-                    {p.title}
-                  </Text>
-                  {height > 44 && <Text style={[type.foot, styles.muted]} numberOfLines={1}>{timeRange(p.start, p.end)}</Text>}
-                </Pressable>
-              );
-            })}
+      <View style={[styles.calBody, { height: gridH }]}>
+        {hours.map((h) => (
+          <View key={h} style={[styles.hourRow, { top: (h - first) * HOUR_H }]}>
+            <Text style={[styles.hour, styles.muted]}>{hourLabel(h)}</Text>
+            <View style={styles.hourLine} />
           </View>
         ))}
+        <View style={styles.columns}>
+          {days.map((d) => (
+            <View key={d.date} style={styles.calCol}>
+              {d.plans.map((p) => {
+                const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
+                const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
+                return (
+                  <Pressable
+                    key={p.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
+                    onPress={() => onOpen(p)}
+                    style={[styles.event, { top, height, backgroundColor: scrapColor[p.kind] }]}>
+                    <Text style={styles.eventText} numberOfLines={Math.max(1, Math.floor((height - 4) / 13))}>
+                      {p.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {d.selected && nowY >= 0 && nowY <= gridH && (
+                <View pointerEvents="none" style={[styles.now, { top: nowY }]}>
+                  <View style={styles.nowDot} />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -202,22 +224,32 @@ const styles = StyleSheet.create({
   row: { minHeight: 72, paddingHorizontal: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center' },
   rowRule: { borderTopWidth: 1, borderTopColor: color.rule },
   rowText: { flex: 1, gap: 2 },
-  calendar: { marginTop: space[20] },
-  calHead: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: color.rule },
-  calDay: { flex: 1, paddingVertical: space[12], alignItems: 'center', gap: 2 },
-  calBody: { flexDirection: 'row', paddingTop: space[12], paddingBottom: space[12] },
-  gutter: { width: 44 },
-  hour: { position: 'absolute', left: space[8] },
-  calCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: color.rule },
-  hourLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: color.rule },
-  event: {
+  calendar: { marginTop: space[16], marginHorizontal: -space.margin },
+  shelfBox: { height: 100, overflow: 'hidden' },
+  shelfScaled: {
     position: 'absolute',
-    left: 3,
-    right: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: radius.chip,
-    borderLeftWidth: 3,
-    overflow: 'hidden',
+    left: GUTTER,
+    right: 0,
+    bottom: 0,
+    height: 158,
+    transformOrigin: 'bottom left',
+    transform: [{ scale: SHELF_SCALE }],
+    // Scaled from a width wider than the columns, so the seven stacks land on them.
+    width: (393 - GUTTER) / SHELF_SCALE,
   },
+  calHead: { flexDirection: 'row', paddingBottom: space[8] },
+  calDay: { flex: 1, alignItems: 'center' },
+  calBody: { borderTopWidth: 1, borderTopColor: color.rule },
+  gutter: { width: GUTTER },
+  hourRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
+  // Figma sets these at 11; the ramp's smallest is 13, too wide for the gutter.
+  hour: { width: GUTTER, paddingRight: space[8], textAlign: 'right', fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 14, marginTop: -14 },
+  hourLine: { flex: 1, height: 1, backgroundColor: color.rule },
+  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, flexDirection: 'row' },
+  calCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: color.rule },
+  event: { position: 'absolute', left: 2, right: 2, paddingHorizontal: space[4], paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
+  eventText: { color: color.selInk, fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 13 },
+  now: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: color.ink },
+  nowDot: { position: 'absolute', left: -4, top: -3.5, width: 8, height: 8, borderRadius: radius.full, backgroundColor: color.ink },
+  floating: { position: 'absolute', right: space.margin, bottom: 100 },
 });
