@@ -25,12 +25,7 @@ async function token(params: Record<string, string>) {
     }),
   });
   if (!res.ok) throw new Error(`google token request failed: ${res.status}`);
-  return (await res.json()) as { access_token: string; refresh_token?: string; scope?: string };
-}
-
-// A native app's one-time server auth code. Native codes are exchanged with an empty redirect_uri.
-export function exchangeCode(code: string) {
-  return token({ code, redirect_uri: '', grant_type: 'authorization_code' });
+  return (await res.json()) as { access_token: string };
 }
 
 export async function accessToken(refreshToken: string) {

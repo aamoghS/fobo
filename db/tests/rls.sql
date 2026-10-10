@@ -74,11 +74,11 @@ do $$ begin
   assert (select count(*) from calendar_fixes) = 0, 'stranger: no fixes';
 end $$;
 
--- app_user cannot read Google tokens (Neon Auth's), even its own.
+-- app_user cannot read Google tokens, even its own.
 select set_config('request.jwt.claims', '{"sub":"alice"}', true);
 do $$ begin
   begin
-    perform 1 from app.google_refresh_token('alice');
+    perform 1 from google_accounts;
     raise exception 'app_user read google tokens';
   exception when insufficient_privilege then null;
   end;
@@ -137,7 +137,7 @@ do $$ declare n int; begin
   update calendar_fixes set status = 'applied' where id = '00000000-0000-0000-0000-0000000000f1';
   get diagnostics n = row_count;
   assert n = 1, 'app_service could not apply fix';
-  perform 1 from app.google_refresh_token('alice');  -- app_service may read Google tokens
+  perform 1 from google_accounts;  -- app_service may read Google tokens
 end $$;
 
 -- Deleting a user cascades to everything they own.

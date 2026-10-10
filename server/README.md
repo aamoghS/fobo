@@ -64,8 +64,6 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | GET | `/scores/:id?from&to` | daily loads, for yourself or a friend who shares them |
 | GET | `/people/:id` | public profile (handle, name, character, bio, tint) with `nextPlan` and `pastTogether` |
 | GET | `/auth/google/start?return`, `/auth/google/callback` | Google sign-in for the apps (no token needed) |
-| POST | `/google-connect` | links Google Calendar after Google sign-in, first sync |
-| POST | `/google-code` | `{ code }` from native Google sign-in: saves Calendar access in Neon Auth, links, syncs |
 | POST | `/google-sync` | pulls Google changes for every connected account |
 | GET, PATCH, DELETE | `/connections[/:id]` | Connected Apps & Devices; per-account `writeBack` |
 | POST | `/fix-calendar` | `{ days }` (1 to 14): asks the planner, saves a proposed fix |
@@ -81,33 +79,29 @@ fills the modules in `src/data/` with them, so screens read real data through th
 Signed out, or with the API unreachable, the mock data stays. Saving the character and finishing
 onboarding write to `/me`.
 
-- Web: Continue with Google goes through Neon Auth (`src/lib/google-auth.web.ts`); the app gets its
-  API token from Neon Auth's `/token` with the session cookie (`src/lib/session.web.ts`).
-- iOS and Android: Google's native sheet, then Neon Auth with the ID token, and the one-time server
-  code to `/google-code` for Calendar access (`src/lib/google-auth.ts`). Needs a development build.
-- App settings in `../.env.local`: `EXPO_PUBLIC_NEON_AUTH_URL`, `EXPO_PUBLIC_API_URL`,
-  `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
+- Sign-in (web, Expo Go, builds): Continue with Google opens `/auth/google/start`; the session comes back
+  to `/auth` on the web (`src/app/auth.tsx`, kept in localStorage) or into the app through an in-app
+  browser (`src/lib/google-auth.ts`, kept while the app is open).
+- App setting in `../.env.local`, and in `eas.json` for builds: `EXPO_PUBLIC_API_URL` (the deployed API).
 
 ## Running
 
 The repo is one npm workspace: the app at the root, the API in `server/`, shared logic in
-`packages/core` (`@fobo/core`). One install and one command from the repo root:
+`packages/core` (`@fobo/core`). From the repo root:
 
 ```
-npm install          # everything: app, server, core
-npm run migrate      # applies db/migrations to Neon (skips ones already applied)
-npm run dev:all      # the API on :8787 and Expo, in one terminal; scan the QR code with a phone
+npm install              # everything: app, server, core
+npx expo start --tunnel  # phones (Expo Go, signed in to the project's Expo account) and the browser
+npm run dev:all -- --web # Expo plus the browser build, against the deployed API
+npm run dev:all -- --local  # also runs the API here on :8787 (Google sign-in needs the deployed one)
 ```
 
-`dev:all` points the app at this computer's Wi-Fi address, so a phone on the same network reaches the
-API. Add `-- --web` to also open the browser build. Separately: `npm run server` (API only) or
-`npm start` (Expo only). The API reaches Neon with its serverless driver over port 443, so it works on
-networks that block Postgres' port 5432. `node --env-file=../.env.local scripts/check-db.ts` (from
-`server/`) checks the connection.
+The API is deployed as the `api` Neon Function. After API changes, from the repo root, with
+`../.env.local` loaded into the environment: `npx neonctl deploy --no-env-pull`. Migrations:
+`npm run migrate`. The API reaches Neon with its serverless driver over port 443. Checks, from
+`server/`: `scripts/check-db.ts` (connection), `scripts/check-signin.ts` (who has signed in),
+`scripts/check-planner.ts` (one real Gemini call), each with `node --env-file=../.env.local`.
 
-In Expo Go the app shows sample data: Google sign-in needs a development build
-(`npx eas-cli build --profile development`), because Expo Go has no native Google module and Neon
-Auth only returns to web addresses.
 ## Testing
 
 Never run tests against the production database. Locally, a throwaway Postgres in Docker works:
@@ -121,21 +115,17 @@ npm test
 docker rm -f fobo-test-pg
 ```
 
-The tests sign their own Ed25519 tokens, stand in for Neon Auth's tables, and fake Google and the
-planner, so they need no keys. CI runs the same steps (`.github/workflows/server.yml`).
+The tests sign their own tokens, stand in for Neon Auth's tables, and fake Google and the planner, so
+they need no keys. CI runs the same steps (`.github/workflows/server.yml`).
 
-Tested for real: the planner reached Gemini through `/fix-calendar` and got 402 (billing); the web
-Google button reaches Google's account chooser through Neon Auth with the Fobo client.
-Not tested: completing a real Google sign-in, a real Google Calendar sync, native builds, the deployed
-function. Neon Auth's web sign-in asks Google for email and profile only, so web users need a separate
-Calendar connect step (not built yet); native sign-in asks for Calendar itself.
+Tested for real (10 October 2026): Google sign-in on the web through the deployed API, with Calendar
+access saved and 10 events synced; the planner on Gemini (about 2 s). Not tested yet: sign-in from
+Expo Go on a phone, store builds.
 
 ## Setup still needed
 
-1. Turn on billing for the Gemini API key's Google project.
-2. Set Neon Auth's Google provider to your own OAuth client with the Calendar scope.
-3. Migrations 001 to 013 are applied on Neon (as of 10 October 2026).
-4. Deploy with the Neon CLI from the repo root, so `neon.ts` creates the `api` function.
+1. Add each tester in Google Cloud (Audience, Test users) while the app is in Testing.
+2. Store builds: `npx eas-cli build` needs an Apple Developer account for iPhone.
 
 ## Known gaps
 
@@ -149,5 +139,5 @@ Calendar connect step (not built yet); native sign-in asks for Calendar itself.
   `Nothing else today`; Capacity Profile values other than the mock's own (`Recharges alone`,
   `Fades after ~1 hr`, recovery wording). The streak counts days in a row within the day's room.
 - Achievements: only The First Week is awarded (a week after joining); the other three have no rule yet.
-- Email sign-up and log-in screens are not wired to Neon Auth yet; only Google is.
-- The native session lasts while the app is open; it is not stored on the phone yet.
+- Email sign-up and log-in screens are not wired yet; only Google is.
+- On phones the session lasts while the app is open; it is not stored on the phone yet.

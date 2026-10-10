@@ -1,14 +1,13 @@
-// Google sync against a fake Google, with tokens read from a stand-in for Neon Auth's tables.
-// Needs TEST_DATABASE_URL (throwaway database).
+// Google sync against a fake Google. Needs TEST_DATABASE_URL (throwaway database).
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPool, upsertProfile, withService, withUser } from '../src/db.ts';
 import { googleAccount, syncConnection } from '../src/sync.ts';
 import type { GoogleEvent } from '../src/google.ts';
 
+process.env.AUTH_SECRET = 'test-auth-secret';
 const pool = createPool(process.env.TEST_DATABASE_URL);
-const uuid = crypto.randomUUID();
-const user = { sub: uuid, uuid };
+const user = { sub: `g${Date.now()}` };
 const realFetch = globalThis.fetch;
 let googleItems: GoogleEvent[] = [];
 let expired = false;
@@ -33,17 +32,9 @@ before(async () => {
     }
     return realFetch(input, init);
   }) as typeof fetch;
-  // Neon Auth's tables, as they exist on Neon (only the columns the API reads).
-  await pool.query(`create schema if not exists neon_auth;
-    create table if not exists neon_auth."user" (id uuid primary key, email text);
-    create table if not exists neon_auth.account (id text primary key, "userId" uuid, "providerId" text,
-      "refreshToken" text, scope text, "updatedAt" timestamptz default now());`);
-  await pool.query('insert into neon_auth."user" values ($1, $2)', [user.uuid, 'a@x.com']);
-  await pool.query(
-    `insert into neon_auth.account (id, "userId", "providerId", "refreshToken", scope) values ($1, $2, 'google', 'refresh-secret', $3)`,
-    [`acc${user.sub}`, user.uuid, `openid email ${CALENDAR}`],
-  );
   await withUser(pool, user, (c) => upsertProfile(c, user.sub));
+  await pool.query(`insert into google_accounts (user_id, google_sub, email, scope, refresh_token)
+    values ($1, $1, 'a@x.com', $2, pgp_sym_encrypt('refresh-secret', 'test-auth-secret'))`, [user.sub, `openid email ${CALENDAR}`]);
   connId = await withService(pool, async (c) =>
     (await c.$client.query(
       `insert into calendar_connections (user_id, account_email) values ($1, 'a@x.com') returning id`,
@@ -54,34 +45,20 @@ before(async () => {
 after(async () => {
   globalThis.fetch = realFetch;
   await pool.query('delete from profiles where id = $1', [user.sub]);
-  await pool.query('delete from neon_auth.account where "userId" = $1', [user.uuid]);
-  await pool.query('delete from neon_auth."user" where id = $1', [user.uuid]);
   await pool.end();
 });
 
 const titles = () => withUser(pool, user, async (c) =>
   (await c.$client.query('select title, declined, with_people from events order by lower(time)')).rows);
 
-test('tokens come from Neon Auth, only with Calendar access, never readable as app_user', async () => {
+test('tokens are stored encrypted, used only with Calendar access, never readable as app_user', async () => {
   const account = await withService(pool, (c) => googleAccount(c, user.sub));
   assert.equal(account?.email, 'a@x.com');
-  await assert.rejects(withUser(pool, user, (c) => c.$client.query('select * from app.google_refresh_token($1)', [user.sub])));
-  await pool.query('update neon_auth.account set scope = $2 where "userId" = $1', [user.uuid, 'openid email']);
+  assert.equal(account?.refresh_token, 'refresh-secret');
+  await assert.rejects(withUser(pool, user, (c) => c.$client.query('select * from google_accounts')));
+  await pool.query('update google_accounts set scope = $2 where user_id = $1', [user.sub, 'openid email']);
   assert.equal(await withService(pool, (c) => googleAccount(c, user.sub)), null, 'no Calendar scope');
-  await pool.query('update neon_auth.account set scope = $2 where "userId" = $1', [user.uuid, `openid ${CALENDAR}`]);
-});
-
-test('native sign-in: the exchanged refresh token is saved on the Neon Auth account', async () => {
-  await pool.query('update neon_auth.account set "refreshToken" = null where "userId" = $1', [user.uuid]);
-  assert.equal(await withService(pool, (c) => googleAccount(c, user.sub)), null);
-  const saved = (await withService(pool, (c) => c.$client.query(
-    'select app.save_google_refresh_token($1, $2, $3) as ok', [user.sub, 'refresh-secret', `openid ${CALENDAR}`],
-  ))).rows[0].ok;
-  assert.equal(saved, true);
-  assert.equal((await withService(pool, (c) => googleAccount(c, user.sub)))?.refresh_token, 'refresh-secret');
-  await assert.rejects(withUser(pool, user, (c) => c.$client.query(
-    'select app.save_google_refresh_token($1, $2, $3)', [user.sub, 'x', ''],
-  )), 'app_user cannot write tokens');
+  await pool.query('update google_accounts set scope = $2 where user_id = $1', [user.sub, `openid ${CALENDAR}`]);
 });
 
 test('first sync has a time window, skips all-day events, keeps people', async () => {
