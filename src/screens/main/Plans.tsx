@@ -16,36 +16,45 @@ import ObligationArt from '@/assets/illustrations/obligation-summary.svg';
 import PersonalArt from '@/assets/illustrations/personal-summary.svg';
 import SocialArt from '@/assets/illustrations/social-summary.svg';
 import WorkArt from '@/assets/illustrations/work-summary.svg';
-import { color, radius, shadow, space } from '@/styles/tokens';
+import { withAlpha } from '@/styles/alpha';
+import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 type Summary = {
   count: (n: number) => string;
+  /** Figma fills each card with a scrap colour at 15%. */
+  tint: string;
   art: ReactNode;
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** One summary card per filter, paper white per the design system (colour stays on the characters): Plans · All (482:1824), Work (468:1125), Social (442:2461), Obligations (479:1692), Personal (478:1267). */
+/** One summary card per filter, tinted as the Final frames draw them: Plans · All (482:1824), Work (468:1125), Social (442:2461), Obligations (479:1692), Personal (478:1267). */
 const SUMMARIES: Record<PlanFilter, Summary> = {
   all: {
     count: (n) => plural(n, 'plan overall', 'plans overall'),
+    tint: withAlpha(color.scrapWork, 0.15),
     art: <AllArt width={150} height={140} style={{ position: 'absolute', top: 0, right: 5 }} />,
   },
   work: {
     count: (n) => plural(n, 'work plan', 'work plans'),
+    tint: withAlpha(color.scrapObligation, 0.15),
     art: <WorkArt width={79} height={93} style={{ position: 'absolute', top: 31, right: 35 }} />,
   },
   social: {
     count: (n) => plural(n, 'social plan', 'social plans'),
+    tint: color.tintPeach,
     art: <SocialArt width={147} height={124} style={{ position: 'absolute', top: 0, right: 0 }} />,
   },
   obligation: {
     count: (n) => plural(n, 'obligation', 'obligations'),
+    // Figma uses a sage (#76AB93) with no token; the enjoy green is the nearest one.
+    tint: withAlpha(color.scrapEnjoy, 0.15),
     art: <ObligationArt width={160} height={124} style={{ position: 'absolute', top: 0, right: 0 }} />,
   },
   personal: {
     count: (n) => plural(n, 'personal plan', 'personal plans'),
+    tint: withAlpha(color.scrapRest, 0.15),
     art: <PersonalArt width={150} height={140} style={{ position: 'absolute', top: 4, right: -9 }} />,
   },
 };
@@ -79,7 +88,7 @@ export function Plans() {
         </ScrollView>
 
         <View style={styles.summaryWrap}>
-          <View style={styles.summary}>
+          <View style={[styles.summary, { backgroundColor: summary.tint }]}>
             {summary.art}
             <Text style={[type.title, styles.ink]}>{summary.count(plansThisWeek(filter).length)}</Text>
             <Text style={[type.sub, styles.muted]}>This week</Text>
@@ -130,8 +139,6 @@ const styles = StyleSheet.create({
     paddingTop: space[28],
     gap: space[4],
     borderRadius: radius.row,
-    backgroundColor: color.paper,
-    boxShadow: shadow.soft,
     overflow: 'hidden',
   },
   upcoming: { paddingTop: space[28], paddingHorizontal: space.margin, gap: space[12] },
