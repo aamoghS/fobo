@@ -11,7 +11,8 @@ import { connect } from './google.ts';
 
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
-const SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.events';
+const SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.events'
+  + ' https://www.googleapis.com/auth/calendar.calendarlist.readonly';
 
 // Where the browser may be sent back to: the app (Expo Go's exp://, the build's fobo://) or a local web page.
 const APP_RETURN = /^(exp|exps|fobo):\/\/|^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?\//;

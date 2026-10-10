@@ -89,6 +89,17 @@ export async function refreshLive() {
   await loadLive().catch(() => false);
 }
 
+// While the app is in the foreground it refreshes every 30 s, so changes made elsewhere (Google Calendar,
+// another device, friends) show up on their own.
+let timer: ReturnType<typeof setInterval> | null = null;
+export function autoRefresh(on: boolean) {
+  if (on && !timer) timer = setInterval(() => void refreshLive(), 30_000);
+  if (!on && timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
 /** For screens that show live data: redraws after each load and refreshes when the screen opens. */
 export function useLiveScreen() {
   useFocusEffect(useCallback(() => void refreshLive(), []));
@@ -104,12 +115,13 @@ export async function loadLive(): Promise<boolean> {
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   const start = localDay(monday);
-  const nextMonday = new Date(monday);
-  nextMonday.setDate(monday.getDate() + 7);
+  // Four weeks of plans, so Plans shows what is coming up.
+  const until = new Date(monday);
+  until.setDate(monday.getDate() + 28);
 
   const [w, list, circle, you] = await Promise.all([
     api<ApiWeek>('GET', `/week?start=${start}`),
-    api<ApiPlan[]>('GET', `/plans?from=${start}T00:00&to=${localDay(nextMonday)}T00:00`),
+    api<ApiPlan[]>('GET', `/plans?from=${start}T00:00&to=${localDay(until)}T00:00`),
     api<Person[]>('GET', '/people'),
     api<ApiProfile>('GET', '/profile'),
   ]);

@@ -75,11 +75,15 @@ titles by visibility (`private` grey block, `busy` block and colour, `open` with
 
 On start, `src/data/live.ts` asks the API for the signed-in user's week, plans, people and You tab, and
 fills the modules in `src/data/` with them, so screens read real data through the same imports.
-Signed out, or with the API unreachable, the mock data stays. Screens redraw after each load and refresh
-when opened or when the app comes back to the foreground (at most every 15 s; Google Calendar sync at most
-once a minute). Saving the character, finishing onboarding, or changing an answer from Capacity Profile
-writes to `/me` and reloads, so the You tab shows the change. Log out restores the sample data.
-Synced calendar events start at half a point an hour (0.5 to 5).
+Signed out, or with the API unreachable, the mock data stays. In the foreground the app refreshes every
+30 s, when a screen opens, and when it comes back from the background (Google Calendar sync at most once
+a minute); screens redraw after each load. Choices save as they are made: each onboarding or Capacity
+Profile answer, and each character change (0.4 s after the last one), write to `/me` and reload, so the
+You tab updates at once. Log out restores the sample data.
+
+Google sync reads every calendar shown in the person's Google Calendar (fetched in parallel), including
+all-day events, which cover their days and cost nothing. Timed events start at half a point an hour
+(0.5 to 5). Sign-in asks for the calendar list (`calendar.calendarlist.readonly`) and event access.
 
 - Sign-in (web, Expo Go, builds): Continue with Google opens `/auth/google/start`; the session comes back
   to `/auth` on the web (`src/app/auth.tsx`, kept in localStorage) or into the app through an in-app
@@ -126,4 +130,3 @@ The API is deployed as the `api` Neon Function. After API changes, from the repo
   `Fades after ~1 hr`, recovery wording). The streak counts days in a row within the day's room.
 - Achievements: only The First Week is awarded (a week after joining); the other three have no rule yet.
 - Email sign-up and log-in screens are not wired yet; only Google is.
-- On phones the session lasts while the app is open; it is not stored on the phone yet.

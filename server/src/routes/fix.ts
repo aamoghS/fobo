@@ -129,16 +129,16 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
     const conn = (await db.select({ id: calendarConnections.id }).from(calendarConnections)
       .where(and(eq(calendarConnections.userId, userId), eq(calendarConnections.writeBack, true))).limit(1))[0];
     if (!conn) return { local: 'added' };
-    const g = await insertEvent(await googleAccessFor(db, userId), {
+    const g = await insertEvent(await googleAccessFor(db, userId), 'primary', {
       summary: ch.title!, start: { dateTime: ch.starts_at! }, end: { dateTime: ch.ends_at! }, transparency: 'opaque',
     });
-    await db.update(events).set({ connectionId: conn.id, externalId: g.id, source: 'google' })
+    await db.update(events).set({ connectionId: conn.id, externalId: g.id, calendarId: 'primary', source: 'google' })
       .where(eq(events.id, rest.id));
     return { local: 'added', remote: 'google' };
   }
 
   const e = (await db.select({
-    id: events.id, protected: events.protected, externalId: events.externalId,
+    id: events.id, protected: events.protected, externalId: events.externalId, calendarId: events.calendarId,
     connWriteBack: calendarConnections.writeBack,
   }).from(events)
     .leftJoin(calendarConnections, eq(calendarConnections.id, events.connectionId))
@@ -156,16 +156,17 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
   const push = writeBack && e.connWriteBack && e.externalId && ch.op !== 'protect';
   if (!push) return { local: 'updated' };
   const access = await googleAccessFor(db, userId);
-  if (ch.op === 'move') await patchEvent(access, e.externalId!, { start: { dateTime: ch.starts_at! }, end: { dateTime: ch.ends_at! } });
-  if (ch.op === 'shorten') await patchEvent(access, e.externalId!, { end: { dateTime: ch.ends_at! } });
+  const cal = e.calendarId ?? 'primary';
+  if (ch.op === 'move') await patchEvent(access, cal, e.externalId!, { start: { dateTime: ch.starts_at! }, end: { dateTime: ch.ends_at! } });
+  if (ch.op === 'shorten') await patchEvent(access, cal, e.externalId!, { end: { dateTime: ch.ends_at! } });
   if (ch.op === 'decline') {
     // Someone else's invite gets the reply "declined"; the user's own solo event is removed.
-    const g = await getEvent(access, e.externalId!);
+    const g = await getEvent(access, cal, e.externalId!);
     if (g.attendees?.some((a) => a.self)) {
-      await patchEvent(access, e.externalId!, {
+      await patchEvent(access, cal, e.externalId!, {
         attendees: g.attendees.map((a) => (a.self ? { ...a, responseStatus: 'declined' } : a)),
       });
-    } else await deleteEvent(access, e.externalId!);
+    } else await deleteEvent(access, cal, e.externalId!);
   }
   return { local: 'updated', remote: 'google' };
 }

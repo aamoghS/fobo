@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
-import { calendarConnections } from '../schema.ts';
+import { calendarConnections, calendarSync } from '../schema.ts';
 import { googleAccount, syncConnection } from '../sync.ts';
 
 const connection = {
@@ -21,6 +21,8 @@ export async function connect(db: Db, userId: string) {
       set: { syncToken: null },
     })
     .returning({ id: calendarConnections.id });
+  // A fresh link reads every calendar in full again.
+  await db.delete(calendarSync).where(eq(calendarSync.connectionId, conn.id));
   return { connectionId: conn.id, account: account.email, ...(await syncConnection(db, conn.id)) };
 }
 
