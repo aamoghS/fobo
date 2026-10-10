@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="124" viewBox="0 0 160 124" fill="none"><g transform="translate(0 26)"><path d="M10.2581 16.2609C10.2581 6.92754 14.9247 3.5942 24.2581 6.26087C30.2581 -1.73913 36.5914 -2.07246 43.2581 5.26087C53.9247 -1.4058 61.5914 -0.072463 66.2581 9.26087C77.5914 9.26087 81.5914 14.2609 78.2581 24.2609C87.5914 32.2609 87.5914 39.5942 78.2581 46.2609C85.5914 58.2609 83.5914 65.2609 72.2581 67.2609C72.2581 78.5942 66.9247 82.2609 56.2581 78.2609C47.5914 86.2609 39.9247 86.2609 33.2581 78.2609C19.9247 85.5942 13.5914 83.5942 14.2581 72.2609C2.25806 69.5942 -0.0752687 63.2609 7.25806 53.2609C-2.74194 42.5942 -2.4086 34.9275 8.25806 30.2609L10.2581 16.2609Z" fill="#76AB93" />
+</g><g transform="translate(2 -8)"><g>
+<ellipse cx="75" cy="111.5" rx="66" ry="3.5" fill="#F1F1EE" />
+<path d="M27 54C30.942 60.6667 34.8841 60.6667 38.8261 54M49.1739 54C53.1159 60.6667 57.058 60.6667 61 54" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M40 67C42.6667 69.6667 45.3333 69.6667 48 67" stroke="#1E1B18" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M36.6738 78C44.3892 84.6354 51.907 86.1756 59.2271 82.6206" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M71.25 70.9685C56.25 64.9685 56.25 88.9685 71.25 84.9685" stroke="#2547D0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M71 70H94L96 91C86.6667 95 78.3333 94.6667 71 90V70ZM94 76L108 68L110 72L92 87L94 76Z" fill="#2547D0" />
+<path d="M110 73L111 77M117 75L118 79M124 78L125 82" stroke="#2547D0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M105 91H132L128 115H110L105 91Z" fill="#DF865C" />
+<rect x="103" y="89" width="31" height="6" rx="2" fill="#DF865C" />
+<path d="M119.25 90C118.583 78.6667 119.25 68 121.25 58" stroke="#199B6C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M121.319 64C104.319 65 103.319 52 106.319 50C116.319 51 121.319 57 121.319 64ZM121.319 58C136.319 58 138.319 44 135.319 43C125.319 43 120.319 50 121.319 58Z" fill="#199B6C" />
+</g>
+</g></svg>
