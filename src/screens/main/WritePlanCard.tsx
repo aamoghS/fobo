@@ -39,8 +39,8 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
       />
 
       <Pressable accessibilityRole="button" accessibilityLabel="Paste an invite" onPress={paste} hitSlop={8} style={styles.paste}>
-        <Icon name="paste" size={20} color={color.ink2} />
-        <Text style={[type.sub, styles.muted]}>Paste</Text>
+        <Icon name="paste" size={16} color={color.ink2} />
+        <Text style={[type.subStrong, styles.muted]}>Paste</Text>
       </Pressable>
 
       <Row
@@ -88,7 +88,18 @@ const styles = StyleSheet.create({
   muted: { color: color.ink2 },
   ghost: { fontFamily: 'DMSans_400Regular', color: GHOST },
   input: { minHeight: 132, padding: 0, textAlignVertical: 'top', outlineWidth: 0 },
-  paste: { alignSelf: 'flex-start', paddingVertical: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center' },
+  // Small quiet pill, like the DS's small button.
+  paste: {
+    alignSelf: 'flex-start',
+    marginVertical: space[16],
+    height: 32,
+    paddingHorizontal: space[12],
+    gap: space[8],
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.full,
+    backgroundColor: color.fill,
+  },
   row: { minHeight: 64, gap: space[16], flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: color.rule },
   rowIcon: { width: 24, alignItems: 'center' },
   rowText: { flex: 1 },
