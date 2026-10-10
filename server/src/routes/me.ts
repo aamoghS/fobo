@@ -56,7 +56,13 @@ export const meRoutes = [
   route('PATCH', '/me', ({ pool, claims, body }) => {
     const patch = pick(body, EDITABLE);
     if ('character' in patch) checkCharacter(patch.character);
-    if ('onboarding' in patch) checkOnboarding(patch.onboarding);
+    if ('onboarding' in patch) {
+      checkOnboarding(patch.onboarding);
+      // Answers merge into the saved ones, so changing one answer keeps the rest.
+      const answers = patch.onboarding as Record<string, string>;
+      patch.onboarding = sql`coalesce(${profiles.onboarding}, '{}'::jsonb) || ${JSON.stringify(answers)}::jsonb`;
+      if (answers.recharge) patch.rechargeStyle = answers.recharge;
+    }
     return withUser(pool, claims, async (db) => {
       await db.update(profiles).set(patch).where(eq(profiles.id, claims.sub));
       return me(db, claims.sub);

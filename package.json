@@ -49,7 +49,6 @@
     "build:ios": "eas build --profile development --platform ios",
     "server": "npm run dev -w fobo-server",
     "migrate": "npm run migrate -w fobo-server",
-    "test:server": "npm test -w fobo-server",
     "start": "expo start --tunnel",
     "start:lan": "expo start",
     "web": "expo start --web",

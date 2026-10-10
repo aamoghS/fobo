@@ -5,14 +5,13 @@ the "Fix my week" planner. Everything runs on Neon: Postgres, Neon Auth (email a
 and the API itself as a Neon Function. The frontend (`../src`) is the source of truth for shapes.
 
 - `functions/api.ts` the Neon Function (declared as `api` in `../neon.ts`)
-- `src/app.ts` the API as a fetch handler; `src/server.ts` serves it with Node for local runs and tests
+- `src/app.ts` the API as a fetch handler; `src/server.ts` serves it with Node for local runs
 - `src/auth.ts` verifies Neon Auth JWTs (EdDSA) against `NEON_AUTH_JWKS_URL`
 - `src/db.ts` one transaction per request, `SET LOCAL ROLE app_user | app_service`, Drizzle on top
 - `src/schema.ts` Drizzle schema; `../db/migrations` (SQL) stays the source of truth, since it also
   holds roles, row-level security and the friend functions
 - `src/routes/` endpoints; `src/google.ts`, `src/sync.ts` Google Calendar; `src/planner.ts` the planner
 - `scripts/migrate.ts` applies `../db/migrations` in order, once each
-- `test/` API tests; `../db/tests/rls.sql` database privacy tests
 
 ## Environment
 
@@ -103,29 +102,8 @@ tunnel; `npm run start:lan` does not.
 
 The API is deployed as the `api` Neon Function. After API changes, from the repo root, with
 `../.env.local` loaded into the environment: `npx neonctl deploy --no-env-pull`. Migrations:
-`npm run migrate`. The API reaches Neon with its serverless driver over port 443. Checks, from
-`server/`: `scripts/check-db.ts` (connection), `scripts/check-signin.ts` (who has signed in),
-`scripts/check-planner.ts` (one real Gemini call), each with `node --env-file=../.env.local`.
+`npm run migrate`. The API reaches Neon with its serverless driver over port 443.
 
-## Testing
-
-Never run tests against the production database. Locally, a throwaway Postgres in Docker works:
-
-```
-docker run -d --name fobo-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17
-export DATABASE_URL=postgres://postgres:test@localhost:55432/postgres TEST_DATABASE_URL=$DATABASE_URL
-node scripts/migrate.ts
-psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f ../db/tests/rls.sql
-npm test
-docker rm -f fobo-test-pg
-```
-
-The tests sign their own tokens, stand in for Neon Auth's tables, and fake Google and the planner, so
-they need no keys. CI runs the same steps (`.github/workflows/server.yml`).
-
-Tested for real (10 October 2026): Google sign-in on the web through the deployed API, with Calendar
-access saved and 10 events synced; the planner on Gemini (about 2 s). Not tested yet: sign-in from
-Expo Go on a phone, store builds.
 
 ## Setup still needed
 

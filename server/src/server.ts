@@ -1,14 +1,13 @@
-// Serves the API handler with Node, for local runs and tests. Production runs functions/api.ts
+// Serves the API handler with Node, for local runs. Production runs functions/api.ts
 // on Neon Functions.
 //   npm run dev   (from server/, loads ../.env.local)
 import http from 'node:http';
 import type pg from 'pg';
 import { createHandler } from './app.ts';
 import { createPool } from './db.ts';
-import type { Ask } from './planner.ts';
 
-export function createServer(pool: pg.Pool = createPool(), ask?: Ask) {
-  const handle = createHandler(pool, ask);
+export function createServer(pool: pg.Pool = createPool()) {
+  const handle = createHandler(pool);
   return http.createServer(async (req, res) => {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
