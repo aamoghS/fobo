@@ -20,6 +20,7 @@ export function ChoiceCard({ title, detail, mood, selected, onPress }: Props) {
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
+      aria-checked={selected}
       accessibilityLabel={`${title}. ${detail}`}
       onPress={onPress}
       style={[styles.card, selected && styles.selected]}>
