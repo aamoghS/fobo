@@ -52,7 +52,7 @@ export function YourWeek() {
         </View>
 
         {/* Figma reads "Weight a plan"; DESIGN.md §5 flags it as a typo. */}
-        <Button label="Weigh a plan" trailingArrow style={styles.weigh} />
+        <Button label="Weigh a plan" trailingArrow style={styles.weigh} onPress={() => router.push('/weigh')} />
       </View>
 
       <View style={styles.upNext}>
