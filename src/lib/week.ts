@@ -6,7 +6,7 @@ import type { Plan, PlanKind } from '@/features/plans/types';
 import { dayMood } from './energy';
 import { daysBetween, isoDay, weekdayInitial } from './format';
 
-const today = isoDay(NOW);
+let today = isoDay(NOW);
 
 export const plansOn = (day: string) =>
   plans.filter((p) => isoDay(p.start) === day).sort((a, b) => a.start.localeCompare(b.start));
@@ -29,7 +29,13 @@ export function shelfDays(): ShelfDay[] {
 /** Plans today that haven't ended yet (rest doesn't count as a plan). */
 export const plansLeftToday = () => plansOn(today).filter((p) => p.kind !== 'rest' && p.end > NOW).length;
 
-export const todayIso = today;
+export let todayIso = today;
+
+/** Recomputes today after src/data/live.ts sets NOW. */
+export function refreshToday() {
+  today = isoDay(NOW);
+  todayIso = today;
+}
 
 /** Plan filters on the Plans screen. "Personal" covers enjoy and rest. */
 export const PLAN_FILTERS = [

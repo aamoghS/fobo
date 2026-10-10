@@ -10,14 +10,27 @@ import SunshineArt from '@/assets/illustrations/sunshine.svg';
 import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
+import { signInWithGoogle } from '@/lib/google-auth';
 import { color } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { AuthHeader } from './AuthHeader';
 import { SwitchLink } from './SwitchLink';
 
-// Sign-in isn't wired to Neon Auth or Google yet: every path continues into onboarding.
+// Google sign-in goes through Neon Auth. Email sign-in isn't wired yet: it continues into onboarding.
 const ONBOARDING = '/onboarding/start' as const;
+
+/** Signs in with Google, then continues to `next` (the web build gets there through Google's redirect). */
+function useGoogle(next: typeof ONBOARDING | '/week') {
+  const router = useRouter();
+  return async () => {
+    try {
+      if (await signInWithGoogle(next)) router.replace(next);
+    } catch (e) {
+      console.warn('Google sign-in failed', e);
+    }
+  };
+}
 
 /** Splash (360:7537). Moves on to Pre-login after a beat. */
 export function Splash() {
@@ -40,11 +53,12 @@ export function Splash() {
 /** Pre-login (360:7057). */
 export function Welcome() {
   const router = useRouter();
+  const google = useGoogle(ONBOARDING);
   return (
     <Screen
       footer={
         <>
-          <Button label="Continue with Google" icon="google" onPress={() => router.push(ONBOARDING)} />
+          <Button label="Continue with Google" icon="google" onPress={google} />
           <Button label="Continue with email" variant="quiet" icon="mail" onPress={() => router.push('/signup')} />
         </>
       }>
@@ -70,6 +84,7 @@ export function Welcome() {
 /** Sign up (360:7306). */
 export function SignUp() {
   const router = useRouter();
+  const google = useGoogle(ONBOARDING);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
   return (
@@ -83,7 +98,7 @@ export function SignUp() {
       <View style={styles.form}>
         <AuthHeader title="Create your account" Art={CelebratingArt} />
         <View style={styles.fields}>
-          <GoogleOr label="Sign up with Google" onPress={() => router.push(ONBOARDING)} />
+          <GoogleOr label="Sign up with Google" onPress={google} />
           <View style={styles.fieldList}>
             <TextField label="Name" placeholder="Enter your full name" value={form.name} onChangeText={set('name')} autoComplete="name" textContentType="name" />
             <TextField
@@ -115,6 +130,7 @@ export function SignUp() {
 /** Login (368:8126). */
 export function Login() {
   const router = useRouter();
+  const google = useGoogle('/week');
   const [form, setForm] = useState({ email: '', password: '' });
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
   return (
@@ -128,7 +144,7 @@ export function Login() {
       <View style={styles.form}>
         <AuthHeader title="Welcome back!" Art={CelebratingArt} />
         <View style={styles.fields}>
-          <GoogleOr label="Log in with Google" onPress={() => router.replace('/week')} />
+          <GoogleOr label="Log in with Google" onPress={google} />
           <View style={styles.fieldList}>
             {/* Figma placeholder reads "Enter your full name"; DESIGN.md §5 corrects it. */}
             <TextField

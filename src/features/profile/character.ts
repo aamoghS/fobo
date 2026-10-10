@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 import type { EYES, SHAPES, SWATCHES } from '@/data/profile';
+import { api } from '@/lib/api';
 
 export type Character = {
   shape: (typeof SHAPES)[number]['key'];
@@ -10,7 +11,7 @@ export type Character = {
   height: number;
 };
 
-// In memory until the profile API exists. Defaults match Profile v.1: a stretched slab.
+// Loaded from the profile API when signed in (src/data/live.ts). Defaults match Profile v.1: a stretched slab.
 let character: Character = { shape: 'slab', color: 'moodStretched', eyes: 'bored', height: 0.2 };
 const listeners = new Set<() => void>();
 
@@ -25,9 +26,10 @@ export function useCharacter() {
   );
 }
 
-export function saveCharacter(next: Character) {
+export function saveCharacter(next: Character, { remote = true } = {}) {
   character = next;
   listeners.forEach((l) => l());
+  if (remote) void api('PATCH', '/me', { character: next });
 }
 
 /** Slider position to vertical stretch; 0.2 (the drawn default) is 1. */

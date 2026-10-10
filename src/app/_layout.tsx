@@ -8,10 +8,11 @@ import { useFonts } from 'expo-font';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { loadLive } from '@/data/live';
 import { color } from '@/styles/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -24,12 +25,18 @@ const theme = {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({ DMSans_500Medium, DMSans_700Bold, DMSans_900Black });
+  // Real data when signed in; the mock data otherwise.
+  const [data, setData] = useState(false);
 
   useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync();
-  }, [loaded, error]);
+    loadLive().catch(() => false).finally(() => setData(true));
+  }, []);
 
-  if (!loaded && !error) return null;
+  useEffect(() => {
+    if ((loaded || error) && data) SplashScreen.hideAsync();
+  }, [loaded, error, data]);
+
+  if ((!loaded && !error) || !data) return null;
 
   return (
     <SafeAreaProvider>
