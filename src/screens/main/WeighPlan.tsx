@@ -6,22 +6,37 @@ import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
 import { invites, type Invite } from '@/data/invites';
-import { loadLive, useLiveScreen } from '@/data/live';
-import { api } from '@/lib/api';
+import { people } from '@/data/people';
+import { NOW } from '@/data/week';
+import { readPlan } from '@/lib/read-plan';
+import type { Candidate } from '@/lib/weigh';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
+import { WeighResult } from './WeighResult';
 import { WritePlanCard } from './WritePlanCard';
 
 type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
-export function WeighPlan() {
+export function WeighPlan({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('tentative');
   // Nothing chosen until you pick one; the button waits for it.
   const [selected, setSelected] = useState<string>();
   const [written, setWritten] = useState('');
+  const [weighing, setWeighing] = useState<Candidate>();
+
+  const weigh = () => {
+    if (tab === 'tentative') {
+      const invite = invites.find((i) => i.id === selected);
+      if (invite) setWeighing(invite);
+    } else {
+      setWeighing(fromWritten(written));
+    }
+  };
+
+  if (weighing) return <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} />;
 
   const weigh = async () => {
     setWeighing(true);
@@ -69,16 +84,35 @@ export function WeighPlan() {
 
       <View style={styles.footer}>
         {tab === 'tentative' && <Text style={[type.sub, styles.muted, styles.footnote]}>This won’t accept the invite.</Text>}
-        {/* Gemini weighs it (POST /weigh); the result opens on Event detail: the cost, why, and a leave-by time. */}
         <Button
           label={weighing ? 'Weighing…' : 'Weigh this plan'}
           trailingIcon="arrow"
-          disabled={weighing || (tab === 'tentative' ? !selected : !written.trim())}
+          disabled={tab === 'tentative' ? !selected : !written.trim()}
           onPress={weigh}
         />
       </View>
     </View>
   );
+}
+
+/**
+ * A written plan as something to weigh. The title is the text before "on / at / with"; it's social
+ * when it names people, otherwise time for you; with no day or time read, it's tried on today evening.
+ */
+function fromWritten(text: string): Candidate {
+  const { people: names, start } = readPlan(text);
+  const head = text.trim().split(/\s+(?:on|at|with|this|next|tomorrow|today|tonight)\b/i)[0].replace(/[.!?]$/, '');
+  const title = head.charAt(0).toUpperCase() + head.slice(1);
+  const first = names[0];
+  const known = first && people.some((p) => p.name.toLowerCase() === first.toLowerCase());
+  return {
+    id: 'written-plan',
+    title: title || 'Your plan',
+    kind: first ? 'social' : 'enjoy',
+    start: start ?? `${NOW.slice(0, 10)}T19:00`,
+    with: first ? (names.length > 1 ? `${first} + ${names.length - 1}` : first) : undefined,
+    energyCost: known || !first ? 2 : 3,
+  };
 }
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
