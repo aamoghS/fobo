@@ -8,10 +8,10 @@ import type { Plan } from '@/features/plans/types';
 export const plans: Plan[] = [
   // Mon 5 (past)
   plan('mon-work', 'Work', 'work', '2026-10-05T09:00', '2026-10-05T13:00', 3.5),
-  plan('mon-obligation', 'Obligation', 'obligation', '2026-10-05T17:00', '2026-10-05T18:30', 2.5),
+  plan('mon-work-late', 'Work', 'work', '2026-10-05T17:00', '2026-10-05T18:30', 2.5),
   // Tue 6 (past)
   plan('tue-work', 'Work', 'work', '2026-10-06T09:00', '2026-10-06T16:00', 5.5),
-  plan('tue-obligation', 'Obligation', 'obligation', '2026-10-06T18:00', '2026-10-06T19:30', 3),
+  plan('tue-work-late', 'Work', 'work', '2026-10-06T18:00', '2026-10-06T19:30', 3),
   // Wed 7 (today)
   plan('wed-standup', 'Work', 'work', '2026-10-07T08:30', '2026-10-07T09:00', 1),
   plan('wed-review', 'Work', 'work', '2026-10-07T11:00', '2026-10-07T12:30', 2),
