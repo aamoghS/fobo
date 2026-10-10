@@ -1,0 +1,100 @@
+/* Fobo tokens. Source: Figma Ox8dcrF4xN8bbBtGFaZyqB, Design System page 1:6. Light only. */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,700;9..40,900&display=swap");
+
+:root {
+  /* Surfaces */
+  --ground: #fbfbf9;
+  --paper: #ffffff;
+  --paper-2: #f3f3f1;
+  --fill: #f1f1ee;
+  --rule: rgba(20, 20, 20, 0.08);
+
+  /* Ink */
+  --ink: #141414;
+  --ink-2: #6a6a66;
+  --ink-3: #8c8c88;
+  --sel-bg: #141414;
+  --sel-ink: #ffffff;
+
+  /* Aliases used on Final screens (Your week, Plans) */
+  --accent: var(--sel-bg);
+  --ground-deep: var(--sel-bg);
+
+  /* Screen values named in DESIGN.md §2, not Figma variables */
+  --ground-alt: #fafaf8;
+  --ink-strong: #0d0e0c;
+  --divider: #ecece8;
+  --tint-peach: #ffe6dd;
+  --tint-sky: #dbe9ff;
+
+  /* Signal */
+  --highlight: #f5c125;
+  --rest-dot: #f7a6c9;
+  --warn: #ffc48a;
+
+  /* Scraps: kind of plan */
+  --scrap-work: #2547d0;
+  --scrap-social: #e8402a;
+  --scrap-obligation: #e9a920;
+  --scrap-enjoy: #1f9d6b;
+  --scrap-rest: #f7a6c9;
+  --scrap-past: #d9d9d4;
+
+  /* Characters: mood */
+  --mood-bright: #f5c125;
+  --mood-fine: #1f9d6b;
+  --mood-stretched: #e9a920;
+  --mood-spent: #e8402a;
+  --mood-asleep: #f7a6c9;
+  --creature-ink: #1e1b18;
+
+  /* Space */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-28: 28px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --margin: 20px;
+
+  /* Radius */
+  --r-chip: 12px;
+  --r-row: 18px;
+  --r-panel: 26px;
+  --r-sheet: 34px;
+  --r-full: 999px;
+  /* Screen radii named in DESIGN.md §2 */
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 18px;
+  --r-back: 24px;
+  --r-nav: 43px;
+
+  /* Depth */
+  --shadow-soft: 0 6px 20px rgba(20, 20, 20, 0.07);
+  --shadow-lift: 0 10px 30px rgba(15, 28, 80, 0.18);
+  --shadow-paper: 0 2px 0 rgba(20, 20, 20, 0.1);
+  --shadow-nav: 0 8px 12px rgba(0, 0, 0, 0.1);
+
+  /* Type */
+  --font: "DM Sans", system-ui, sans-serif;
+  --opsz: "opsz" 14;
+}
+
+/* Type styles */
+.t-time    { font: 900 68px/1 var(--font); letter-spacing: -2.4px; }
+.t-hero    { font: 700 48px/1 var(--font); letter-spacing: -1.6px; }
+.t-display { font: 700 34px/1.08 var(--font); letter-spacing: -1.02px; }
+.t-title   { font: 700 22px/28px var(--font); }
+.t-body    { font: 500 17px/23px var(--font); }
+.t-body-strong { font: 700 17px/23px var(--font); }
+.t-sub     { font: 500 15px/21px var(--font); }
+.t-sub-strong { font: 700 15px/21px var(--font); }
+.t-label   { font: 700 13px/18px var(--font); }
+.t-foot    { font: 500 13px/18px var(--font); }
+
+[class^="t-"] { font-variation-settings: var(--opsz); }
