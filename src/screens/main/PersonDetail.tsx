@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import JunAvatar from '@/assets/people/jun-avatar.svg';
-import { Avatar, personArt } from '@/components/Avatar';
+import { FaceAvatar, personArt } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
@@ -63,7 +63,7 @@ export function PersonDetail({ id }: { id: string }) {
                     <JunAvatar width={108} height={108} />
                   ) : (
                     <View style={styles.avatarRing}>
-                      <Avatar person={person} size={98} zoom={1.45} />
+                      <FaceAvatar person={person} size={98} />
                     </View>
                   )}
                 </View>
