@@ -105,7 +105,12 @@ export const askGemini: Ask = async (input) => {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 16000 },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: SCHEMA,
+        maxOutputTokens: 16000,
+        thinkingConfig: { thinkingLevel: 'low' },
+      },
     }),
   });
   if (!res.ok) throw new PlannerError(`the planner is unavailable (${res.status})`);
