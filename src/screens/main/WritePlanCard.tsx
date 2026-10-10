@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import AsleepFaceArt from '@/assets/faces/asleep.svg';
@@ -30,7 +31,7 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
     <View style={styles.card}>
       <Characters />
 
-      <Text style={[type.sub, styles.muted]}>Your plan</Text>
+      <Text style={[type.label, styles.muted]}>Your plan</Text>
       <TextInput
         value={text}
         onChangeText={onChangeText}
@@ -42,22 +43,36 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
       />
 
       <Pressable accessibilityRole="button" accessibilityLabel="Paste an invite" onPress={paste} hitSlop={8} style={styles.paste}>
-        <Icon name="paste" size={22} color={color.ink2} />
-        <Text style={[type.bodyStrong, styles.muted]}>Paste</Text>
+        <Icon name="paste" size={16} color={color.ink2} />
+        <Text style={[type.subStrong, styles.muted]}>Paste</Text>
       </Pressable>
 
-      <View style={[styles.row, styles.rule]}>
-        <Text style={[type.bodyStrong, styles.muted, styles.withLabel]}>With</Text>
-        {person ? <Avatar person={person} size={44} /> : withLabel && <View style={styles.blankAvatar}><Icon name="people" size={20} color={color.ink2} /></View>}
-        <Text style={[type.bodyStrong, withLabel ? styles.ink : styles.faint, styles.rowText]}>{withLabel ?? 'Who’s going?'}</Text>
-        <Icon name="chevron" size={20} color={color.ink2} />
-      </View>
+      {/* Insight Row shape (DS): icon, a quiet label over a strong line, then a way in. */}
+      <Row
+        icon={person ? <Avatar person={person} size={24} /> : <Icon name="people" size={20} color={color.ink2} />}
+        label="With"
+        value={withLabel}
+        empty="Who’s going?"
+        trailing="chevron"
+      />
+      <Row icon={<Icon name="calendar" size={20} color={color.ink2} />} label="When" value={start ? dayAndTime(start) : undefined} empty="When is it?" trailing="pencil" />
+    </View>
+  );
+}
 
-      <View style={[styles.row, styles.rule]}>
-        <Icon name="calendar" size={24} color={color.ink2} />
-        <Text style={[type.bodyStrong, start ? styles.ink : styles.faint, styles.rowText]}>{start ? dayAndTime(start) : 'When is it?'}</Text>
-        <Icon name="pencil" size={20} color={color.ink2} />
+type RowProps = { icon: ReactNode; label: string; value?: string; empty: string; trailing: 'chevron' | 'pencil' };
+
+function Row({ icon, label, value, empty, trailing }: RowProps) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <View style={styles.rowText}>
+        <Text style={[type.foot, styles.muted]}>{label}</Text>
+        <Text style={[type.subStrong, value ? styles.ink : styles.faint]} numberOfLines={1}>
+          {value ?? empty}
+        </Text>
       </View>
+      <Icon name={trailing} size={18} color={color.ink3} />
     </View>
   );
 }
@@ -67,18 +82,18 @@ function Characters() {
   return (
     <View style={styles.characters} importantForAccessibility="no-hide-descendants" pointerEvents="none">
       <View style={styles.cushion}>
-        <Scrap cut="rest" width={92} height={18} seed={3} />
+        <Scrap cut="rest" width={72} height={14} seed={3} />
       </View>
       <View style={styles.red}>
-        <Scrap cut="social" width={42} height={38} seed={11} />
+        <Scrap cut="social" width={32} height={30} seed={11} />
         <View style={styles.redFace}>
-          <View style={{ marginLeft: -7 }}>
+          <View style={{ marginLeft: -6 }}>
             <FineEyes />
           </View>
         </View>
       </View>
       <View style={styles.blue}>
-        <Scrap cut="obligation" fill={color.scrapWork} width={40} height={50} seed={7} />
+        <Scrap cut="obligation" fill={color.scrapWork} width={30} height={36} seed={7} />
         <View style={styles.blueFace}>
           <AsleepFace />
         </View>
@@ -87,15 +102,15 @@ function Characters() {
   );
 }
 
-const FineEyes = () => <FineEyesArt width={58} height={(30 * 58) / 46} color={color.creatureInk} />;
-const AsleepFace = () => <AsleepFaceArt width={44} height={(24 * 44) / 46} color={color.creatureInk} />;
+const FineEyes = () => <FineEyesArt width={44} height={(30 * 44) / 46} color={color.creatureInk} />;
+const AsleepFace = () => <AsleepFaceArt width={32} height={(24 * 32) / 46} color={color.creatureInk} />;
 
 const styles = StyleSheet.create({
   card: {
     marginTop: space[16],
-    paddingTop: 68,
+    paddingTop: space[20],
     paddingHorizontal: space[20],
-    paddingBottom: space[4],
+    paddingBottom: space[8],
     borderRadius: radius.row,
     backgroundColor: color.paper,
     boxShadow: shadow.soft,
@@ -104,17 +119,28 @@ const styles = StyleSheet.create({
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   faint: { color: color.ink3 },
-  input: { minHeight: 84, paddingTop: space[8], textAlignVertical: 'top' },
-  paste: { alignSelf: 'flex-start', marginTop: space[8], marginBottom: space[12], paddingVertical: space[8], gap: space[8], flexDirection: 'row', alignItems: 'center' },
-  row: { minHeight: 64, gap: space[12], flexDirection: 'row', alignItems: 'center' },
-  rule: { borderTopWidth: 1, borderTopColor: color.rule },
-  withLabel: { width: 44 },
-  blankAvatar: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: color.fill, alignItems: 'center', justifyContent: 'center' },
-  rowText: { flex: 1 },
-  characters: { position: 'absolute', top: 10, right: -8, width: 130, height: 60 },
+  // Room on the right so the label and first line clear the characters.
+  input: { minHeight: 72, marginTop: space[4], paddingRight: 84, paddingTop: 0, paddingBottom: 0, textAlignVertical: 'top', outlineWidth: 0 },
+  paste: {
+    alignSelf: 'flex-start',
+    marginTop: space[12],
+    marginBottom: space[16],
+    height: 32,
+    paddingHorizontal: space[12],
+    gap: space[8],
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.full,
+    backgroundColor: color.fill,
+  },
+  row: { minHeight: 60, gap: space[12], flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: color.rule },
+  rowIcon: { width: 24, alignItems: 'center' },
+  rowText: { flex: 1, gap: 2 },
+  // Top-right corner, standing on the cushion, fully inside the card.
+  characters: { position: 'absolute', top: space[12], right: space[16], width: 72, height: 46 },
   cushion: { position: 'absolute', right: 0, bottom: 0 },
-  red: { position: 'absolute', left: 0, bottom: 2 },
-  redFace: { position: 'absolute', top: -9, left: 0 },
-  blue: { position: 'absolute', left: 54, bottom: 8 },
-  blueFace: { position: 'absolute', top: 6, left: -2 },
+  red: { position: 'absolute', left: 4, bottom: 4 },
+  redFace: { position: 'absolute', top: -6, left: 0 },
+  blue: { position: 'absolute', left: 38, bottom: 6 },
+  blueFace: { position: 'absolute', top: 5, left: -1 },
 });
