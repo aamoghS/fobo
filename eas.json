@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://br-dawn-shadow-b59k4l6b-api.compute.c-7.us-east-2.aws.neon.tech",
+        "EXPO_PUBLIC_NEON_AUTH_URL": "https://ep-small-fire-b5z5zqni.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "632830337144-tnkkbtfkr62hhj3vqha1larsq1maf5p6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "632830337144-selb2h3lebt20crih7b7b0ebqod5eul0.apps.googleusercontent.com"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    },
+    "production": {
+      "extends": "base",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

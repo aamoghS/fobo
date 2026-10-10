@@ -2,9 +2,9 @@ name: server
 
 on:
   push:
-    paths: ['server/**', 'db/**', '.github/workflows/server.yml']
+    paths: ['server/**', 'db/**', 'packages/core/**', 'package-lock.json', '.github/workflows/server.yml']
   pull_request:
-    paths: ['server/**', 'db/**', '.github/workflows/server.yml']
+    paths: ['server/**', 'db/**', 'packages/core/**', 'package-lock.json', '.github/workflows/server.yml']
 
 jobs:
   test:
@@ -20,18 +20,16 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
       TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
-    defaults:
-      run:
-        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: server/package-lock.json
+      # One install at the root covers the app, the server and packages/core (npm workspaces).
       - run: npm ci
-      - run: npm run typecheck
+      - run: npm run typecheck -w fobo-server
       - run: node scripts/migrate.ts
-      - run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f ../db/tests/rls.sql
-      - run: npm test
+        working-directory: server
+      - run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/tests/rls.sql
+      - run: npm run test:server

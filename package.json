@@ -1,7 +1,10 @@
 {
   "name": "fobo",
   "main": "expo-router/entry",
-  "workspaces": ["server", "packages/*"],
+  "workspaces": [
+    "server",
+    "packages/*"
+  ],
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",
@@ -9,6 +12,7 @@
     "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
+    "expo-dev-client": "~57.0.19",
     "expo-device": "~57.0.2",
     "expo-font": "~57.0.4",
     "expo-glass-effect": "~57.0.4",
@@ -41,6 +45,8 @@
   "scripts": {
     "dev": "expo start --web",
     "dev:all": "node scripts/dev-all.mjs",
+    "build:android": "eas build --profile development --platform android",
+    "build:ios": "eas build --profile development --platform ios",
     "server": "npm run dev -w fobo-server",
     "migrate": "npm run migrate -w fobo-server",
     "test:server": "npm test -w fobo-server",

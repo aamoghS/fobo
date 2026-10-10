@@ -10,6 +10,7 @@ import SunshineArt from '@/assets/illustrations/sunshine.svg';
 import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
+import { loadLive } from '@/data/live';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { color } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -25,7 +26,10 @@ function useGoogle(next: typeof ONBOARDING | '/week') {
   const router = useRouter();
   return async () => {
     try {
-      if (await signInWithGoogle(next)) router.replace(next);
+      if (await signInWithGoogle(next)) {
+        await loadLive();
+        router.replace(next);
+      }
     } catch (e) {
       console.warn('Google sign-in failed', e);
     }

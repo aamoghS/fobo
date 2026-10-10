@@ -1,42 +1,36 @@
-// Starts the API (server/) and the Expo app together: one terminal, one QR code, one Ctrl+C.
-//   npm run dev:all            phone (Expo Go or a development build) and browser
-//   npm run dev:all -- --web   also opens the browser build
-// The app is pointed at this computer's Wi-Fi address, so a phone on the same network reaches the API.
+// Runs the app against the API on Neon. With --local, also runs the API here and points the app at it.
+//   npm run dev:all                 Expo only; the app uses the deployed API (EXPO_PUBLIC_API_URL)
+//   npm run dev:all -- --local      also the local API on :8787 (Google sign-in needs the deployed one)
+//   add --web to open the browser build
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 
-const PORT = 8787;
-
-// This machine's LAN address: the first private IPv4 that is not a virtual adapter (WSL, Hyper-V).
-function lanAddress() {
-  const candidates = Object.values(os.networkInterfaces()).flat()
-    .filter((a) => a && a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.254.'));
-  const preferred = candidates.find((a) => /^(10|192\.168)\./.test(a.address)) ?? candidates[0];
-  return preferred?.address ?? 'localhost';
-}
-
-const apiUrl = `http://${lanAddress()}:${PORT}`;
-const extra = process.argv.slice(2);
+const args = process.argv.slice(2);
+const local = args.includes('--local');
+const expoArgs = args.filter((a) => a !== '--local');
 const children = [];
 
-function run(name, command, args, cwd, env = {}) {
-  const child = spawn(command, args, { cwd, stdio: 'inherit', shell: true, env: { ...process.env, ...env } });
+function lanAddress() {
+  const all = Object.values(os.networkInterfaces()).flat().filter((a) => a && a.family === 'IPv4' && !a.internal);
+  return (all.find((a) => /^(10|192\.168)\./.test(a.address)) ?? all[0])?.address ?? 'localhost';
+}
+
+function run(name, command, cmdArgs, cwd, env = {}) {
+  const child = spawn(command, cmdArgs, { cwd, stdio: 'inherit', shell: true, env: { ...process.env, ...env } });
   child.on('exit', (code) => {
-    console.log(`\n${name} stopped (${code ?? 'signal'}); stopping the rest.`);
+    console.log(`\n${name} stopped (${code ?? 'signal'}).`);
     for (const c of children) if (c !== child) c.kill();
     process.exit(code ?? 0);
   });
   children.push(child);
 }
 
-console.log(`API on ${apiUrl}`);
-run('API', 'npm', ['run', 'dev'], 'server', { PORT: String(PORT) });
-// Expo reads .env.local but keeps variables already set, so this address wins over the file.
-run('Expo', 'npx', ['expo', 'start', ...extra], '.', { EXPO_PUBLIC_API_URL: apiUrl });
-
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    for (const c of children) c.kill();
-    process.exit(0);
-  });
+const expoEnv = {};
+if (local) {
+  expoEnv.EXPO_PUBLIC_API_URL = `http://${lanAddress()}:8787`;
+  console.log(`Local API on ${expoEnv.EXPO_PUBLIC_API_URL}`);
+  run('API', 'npm', ['run', 'dev'], 'server');
 }
+run('Expo', 'npx', ['expo', 'start', ...expoArgs], '.', expoEnv);
+
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => children.forEach((c) => c.kill()));

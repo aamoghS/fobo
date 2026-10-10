@@ -12,7 +12,7 @@ const connection = {
   lastSyncedAt: calendarConnections.lastSyncedAt,
 };
 
-async function connect(db: Db, userId: string) {
+export async function connect(db: Db, userId: string) {
   const account = await googleAccount(db, userId);
   if (!account) throw new HttpError(409, 'Sign in with Google and allow Calendar access first');
   const [conn] = await db.insert(calendarConnections)

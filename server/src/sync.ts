@@ -5,10 +5,13 @@ import { calendarConnections, events } from './schema.ts';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
-// The user's Google account as Neon Auth stored it at sign-in, or null when they have not signed
-// in with Google or did not allow Calendar access.
+// The user's Google account with Calendar access, from the API's own sign-in (google_accounts) or from
+// Neon Auth; null without Calendar access.
 export async function googleAccount(db: Db, userId: string) {
-  const { rows } = await db.execute<{ refresh_token: string; scope: string | null; email: string }>(
+  const own = await db.execute<{ refresh_token: string; scope: string | null; email: string }>(sql`  
+    select pgp_sym_decrypt(refresh_token, ${process.env.AUTH_SECRET ?? ''}) as refresh_token, scope, email
+    from google_accounts where user_id = ${userId} and refresh_token is not null`);
+  const { rows } = own.rows.length ? own : await db.execute<{ refresh_token: string; scope: string | null; email: string }>(
     sql`select * from app.google_refresh_token(${userId})`,
   );
   const row = rows[0];
