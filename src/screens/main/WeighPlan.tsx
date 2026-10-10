@@ -19,9 +19,8 @@ type Tab = 'tentative' | 'write';
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
 export function WeighPlan() {
   const [tab, setTab] = useState<Tab>('tentative');
-  const [picked, setSelected] = useState<string>();
-  // The first invite until one is picked (invites arrive with the live data).
-  const selected = invites.some((i) => i.id === picked) ? picked : invites[0]?.id;
+  // Nothing chosen until you pick one; the button waits for it.
+  const [selected, setSelected] = useState<string>();
   const [written, setWritten] = useState('');
 
   const weigh = async () => {
@@ -102,10 +101,11 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
       accessibilityState={{ checked: selected }}
       accessibilityLabel={`${invite.title}, ${startTime(invite.start)}, ${invite.with}`}
       onPress={onPress}
-      // Selection goes grey with a black check (design system); the bar keeps the plan's kind.
-      style={[styles.row, selected ? styles.rowSelected : styles.rowRule]}>
-      <View style={[styles.kindBar, { backgroundColor: kindColor }]} />
-      <View style={styles.rowText}>
+      // Selected: grey card with a black check (design system), and the kind colour becomes the
+      // card's left edge, so it follows the rounded corners. Otherwise it's a free-standing bar.
+      style={[styles.row, selected ? [styles.rowSelected, { borderLeftColor: kindColor }] : styles.rowRule]}>
+      {!selected && <View style={[styles.kindBar, { backgroundColor: kindColor }]} />}
+      <View style={[styles.rowText, selected && styles.rowTextSelected]}>
         <Text style={[type.bodyStrong, styles.ink]}>{invite.title}</Text>
         <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
       </View>
@@ -115,6 +115,8 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
     </Pressable>
   );
 }
+
+const EDGE = 4;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
@@ -137,10 +139,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.row,
     overflow: 'hidden',
   },
-  rowSelected: { backgroundColor: color.fill },
+  rowSelected: { backgroundColor: color.fill, borderLeftWidth: EDGE },
   rowRule: { borderRadius: 0, borderBottomWidth: 1, borderBottomColor: color.rule },
   kindBar: { position: 'absolute', left: 0, top: space[12], bottom: space[12], width: 4, borderRadius: radius.full },
   rowText: { flex: 1, paddingLeft: space[20], gap: space[4] },
+  // The edge takes up EDGE, so titles stay lined up with unselected rows.
+  rowTextSelected: { paddingLeft: space[20] - EDGE },
   radio: {
     width: 28,
     height: 28,
