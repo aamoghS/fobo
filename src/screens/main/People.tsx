@@ -9,6 +9,7 @@ import { Avatar } from '@/components/Avatar';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
+import { useLiveScreen } from '@/data/live';
 import { getPerson, people } from '@/data/people';
 import { getPlan } from '@/data/plans';
 import { dayAndHour } from '@/lib/format';
@@ -21,6 +22,7 @@ const FEATURED = 'comal';
 
 /** People (387:1456). */
 export function People() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');

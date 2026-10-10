@@ -8,6 +8,7 @@ import { IconButton } from '@/components/IconButton';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { WeekShelf } from '@/components/WeekShelf';
+import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
 import { hours, weekdayLong, weekRange } from '@/lib/format';
 import { plansLeftToday, shelfDays, todayIso } from '@/lib/week';
@@ -16,6 +17,7 @@ import { type } from '@/styles/type';
 
 /** Your week (439:2323). */
 export function YourWeek() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const left = plansLeftToday();

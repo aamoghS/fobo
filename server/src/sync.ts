@@ -5,12 +5,11 @@ import { calendarConnections, events } from './schema.ts';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
-// The user's Google account as Neon Auth stored it at sign-in, or null when they have not signed
-// in with Google or did not allow Calendar access.
+// The user's Google account with Calendar access (saved at sign-in by src/routes/auth.ts), or null.
 export async function googleAccount(db: Db, userId: string) {
-  const { rows } = await db.execute<{ refresh_token: string; scope: string | null; email: string }>(
-    sql`select * from app.google_refresh_token(${userId})`,
-  );
+  const { rows } = await db.execute<{ refresh_token: string; scope: string | null; email: string }>(sql`
+    select pgp_sym_decrypt(refresh_token, ${process.env.AUTH_SECRET ?? ''}) as refresh_token, scope, email
+    from google_accounts where user_id = ${userId} and refresh_token is not null`);
   const row = rows[0];
   if (!row || !String(row.scope ?? '').split(/[ ,]/).includes(CALENDAR_SCOPE)) return null;
   return row;
@@ -46,8 +45,12 @@ export async function syncConnection(db: Db, connectionId: string) {
       withPeople: people,
       status: declined ? 'declined' : 'accepted',
     };
+    // A starting cost from the event's length (half a point an hour, 0.5 to 5); the person or the
+    // planner refines it.
+    const hours = (Date.parse(g.end.dateTime) - Date.parse(g.start.dateTime)) / 36e5;
+    const cost = Math.min(5, Math.max(0.5, Math.round(hours) / 2));
     await db.insert(events)
-      .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', ...fromGoogle })
+      .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', cost, ...fromGoogle })
       .onConflictDoUpdate({ target: [events.connectionId, events.externalId], set: fromGoogle });
     upserted++;
   }

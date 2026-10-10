@@ -8,6 +8,7 @@ import { Icon, type IconName } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
+import { useLiveScreen } from '@/data/live';
 import { getPlan, planDetails } from '@/data/plans';
 import { eventDateLine } from '@/lib/format';
 import { color, radius } from '@/styles/tokens';
@@ -16,6 +17,7 @@ import { DAY_ROOM } from '../../../packages/core/src';
 
 /** Event detail (368:9064). */
 export function PlanDetail({ id }: { id: string }) {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const plan = getPlan(id);

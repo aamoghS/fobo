@@ -37,8 +37,9 @@ async function friendBlocks(db: Db, friendId: string, date: string | null) {
 }
 
 async function dayScores(db: Db, ownerId: string, from: string | null, to: string | null) {
-  const { rows } = await db.execute<{ day: string; load: number; room: number }>(
-    sql`select to_char(day, 'YYYY-MM-DD') as day, load, room from day_scores(${ownerId}, ${from}::date, ${to}::date)`,
+  const { rows } = await db.execute<{ day: string; load: number; room: number; over: boolean }>(
+    sql`select to_char(day, 'YYYY-MM-DD') as day, load, room, load > room as over
+        from day_scores(${ownerId}, ${from}::date, ${to}::date)`,
   );
   return rows;
 }

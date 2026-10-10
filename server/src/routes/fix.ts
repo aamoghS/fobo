@@ -3,7 +3,7 @@ import { withService, type Db } from '../db.ts';
 import { accessToken, deleteEvent, getEvent, insertEvent, patchEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
 import {
-  allowedChanges, askGemini, PlannerError, scoreDays, type Ask, type Change, type PlanRow,
+  allowedChanges, askGemini, PlannerError, scoreDays, type Change, type PlanRow,
 } from '../planner.ts';
 import { calendarConnections, calendarFixes, events, memories, profiles } from '../schema.ts';
 import { googleAccount } from '../sync.ts';
@@ -15,11 +15,10 @@ const fixColumns = {
   days: calendarFixes.days, status: calendarFixes.status,
 };
 
-export function fixRoutes(ask: Ask = askGemini) {
-  return [
+export const fixRoutes = [
     // { days: 1..14 }: asks the planner and saves its answer as a proposed fix.
     route('POST', '/fix-calendar', ({ pool, claims, body }) => {
-      if (ask === askGemini && !process.env.GEMINI_API_KEY) {
+      if (!process.env.GEMINI_API_KEY) {
         throw new HttpError(503, "The planner isn't set up yet");
       }
       const days = Math.min(14, Math.max(1, Number(body.days) || 7));
@@ -50,7 +49,7 @@ export function fixRoutes(ask: Ask = askGemini) {
 
         let answer;
         try {
-          answer = await ask({
+          answer = await askGemini({
             now: localIso(from, tz),
             timezone: tz,
             profile: { recharge_style: profile.rechargeStyle, busy_streak: profile.busyStreak, protected_hours: profile.protectedHours },
@@ -117,8 +116,7 @@ export function fixRoutes(ask: Ask = askGemini) {
           .where(eq(calendarFixes.id, fix.id));
         return { results };
       })),
-  ];
-}
+];
 
 async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolean) {
   if (ch.op === 'add_rest') {

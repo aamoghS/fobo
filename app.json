@@ -34,17 +34,18 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.632830337144-selb2h3lebt20crih7b7b0ebqod5eul0"
-        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ffd5854d-e2b2-44db-bd11-0762e6a2bd37"
+      }
+    },
+    "owner": "aamoghss-team"
   }
 }

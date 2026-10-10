@@ -19,8 +19,10 @@ import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
-import { color, radius, shadow } from '@/styles/tokens';
+import { loadLive } from '@/data/live';
+import { answers } from '@/features/profile/onboarding';
 import { api } from '@/lib/api';
+import { color, radius, shadow } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'transition', 'compare'] as const;
@@ -29,20 +31,22 @@ export type Step = (typeof STEPS)[number];
 // Four segments: the three questions, then the comparison (transition + pairs).
 const PROGRESS: Record<Step, number> = { start: 0, recharge: 1, 'head-home': 2, yourself: 3, transition: 4, compare: 4 };
 
-// Answers are a starting guess; saved to the profile API when onboarding finishes.
-const answers: Partial<Record<Step, string>> = {};
-
 /** `editing`: opened from Capacity Profile to change one answer; Next and Skip go back there. */
 export function OnboardingStep({ step, editing = false }: { step: Step; editing?: boolean }) {
   const router = useRouter();
-  const next = () => {
+  // Answers save to the profile, then the app reloads it so the You tab shows the change.
+  const save = async (changed: Partial<Record<Step, string>>) => {
+    if (await api('PATCH', '/me', { onboarding: changed })) await loadLive();
+  };
+  const next = async () => {
     const i = STEPS.indexOf(step);
-    if (editing) router.back();
-    else if (i === STEPS.length - 1) {
-      void api('PATCH', '/me', { onboarding: answers });
+    if (editing) {
+      if (answers[step]) await save({ [step]: answers[step] });
+      router.back();
+    } else if (i === STEPS.length - 1) {
+      await save(answers);
       router.replace('/week');
-    }
-    else router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
+    } else router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   };
 
   switch (step) {

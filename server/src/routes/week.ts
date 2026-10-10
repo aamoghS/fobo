@@ -4,7 +4,8 @@ import { HttpError, route } from '../http.ts';
 import { when } from '../time.ts';
 
 // Your week (src/data/week.ts): the week's dates, "Time for you" (hours of enjoy and rest plans),
-// "Up next" (the next plan from now), and each day's load. Days are in the user's timezone.
+// "Up next" (the next plan from now), and each day's load and whether it is over.
+// Days are in the user's timezone.
 export const weekRoutes = [
   route('GET', '/week', ({ pool, claims, query }) => {
     const start = query.get('start');
@@ -30,8 +31,8 @@ export const weekRoutes = [
           select title, time from events
           where not declined and lower(time) > now() order by lower(time) limit 1
         ) n on true`);
-      const days = await db.execute<{ day: string; load: number; room: number }>(sql`
-        select to_char(day, 'YYYY-MM-DD') as day, load, room
+      const days = await db.execute<{ day: string; load: number; room: number; over: boolean }>(sql`
+        select to_char(day, 'YYYY-MM-DD') as day, load, room, load > room as over
         from day_scores(${claims.sub}, ${start}::date, ${start}::date + 6)`);
       const r = rows[0];
       if (!r) throw new HttpError(404, 'no profile');
@@ -43,7 +44,8 @@ export const weekRoutes = [
         upNext: r.next_title && r.next_start
           ? { title: r.next_title, when: when(r.next_start, r.today), start: r.next_start }
           : null,
-        days: days.rows.map((d) => ({ date: d.day, load: d.load, room: d.room })),
+        // over: the day is past its room (the app's isOverflowing).
+        days: days.rows.map((d) => ({ date: d.day, load: d.load, room: d.room, over: d.over })),
       };
     });
   }),

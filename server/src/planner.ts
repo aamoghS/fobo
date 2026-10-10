@@ -92,12 +92,10 @@ export interface PlanRow {
 
 export class PlannerError extends Error {}
 
-// Sends the input to the planner model and returns its parsed answer. Swapped out in tests.
-export type Ask = (input: unknown) => Promise<Answer>;
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-export const askGemini: Ask = async (input) => {
+export async function askGemini(input: unknown): Promise<Answer> {
   const key = process.env.GEMINI_API_KEY!;
   const res = await fetch(`${API}/${MODEL}:generateContent`, {
     method: 'POST',
@@ -105,7 +103,12 @@ export const askGemini: Ask = async (input) => {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 16000 },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: SCHEMA,
+        maxOutputTokens: 16000,
+        thinkingConfig: { thinkingLevel: 'low' },
+      },
     }),
   });
   if (!res.ok) throw new PlannerError(`the planner is unavailable (${res.status})`);

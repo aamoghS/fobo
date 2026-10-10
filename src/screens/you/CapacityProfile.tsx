@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
+import { useLiveScreen } from '@/data/live';
 import { capacity } from '@/data/profile';
 import { useCharacter } from '@/features/profile/character';
 import { color, radius } from '@/styles/tokens';
@@ -15,6 +16,7 @@ import { CharacterArt } from './CharacterArt';
 /** Capacity Profile (443:3680). Rows reopen the onboarding question that set them. */
 export function CapacityProfile() {
   const router = useRouter();
+  useLiveScreen();
   const insets = useSafeAreaInsets();
   const character = useCharacter();
 

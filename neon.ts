@@ -1,16 +1,5 @@
 import { defineConfig } from "@neon/config/v1";
 
-// Variables the API function reads. Only those set locally are deployed; a missing one is left
-// as already deployed.
-const API_ENV = [
-  "DATABASE_URL",
-  "NEON_AUTH_URL",
-  "NEON_AUTH_JWKS_URL",
-  "GOOGLE_WEB_CLIENT_ID",
-  "GOOGLE_WEB_CLIENT_SECRET",
-  "GEMINI_API_KEY",
-] as const;
-
 export default defineConfig({
   auth: true,
   buckets: {
@@ -20,9 +9,15 @@ export default defineConfig({
     api: {
       name: "api",
       source: "./server/functions/api.ts",
-      env: Object.fromEntries(
-        API_ENV.filter((k) => process.env[k]).map((k) => [k, process.env[k]!]),
-      ),
+      env: {
+        DATABASE_URL: process.env.DATABASE_URL!,
+        NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL!,
+        GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID!,
+        GOOGLE_WEB_CLIENT_SECRET: process.env.GOOGLE_WEB_CLIENT_SECRET!,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY!,
+        AUTH_SECRET: process.env.AUTH_SECRET!,
+        PUBLIC_API_URL: "https://br-dawn-shadow-b59k4l6b-api.compute.c-7.us-east-2.aws.neon.tech",
+      },
     },
   },
 });
