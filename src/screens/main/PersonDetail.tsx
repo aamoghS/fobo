@@ -7,13 +7,14 @@ import JunAvatar from '@/assets/people/jun-avatar.svg';
 import { FaceAvatar, personArt } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
+import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
 import { bioFor, getPerson } from '@/data/people';
 import { plans } from '@/data/plans';
 import { NOW } from '@/data/week';
 import { shortDateRange } from '@/lib/format';
-import { color, radius, shadow } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 // Only Jun's profile is drawn (387:1613); its banner and large avatar are exports of that frame.
@@ -34,15 +35,11 @@ export function PersonDetail({ id }: { id: string }) {
     .sort((a, b) => a.start.localeCompare(b.start));
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 34) }]}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back to People" onPress={back} hitSlop={10} style={styles.back}>
-          <Icon name="back" size={22} />
-          <Text style={[type.bodyStrong, styles.ink]}>People</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={4} style={styles.more}>
-          <Icon name="more" size={19} />
-        </Pressable>
+        {/* Design system Icon Button: back and more in the nav row. */}
+        <IconButton icon="back" label="Back to People" onPress={back} />
+        <IconButton icon="more" label="More" />
       </View>
 
       {person && (
@@ -113,35 +110,31 @@ export function PersonDetail({ id }: { id: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.groundAlt },
+  screen: { flex: 1, backgroundColor: color.ground },
   content: { paddingBottom: 120 },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
-  topBar: { paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  more: { width: 37, height: 37, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
-  cardWrap: { paddingTop: 13, paddingHorizontal: 15 },
+  topBar: { paddingHorizontal: space.margin, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardWrap: { paddingTop: space[16], paddingHorizontal: space.margin },
   card: {
-    paddingTop: 14,
-    paddingBottom: 15,
-    paddingHorizontal: 14,
+    padding: space[16],
     borderRadius: radius.row,
     backgroundColor: color.paper,
     boxShadow: shadow.soft,
   },
-  banner: { height: 138, borderRadius: radius.lg, overflow: 'hidden' },
+  banner: { height: 138, borderRadius: radius.chip, overflow: 'hidden' },
   bannerArt: { position: 'absolute', right: 14, top: -22, transform: [{ rotate: '-8deg' }] },
   avatarSpace: { height: 42 },
-  avatar: { position: 'absolute', left: 8, top: -66, width: 108, height: 108 },
+  avatar: { position: 'absolute', left: space[8], top: -66, width: 108, height: 108 },
   avatarRing: { padding: 5, borderRadius: radius.full, backgroundColor: color.paper },
-  name: { paddingTop: 8 },
-  bio: { paddingTop: 2, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: color.divider },
-  check: { marginTop: 17 },
-  together: { paddingTop: 24, paddingHorizontal: 22 },
-  planRow: { paddingTop: 10, paddingBottom: 15, gap: 18, flexDirection: 'row', alignItems: 'center' },
+  name: { paddingTop: space[8] },
+  bio: { paddingTop: space[4], paddingBottom: space[16], borderBottomWidth: 1, borderBottomColor: color.rule },
+  check: { marginTop: space[16] },
+  together: { paddingTop: space[28], paddingHorizontal: space.margin },
+  planRow: { paddingVertical: space[12], gap: space[16], flexDirection: 'row', alignItems: 'center' },
   rule: { borderBottomWidth: 1, borderBottomColor: color.rule },
   planText: { flex: 1 },
-  past: { height: 64, flexDirection: 'row', alignItems: 'center' },
+  past: { minHeight: 64, flexDirection: 'row', alignItems: 'center' },
   pastTitle: { flex: 1 },
-  pastCount: { paddingRight: 12 },
+  pastCount: { paddingRight: space[12] },
 });
