@@ -25,6 +25,10 @@ export const profiles = pgTable('profiles', {
   busyStreak: integer('busy_streak').notNull().default(0),
   protectedHours: jsonb('protected_hours'),
   onboarding: jsonb('onboarding').notNull().default({}),
+  bio: text('bio'),
+  tint: text('tint'),
+  stressRelief: text('stress_relief').array().notNull().default(sql`'{}'`),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   writeBack: boolean('write_back').notNull().default(false),
   shareBlocks: boolean('share_blocks').notNull().default(false),
   shareScores: boolean('share_scores').notNull().default(false),
@@ -57,6 +61,9 @@ export const events = pgTable('events', {
   connectionId: uuid('connection_id'),
   externalId: text('external_id'),
   etag: text('etag'),
+  costNote: text('cost_note'),
+  exitNote: text('exit_note'),
+  reminder: text('reminder'),
 });
 
 export const memories = pgTable('memories', {
@@ -87,12 +94,20 @@ export const calendarFixes = pgTable('calendar_fixes', {
   appliedAt: timestamp('applied_at', { withTimezone: true }),
 });
 
+export const achievements = pgTable('achievements', {
+  userId: text('user_id').notNull(),
+  achievementId: text('achievement_id').notNull(),
+  earnedAt: timestamp('earned_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.userId, t.achievementId] })]);
+
 // Views: other people's safe columns, and the caller's own row.
 export const profilePublic = pgView('profile_public', {
   id: text('id').notNull(),
   handle: text('handle').notNull(),
   name: text('name'),
   character: jsonb('character'),
+  bio: text('bio'),
+  tint: text('tint'),
 }).existing();
 
-export const schema = { profiles, calendarConnections, events, memories, friendships, calendarFixes, profilePublic };
+export const schema = { profiles, achievements, calendarConnections, events, memories, friendships, calendarFixes, profilePublic };

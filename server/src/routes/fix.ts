@@ -40,7 +40,7 @@ export function fixRoutes(ask: Ask = askGemini) {
           .where(and(
             eq(events.userId, claims.sub),
             eq(events.declined, false),
-            sql`${events.time} && ${range(from.toISOString(), to.toISOString())}`,
+            sql`${events.time} && ${range(from.toISOString(), to.toISOString(), claims.sub)}`,
           ))
           .orderBy(asc(sql`lower(${events.time})`)))
           .map((r) => ({ ...r, starts_at: new Date(r.starts_at).toISOString(), ends_at: new Date(r.ends_at).toISOString() }));
@@ -123,7 +123,7 @@ export function fixRoutes(ask: Ask = askGemini) {
 async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolean) {
   if (ch.op === 'add_rest') {
     const [rest] = await db.insert(events).values({
-      userId, title: ch.title!, time: range(ch.starts_at, ch.ends_at) as unknown as string,
+      userId, title: ch.title!, time: range(ch.starts_at, ch.ends_at, userId) as unknown as string,
       category: 'rest', cost: -1, protected: true,
     }).returning({ id: events.id });
     if (!writeBack) return { local: 'added' };
@@ -149,7 +149,7 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
   if (e.protected) throw new Error('plan is protected');
 
   const set =
-    ch.op === 'move' ? { time: range(ch.starts_at, ch.ends_at), status: 'moved' }
+    ch.op === 'move' ? { time: range(ch.starts_at, ch.ends_at, userId), status: 'moved' }
     : ch.op === 'shorten' ? { time: sql`tstzrange(lower(${events.time}), ${ch.ends_at}::timestamptz)` }
     : ch.op === 'decline' ? { status: 'declined' }
     : { protected: true };

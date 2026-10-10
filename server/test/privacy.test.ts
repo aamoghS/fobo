@@ -77,5 +77,5 @@ test('stranger sees only public profile columns', async () => {
   const { rows } = await withUser(pool, sam, (c) =>
     c.$client.query('select * from profile_public where id = $1', [ann.sub]),
   );
-  assert.deepEqual(Object.keys(rows[0]).sort(), ['character', 'handle', 'id', 'name']);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['bio', 'character', 'handle', 'id', 'name', 'tint']);
 });

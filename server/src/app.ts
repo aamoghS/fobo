@@ -11,9 +11,11 @@ import { fixRoutes } from './routes/fix.ts';
 import { friendRoutes } from './routes/friends.ts';
 import { googleRoutes } from './routes/google.ts';
 import { meRoutes } from './routes/me.ts';
+import { weekRoutes } from './routes/week.ts';
+import { youRoutes } from './routes/you.ts';
 
 export function createHandler(pool: pg.Pool = createPool(), ask?: Ask) {
-  const routes: Route[] = [...meRoutes, ...eventRoutes, ...friendRoutes, ...googleRoutes, ...fixRoutes(ask)];
+  const routes: Route[] = [...meRoutes, ...youRoutes, ...weekRoutes, ...eventRoutes, ...friendRoutes, ...googleRoutes, ...fixRoutes(ask)];
   return async (req: Request): Promise<Response> => {
     try {
       if (req.method === 'OPTIONS') return json(204);
