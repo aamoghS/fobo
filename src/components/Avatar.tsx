@@ -11,10 +11,20 @@ import { color, radius } from '@/styles/tokens';
 // Avatar characters from Your circle (387:1456), 46x46.
 const art = { ava, dani, hana, jun, lea };
 
+/** The person's character art alone, for banners. */
+export const personArt = (id: string) => art[id as keyof typeof art];
+
+type Props = {
+  person: Person;
+  size?: number;
+  /** Over 1 crops in on the character, like Jun's profile avatar. */
+  zoom?: number;
+};
+
 /** A person's character on a tinted ring. 58 in lists; scales for the profile. */
-export function Avatar({ person, size = 58 }: { person: Person; size?: number }) {
-  const Art = art[person.id as keyof typeof art];
-  const inner = (size * 46) / 58;
+export function Avatar({ person, size = 58, zoom = 1 }: Props) {
+  const Art = personArt(person.id);
+  const inner = ((size * 46) / 58) * zoom;
   return (
     <View
       importantForAccessibility="no-hide-descendants"
