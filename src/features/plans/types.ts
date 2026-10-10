@@ -15,4 +15,6 @@ export type Plan = {
   shared: boolean;
   /** "Leave by" time, e.g. "8:30". */
   leaveBy?: string;
+  /** People ids, host first. */
+  with?: string[];
 };

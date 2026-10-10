@@ -26,7 +26,8 @@ export const plans: Plan[] = [
   // Sat 10
   plan('sat-obligation', 'Obligation', 'obligation', '2026-10-10T09:00', '2026-10-10T12:00', 5),
   plan('ava-brunch', 'Ava’s birthday brunch', 'social', '2026-10-10T13:30', '2026-10-10T15:00', 3),
-  { ...plan('comal', 'Dinner at Comal', 'social', '2026-10-10T19:00', '2026-10-10T20:30', 2), leaveBy: '8:30' },
+  // "Dani + 2" on People; Jun lists it under Next together.
+  { ...plan('comal', 'Dinner at Comal', 'social', '2026-10-10T19:00', '2026-10-10T20:30', 2), leaveBy: '8:30', with: ['dani', 'jun', 'lea'] },
   // Sun 11
   plan('sun-rest', 'Rest', 'rest', '2026-10-11T10:00', '2026-10-11T12:00', 0),
   plan('sun-obligation', 'Obligation', 'obligation', '2026-10-11T15:00', '2026-10-11T16:00', 2),

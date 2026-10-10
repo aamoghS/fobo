@@ -63,3 +63,20 @@ export function daysBetween(start: string, end: string) {
   }
   return days;
 }
+
+const SHORT_MONTH = (d: Date) => MONTHS[d.getMonth()].slice(0, 3);
+
+/** People card: "Sat, 7 PM". */
+export function dayAndHour(iso: string) {
+  const d = toDate(iso);
+  return `${WEEKDAYS[d.getDay()].slice(0, 3)}, ${clock(d)} ${period(d).toUpperCase()}`;
+}
+
+/** People detail rows: "Sat, Oct 10 · 7–8:30 PM". */
+export function shortDateRange(start: string, end: string) {
+  const a = toDate(start);
+  const b = toDate(end);
+  const same = period(a) === period(b);
+  const range = `${clock(a)}${same ? '' : ` ${period(a).toUpperCase()}`}–${clock(b)} ${period(b).toUpperCase()}`;
+  return `${WEEKDAYS[a.getDay()].slice(0, 3)}, ${SHORT_MONTH(a)} ${a.getDate()} · ${range}`;
+}
