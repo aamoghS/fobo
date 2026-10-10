@@ -14,11 +14,12 @@ export default function MainLayout() {
           <TabTrigger name="plans" href="/plans" asChild>
             <TabButton icon="plans" label="Plans" />
           </TabTrigger>
-          <TabTrigger name="people" href="/people" asChild>
+          <TabTrigger name="people" href="/people" resetOnFocus asChild>
             <TabButton icon="people" label="People" />
           </TabTrigger>
-          {/* You (Profile v.1, 443:3735) is a loose frame; not built until design confirms. */}
-          <TabButton icon="you" label="You" disabled />
+          <TabTrigger name="you" href="/you" resetOnFocus asChild>
+            <TabButton icon="you" label="You" />
+          </TabTrigger>
         </TabBar>
       </TabList>
     </Tabs>

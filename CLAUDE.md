@@ -59,6 +59,6 @@ Team: Thashin (UI design), Tory Deutsch (UX design), Mariem Touati (UX writing +
 
 ## Ask before
 
-- Building anything from the loose frames (Profile, Capacity Profile, Edit Character, Settings). They are not marked final.
+- Changing the You tab screens (Profile, Capacity Profile, Edit Character, Settings) beyond their frames. They were built from loose frames, so check with design first.
 - Adding a dependency beyond routing, an icon/SVG loader, or a date library.
 - Changing any token value.

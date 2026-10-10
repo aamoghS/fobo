@@ -35,7 +35,9 @@ export const color = {
   "moodStretched": "#e9a920",
   "moodSpent": "#e8402a",
   "moodAsleep": "#f7a6c9",
-  "creatureInk": "#1e1b18"
+  "creatureInk": "#1e1b18",
+  "paintViolet": "#8a38f5",
+  "paintCharcoal": "#3a3a36"
 } as const;
 
 export const space = {

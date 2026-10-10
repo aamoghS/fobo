@@ -52,6 +52,9 @@
   --mood-spent: #e8402a;
   --mood-asleep: #f7a6c9;
   --creature-ink: #1e1b18;
+  /* Extra body swatches on Edit Character (443:3590), not Figma variables */
+  --paint-violet: #8a38f5;
+  --paint-charcoal: #3a3a36;
 
   /* Space */
   --space-4: 4px;

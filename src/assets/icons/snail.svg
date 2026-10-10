@@ -1,0 +1,5 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon/snail">
+<path id="Snail" d="M14 17C15.4 15.8 16 14.1 16 12.5C16 9.5 13.5 7 10.5 7C7.5 7 5 9.5 5 12.5C5 14.3 5.8 15.9 7.2 17M10.5 15.5C8.8 15.5 7.5 14.2 7.5 12.5C7.5 10.8 8.8 9.5 10.5 9.5C11.9 9.5 13 10.6 13 12C13 13.1 12.1 14 11 14C10.2 14 9.5 13.3 9.5 12.5M19 10L18 6M21 10L22 6M3 17H15C17 17 18 15.8 18 14V12C18 10.6 18.9 10 20 10C21.1 10 22 10.9 22 12V15C22 17.2 20.2 19 18 19H6C4.5 19 3.5 18.3 3 17Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>

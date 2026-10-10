@@ -37,6 +37,7 @@ import more from '@/assets/icons/more.svg';
 import mountain from '@/assets/icons/mountain.svg';
 import music from '@/assets/icons/music.svg';
 import noise from '@/assets/icons/noise.svg';
+import paperAirplane from '@/assets/icons/paper-airplane.svg';
 import paste from '@/assets/icons/paste.svg';
 import pencil from '@/assets/icons/pencil.svg';
 import people from '@/assets/icons/people.svg';
@@ -48,6 +49,7 @@ import scissors from '@/assets/icons/scissors.svg';
 import search from '@/assets/icons/search.svg';
 import settings from '@/assets/icons/settings.svg';
 import show from '@/assets/icons/show.svg';
+import snail from '@/assets/icons/snail.svg';
 import sort from '@/assets/icons/sort.svg';
 import sun from '@/assets/icons/sun.svg';
 import train from '@/assets/icons/train.svg';
@@ -58,12 +60,13 @@ import water from '@/assets/icons/water.svg';
 import week from '@/assets/icons/week.svg';
 import you from '@/assets/icons/you.svg';
 
-// 50 tiles from Iconography (34:681), plus scissors and more (Event 368:9064), search and sort (People 387:1456).
+// 50 tiles from Iconography (34:681), plus scissors and more (Event 368:9064), search and sort (People 387:1456),
+// snail and paper-airplane (Profile 443:3735).
 const icons = {
   apple, arrow, back, bell, bolt, book, box, calendar, car, chain, check, chevron, clock, close,
   copy, cup, file, film, fork, google, hand, heart, hide, home, leaf, mail, meeting, message, mic,
-  moon, more, mountain, music, noise, paste, pencil, people, phone, plans, plus, refresh, scissors,
-  search, settings, show, sort, sun, train, trash, undo, walk, water, week, you,
+  moon, more, mountain, music, noise, 'paper-airplane': paperAirplane, paste, pencil, people, phone, plans, plus, refresh, scissors,
+  search, settings, show, snail, sort, sun, train, trash, undo, walk, water, week, you,
 } satisfies Record<string, FC<SvgProps>>;
 
 export type IconName = keyof typeof icons;
