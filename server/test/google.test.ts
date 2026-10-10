@@ -71,6 +71,19 @@ test('tokens come from Neon Auth, only with Calendar access, never readable as a
   await pool.query('update neon_auth.account set scope = $2 where "userId" = $1', [user.uuid, `openid ${CALENDAR}`]);
 });
 
+test('native sign-in: the exchanged refresh token is saved on the Neon Auth account', async () => {
+  await pool.query('update neon_auth.account set "refreshToken" = null where "userId" = $1', [user.uuid]);
+  assert.equal(await withService(pool, (c) => googleAccount(c, user.sub)), null);
+  const saved = (await withService(pool, (c) => c.$client.query(
+    'select app.save_google_refresh_token($1, $2, $3) as ok', [user.sub, 'refresh-secret', `openid ${CALENDAR}`],
+  ))).rows[0].ok;
+  assert.equal(saved, true);
+  assert.equal((await withService(pool, (c) => googleAccount(c, user.sub)))?.refresh_token, 'refresh-secret');
+  await assert.rejects(withUser(pool, user, (c) => c.$client.query(
+    'select app.save_google_refresh_token($1, $2, $3)', [user.sub, 'x', ''],
+  )), 'app_user cannot write tokens');
+});
+
 test('first sync has a time window, skips all-day events, keeps people', async () => {
   googleItems = [
     { id: 'a', status: 'confirmed', summary: 'Standup', start: { dateTime: at(9) }, end: { dateTime: at(10) },
