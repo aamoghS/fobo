@@ -1,5 +1,7 @@
-// DAY_ROOM: must match day_scores in db/migrations/009_frontend_shapes.sql and packages/core DAY_ROOM.
-export const DAY_ROOM = 10;
+import { DAY_ROOM } from '@fobo/core/constants';
+
+// One day's room, shared with the app. It must also match day_scores in the migrations.
+export { DAY_ROOM };
 
 // "2026-10-10T19:00-04:00": a local wall-clock time with its offset, readable by people and models.
 export function localIso(d: Date, tz: string): string {

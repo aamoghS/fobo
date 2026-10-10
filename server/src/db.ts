@@ -1,4 +1,5 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Pool as NeonPool, types as neonTypes } from '@neondatabase/serverless';
 import pg from 'pg';
 import { profiles, schema } from './schema.ts';
 
@@ -8,10 +9,16 @@ export type Db = NodePgDatabase<typeof schema> & { $client: pg.PoolClient };
 
 // Plan costs and day loads are numeric (tenths); hand them to the app as numbers, not strings.
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+neonTypes.setTypeParser(pg.types.builtins.NUMERIC, (v: string) => Number(v));
 
 // Use Neon's pooled connection string. SET LOCAL does not survive a transaction pool across
 // statements, so every request runs inside its own transaction.
+// Neon is reached with its serverless driver, over WebSockets on port 443, which works on networks
+// that block Postgres' port 5432 (and on Neon Functions). Other databases (tests) use pg directly.
 export function createPool(connectionString = process.env.DATABASE_URL): pg.Pool {
+  if (connectionString && new URL(connectionString).hostname.endsWith('.neon.tech')) {
+    return new NeonPool({ connectionString }) as unknown as pg.Pool;
+  }
   return new pg.Pool({ connectionString });
 }
 

@@ -1,11 +1,10 @@
 import type { CalEvent, Clock, Mood, Profile, Wash } from './types'
 import { DAYS, clock, toMin } from './time'
+import { DAY_ROOM, FULL_DAY } from './constants'
 
-/** Every day has the same room. Profiles change what costs what, never how much room a person "deserves". */
-// DAY_ROOM: must match day_scores in db/migrations/003_friend_access.sql and server/src/time.ts.
-export const DAY_ROOM = 10
-/** A day at or above this load counts as full. */
-export const FULL_DAY = 8
+// Every day has the same room. Profiles change what costs what, never how much room a person
+// "deserves". The values live in ./constants, which the API server imports too.
+export { DAY_ROOM, FULL_DAY }
 
 export function dayEvents(events: CalEvent[], day: number): CalEvent[] {
   return events.filter((e) => e.day === day).sort((a, b) => toMin(a.start) - toMin(b.start))

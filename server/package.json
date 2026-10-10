@@ -9,6 +9,8 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@fobo/core": "*",
+    "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "jose": "^6.2.12",
     "pg": "^8.13.1"

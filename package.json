@@ -1,6 +1,7 @@
 {
   "name": "fobo",
   "main": "expo-router/entry",
+  "workspaces": ["server", "packages/*"],
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",
@@ -39,6 +40,10 @@
   },
   "scripts": {
     "dev": "expo start --web",
+    "dev:all": "node scripts/dev-all.mjs",
+    "server": "npm run dev -w fobo-server",
+    "migrate": "npm run migrate -w fobo-server",
+    "test:server": "npm test -w fobo-server",
     "start": "expo start",
     "web": "expo start --web",
     "android": "expo run:android",

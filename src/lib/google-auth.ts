@@ -16,7 +16,9 @@ function load() {
   try {
     google = require('@react-native-google-signin/google-signin') as typeof GoogleSignInModule;
   } catch {
-    throw new Error('Google sign-in needs a development build; it is not available in Expo Go.');
+    // Expo Go has no native Google module, and Neon Auth only returns to web addresses, so Google
+    // sign-in on a phone needs the Fobo development build (eas build --profile development).
+    throw new Error('Google sign-in works in the Fobo app build, not in Expo Go. You can still look around with sample data.');
   }
   google.GoogleSignin.configure({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
