@@ -80,3 +80,15 @@ export function shortDateRange(start: string, end: string) {
   const range = `${clock(a)}${same ? '' : ` ${period(a).toUpperCase()}`}–${clock(b)} ${period(b).toUpperCase()}`;
   return `${WEEKDAYS[a.getDay()].slice(0, 3)}, ${SHORT_MONTH(a)} ${a.getDate()} · ${range}`;
 }
+
+/** Weigh a plan day headings: "Saturday, Oct 10". */
+export function dayHeading(iso: string) {
+  const d = toDate(iso);
+  return `${WEEKDAYS[d.getDay()]}, ${SHORT_MONTH(d)} ${d.getDate()}`;
+}
+
+/** Weigh a plan rows: "7 PM", "10 AM", "7:30 PM". */
+export function startTime(iso: string) {
+  const d = toDate(iso);
+  return `${clock(d)} ${period(d).toUpperCase()}`;
+}
