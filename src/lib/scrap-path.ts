@@ -12,13 +12,12 @@ export function cutDepth(cut: ScrapCut, w: number) {
   const s = w / BASE_W;
   switch (cut) {
     case 'work':
-      return 11 * s;
     case 'past':
-      return 4 * s;
+      return 11 * s;
     case 'social':
       return 12 * s;
     case 'obligation':
-      return 14 * s;
+      return 18 * s;
     case 'enjoy':
       return 15 * s;
     case 'rest':
@@ -69,17 +68,15 @@ function topCut(cut: ScrapCut, w: number, s: number): string {
   const x = (n: number) => R(n * s);
   switch (cut) {
     case 'work':
+    case 'past':
       // Snipped corner, top-right.
       return `0 ${x(4)} L${x(1)} 0 L${x(50)} ${x(0.8)} L${R(w)} ${x(11)}`;
-    case 'past':
-      // Nearly flat, a soft bow across the top. Past plans lose their kind's cut as they drain.
-      return `0 ${x(4)} C${x(16)} ${x(0.5)} ${x(46)} 0 ${R(w)} ${x(3)}`;
     case 'social':
       // Two soft peaks, the left one taller, with a dip between.
       return `0 ${x(10)} C${x(5)} ${x(1)} ${x(13)} 0 ${x(18)} ${x(1)} C${x(25)} ${x(5)} ${x(29)} ${x(9)} ${x(34)} ${x(8)} C${x(40)} ${x(6)} ${x(46)} ${x(2)} ${x(52)} ${x(1.5)} C${x(57)} ${x(1)} ${x(61)} ${x(4)} ${R(w)} ${x(9)}`;
     case 'obligation':
-      // Crown: three points.
-      return `0 ${x(14)} L${x(11)} ${x(1)} L${x(22)} ${x(10)} L${x(32)} 0 L${x(42)} ${x(10)} L${x(53)} ${x(1)} L${R(w)} ${x(14)}`;
+      // Crown: four uneven points.
+      return `0 ${x(18)} L${x(5)} ${x(1)} L${x(16)} ${x(14)} L${x(24)} 0 L${x(33)} ${x(13)} L${x(42)} ${x(1.5)} L${x(50)} ${x(14)} L${x(59)} 0 L${R(w)} ${x(16)}`;
     case 'enjoy': {
       // Two round bumps.
       const rx = R(w / 4);
