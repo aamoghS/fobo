@@ -157,14 +157,17 @@ function Frame({
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.frame, { paddingTop: Math.max(insets.top, 40), paddingBottom: Math.max(insets.bottom, 40) }]}>
-      {/* Start keeps the header's space but hides it (opacity 0 in Figma). */}
-      {step === 'start' ? <View style={styles.headerSpace} /> : <Header step={step} editing={editing} />}
-      <View style={[styles.body, { gap }]}>{children}</View>
-      <Button label={cta} disabled={!ready} onPress={onNext} />
-    </ScrollView>
+    <View style={styles.screen}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.frame, { paddingTop: Math.max(insets.top, 40) }]}>
+        {/* Start keeps the header's space but hides it (opacity 0 in Figma). */}
+        {step === 'start' ? <View style={styles.headerSpace} /> : <Header step={step} editing={editing} />}
+        <View style={[styles.body, { gap }]}>{children}</View>
+      </ScrollView>
+      {/* Pinned, so the button sits in the same spot on every step however long the content runs. */}
+      <View style={[styles.pinned, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+        <Button label={cta} disabled={!ready} onPress={onNext} />
+      </View>
+    </View>
   );
 }
 
@@ -241,47 +244,49 @@ function Compare({ onDone }: { onDone: () => void }) {
     onDone();
   };
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.compare, { paddingTop: Math.max(insets.top, 40), paddingBottom: insets.bottom }]}>
-      <View style={styles.compareHeader}>
-        <Header step="compare" />
-      </View>
-      <View style={styles.question}>
-        <Text accessibilityRole="header" style={[type.display, styles.strong]}>
-          Which activity took more energy?
-        </Text>
-        <Text style={[type.sub, styles.muted]}>Think about how you felt afterward.</Text>
-      </View>
-      <View style={styles.activities}>
-        {PAIR.map((a) => (
-          <Pressable key={a.id} accessibilityRole="button" accessibilityLabel={`${a.title}, ${a.meta}`} onPress={() => pick(a.id)} style={styles.card}>
-            <View style={styles.cardArt}>
-              <Image source={a.art} style={StyleSheet.absoluteFill} contentFit="cover" />
-            </View>
-            <View style={styles.badge}>
-              <Image source={a.badge} style={StyleSheet.absoluteFill} contentFit="cover" />
-            </View>
-            <View style={styles.cardText}>
-              <Text style={[type.title, styles.strong]}>{a.title}</Text>
-              <Text style={[type.sub, styles.muted]}>{a.meta}</Text>
-            </View>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.compareFooter}>
+    <View style={styles.screen}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.compare, { paddingTop: Math.max(insets.top, 40) }]}>
+        <View style={styles.compareHeader}>
+          <Header step="compare" />
+        </View>
+        <View style={styles.question}>
+          <Text accessibilityRole="header" style={[type.display, styles.strong]}>
+            Which activity took more energy?
+          </Text>
+          <Text style={[type.sub, styles.muted]}>Think about how you felt afterward.</Text>
+        </View>
+        <View style={styles.activities}>
+          {PAIR.map((a) => (
+            <Pressable key={a.id} accessibilityRole="button" accessibilityLabel={`${a.title}, ${a.meta}`} onPress={() => pick(a.id)} style={styles.card}>
+              <View style={styles.cardArt}>
+                <Image source={a.art} style={StyleSheet.absoluteFill} contentFit="cover" />
+              </View>
+              <View style={styles.badge}>
+                <Image source={a.badge} style={StyleSheet.absoluteFill} contentFit="cover" />
+              </View>
+              <View style={styles.cardText}>
+                <Text style={[type.title, styles.strong]}>{a.title}</Text>
+                <Text style={[type.sub, styles.muted]}>{a.meta}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+      <View style={[styles.compareFooter, { paddingBottom: Math.max(insets.bottom, 40) }]}>
         <Button label="About the Same" style={styles.stretch} onPress={() => pick('same')} />
         <Pressable accessibilityRole="button" onPress={() => pick('unknown')} hitSlop={12}>
           <Text style={[type.sub, styles.faint]}>Can’t remember</Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  frame: { flexGrow: 1, paddingHorizontal: 20, justifyContent: 'space-between' },
+  scroll: { flex: 1 },
+  frame: { flexGrow: 1, paddingHorizontal: 20 },
+  pinned: { paddingHorizontal: 20 },
   ink: { color: color.ink },
   strong: { color: color.inkStrong },
   muted: { color: color.ink2 },
@@ -296,7 +301,7 @@ const styles = StyleSheet.create({
   copy: { alignSelf: 'stretch', gap: 16 },
   answers: { flexDirection: 'row', gap: 8, alignSelf: 'stretch', marginHorizontal: -6 },
   radios: { alignSelf: 'stretch' },
-  compare: { flexGrow: 1 },
+  compare: { flexGrow: 1, paddingBottom: 20 },
   compareHeader: { paddingHorizontal: 20 },
   question: { paddingTop: 40, paddingBottom: 20, paddingHorizontal: 19, gap: 16 },
   activities: { paddingHorizontal: 14, gap: 10, flexDirection: 'row', alignItems: 'flex-start' },
@@ -314,6 +319,6 @@ const styles = StyleSheet.create({
   cardArt: { height: 137, borderRadius: radius.lg, overflow: 'hidden' },
   badge: { position: 'absolute', left: 15, top: 115, width: 55, height: 55, borderRadius: radius.full, overflow: 'hidden' },
   cardText: { paddingHorizontal: 4, gap: 8 },
-  compareFooter: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', gap: 16, paddingHorizontal: 18, paddingBottom: 40 },
+  compareFooter: { alignItems: 'center', gap: 16, paddingHorizontal: 18 },
   stretch: { alignSelf: 'stretch' },
 });

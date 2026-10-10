@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -13,14 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import CelebratingArt from '@/assets/illustrations/celebrating.svg';
 import CozyArt from '@/assets/illustrations/cozy.svg';
 import SunshineFaceArt from '@/assets/illustrations/sunshine-face.svg';
 import SunshinePetalsArt from '@/assets/illustrations/sunshine-petals.svg';
 import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
-import { Tooltip } from '@/components/Tooltip';
 import { loadLive } from '@/data/live';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { color } from '@/styles/tokens';
@@ -29,7 +27,9 @@ import { type } from '@/styles/type';
 import { AuthHeader } from './AuthHeader';
 import { CelebratingSun } from './CelebratingSun';
 import { SwitchLink } from './SwitchLink';
-import { handOffSun } from './sunHandoff';
+import { handOffCelebration, handOffSun } from './sunHandoff';
+import { welcomeScene } from './sunLayout';
+import { useAuthForm } from './useAuthForm';
 import { handOffWelcomeSun, useFadeIn, WelcomeArt } from './WelcomeArt';
 
 // Google sign-in goes through Neon Auth. Email sign-in isn't wired yet: it continues into onboarding.
@@ -158,90 +158,53 @@ export function Welcome() {
   );
 }
 
-type SignUpField = 'name' | 'email' | 'password';
-const FIELDS: SignUpField[] = ['name', 'email', 'password'];
-
-/** Every field is required. Hints aren't in Figma yet: they need a pass from UX writing. */
-const RULES: Record<SignUpField, { ok: (v: string) => boolean; hint: string }> = {
-  name: { ok: (v) => v.trim() !== '', hint: 'Enter your name' },
-  // Something@something.ending, with an ending of at least two letters.
-  email: { ok: (v) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v.trim()), hint: 'Enter a valid email, like name@example.com' },
-  password: { ok: (v) => v.length >= 8, hint: 'Use at least 8 characters for your password' },
-};
-
 /** Sign up (360:7306). */
 export function SignUp() {
   const router = useRouter();
   const google = useGoogle(ONBOARDING);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
-  // A field turns red once it's been left, or after a tap on Create Account. It shakes as it turns red.
-  const [seen, setSeen] = useState<Record<SignUpField, boolean>>({ name: false, email: false, password: false });
-  const [shakes, setShakes] = useState<Record<SignUpField, number>>({ name: 0, email: 0, password: 0 });
-  const bad = (f: SignUpField) => !RULES[f].ok(form[f]);
-  const red = (f: SignUpField) => seen[f] && bad(f);
-  const ready = FIELDS.every((f) => !bad(f));
-  const hint = FIELDS.find(red);
-  const flag = (fields: SignUpField[]) => {
-    setSeen((s) => ({ ...s, ...Object.fromEntries(fields.map((f) => [f, true])) }));
-    setShakes((s) => ({ ...s, ...Object.fromEntries(fields.map((f) => [f, s[f] + 1])) }));
-  };
-  const leave = (f: SignUpField) => () => bad(f) && !seen[f] && flag([f]);
-  const create = () => (ready ? router.push(ONBOARDING) : flag(FIELDS.filter(bad)));
+  const { field, ready, submit } = useAuthForm('signup');
   return (
     <Screen
       footer={
         <View style={styles.footerLink}>
-          <View>
-            <Tooltip text={hint ? RULES[hint].hint : ''} visible={!!hint} />
-            <Button
-              label="Create Account"
-              dimmed={!ready}
-              accessibilityHint={ready ? undefined : 'Fill in your name, email and password first'}
-              onPress={create}
-            />
-          </View>
-          <SwitchLink prompt="Already have an account?" link="Log in" strongPrompt onPress={() => router.replace('/login')} />
+          <Button
+            label="Create Account"
+            dimmed={!ready}
+            accessibilityHint={ready ? undefined : 'Fill in your name, email and password first'}
+            onPress={() => submit(() => router.push(ONBOARDING))}
+          />
+          <SwitchLink prompt="Already have an account?" link="Log in" strongPrompt onPress={() => {
+            handOffCelebration();
+            router.replace('/login');
+          }} />
         </View>
       }>
       <View style={styles.form}>
-        <AuthHeader title="Create your account" Art={CelebratingSun} />
+        <AuthHeader title="Create your account" Art={CelebratingSun} alignWelcomeSun />
         <View style={styles.fields}>
           <GoogleOr label="Sign up with Google" onPress={google} />
           <View style={styles.fieldList}>
             <TextField
+              {...field('name')}
               label="Name"
               placeholder="Enter your full name"
-              value={form.name}
-              onChangeText={set('name')}
-              onBlur={leave('name')}
-              invalid={red('name')}
-              shake={shakes.name}
               autoComplete="name"
               textContentType="name"
             />
             <TextField
+              {...field('email')}
               label="Email"
               placeholder="Enter your email"
-              value={form.email}
-              onChangeText={set('email')}
-              onBlur={leave('email')}
-              invalid={red('email')}
-              shake={shakes.email}
               autoComplete="email"
               keyboardType="email-address"
               autoCapitalize="none"
               textContentType="emailAddress"
             />
             <TextField
+              {...field('password')}
               label="Password"
               placeholder="Enter your password"
               password
-              value={form.password}
-              onChangeText={set('password')}
-              onBlur={leave('password')}
-              invalid={red('password')}
-              shake={shakes.password}
               autoComplete="new-password"
               textContentType="newPassword"
             />
@@ -256,38 +219,43 @@ export function SignUp() {
 export function Login() {
   const router = useRouter();
   const google = useGoogle('/week');
-  const [form, setForm] = useState({ email: '', password: '' });
-  const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const { field, ready, submit } = useAuthForm('login');
   return (
     <Screen
       footer={
         <View style={styles.footerLink}>
-          <Button label="Log in" onPress={() => router.replace('/week')} />
-          <SwitchLink prompt="New to Fobo?" link="Sign up" onPress={() => router.replace('/signup')} />
+          <Button
+            label="Log in"
+            dimmed={!ready}
+            accessibilityHint={ready ? undefined : 'Fill in a valid email and password first'}
+            onPress={() => submit(() => router.replace('/week'))}
+          />
+          <SwitchLink prompt="New to Fobo?" link="Sign up" onPress={() => {
+            handOffCelebration();
+            router.replace('/signup');
+          }} />
         </View>
       }>
       <View style={styles.form}>
-        <AuthHeader title="Welcome back!" Art={CelebratingArt} />
+        <AuthHeader title="Welcome back!" Art={CelebratingSun} alignWelcomeSun />
         <View style={styles.fields}>
           <GoogleOr label="Log in with Google" onPress={google} />
           <View style={styles.fieldList}>
             {/* Figma placeholder reads "Enter your full name"; DESIGN.md §5 corrects it. */}
             <TextField
+              {...field('email')}
               label="Email"
               placeholder="Enter your email"
-              value={form.email}
-              onChangeText={set('email')}
               autoComplete="email"
               keyboardType="email-address"
               autoCapitalize="none"
               textContentType="emailAddress"
             />
             <TextField
+              {...field('password')}
               label="Password"
               placeholder="Enter your password"
               password
-              value={form.password}
-              onChangeText={set('password')}
               autoComplete="current-password"
               textContentType="password"
             />
@@ -303,9 +271,18 @@ export function Login() {
 
 /** Forgot password (368:8206). */
 export function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const { field, ready, submit } = useAuthForm('forgot');
   return (
-    <Screen footer={<Button label="Send Code" />}>
+    <Screen
+      footer={
+        <Button
+          label="Send Code"
+          dimmed={!ready}
+          accessibilityHint={ready ? undefined : 'Fill in a valid email first'}
+          // Sending the code isn't wired up yet; a valid email just clears the check for now.
+          onPress={() => submit(() => {})}
+        />
+      }>
       <View style={styles.form}>
         <AuthHeader
           title="Forgot Password?"
@@ -314,10 +291,9 @@ export function ForgotPassword() {
         />
         {/* Figma placeholder reads "Enter your full name"; DESIGN.md §5 corrects it. */}
         <TextField
+          {...field('email')}
           label="Email"
           placeholder="Enter your email"
-          value={email}
-          onChangeText={setEmail}
           autoComplete="email"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -347,22 +323,23 @@ function Screen({ children, footer }: { children: ReactNode; footer: ReactNode }
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: Math.max(insets.top, 40), paddingBottom: Math.max(insets.bottom, 40) },
-        ]}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 40) }]}
         keyboardShouldPersistTaps="handled">
-        <View>{children}</View>
-        <View style={styles.footer}>{footer}</View>
+        {children}
       </ScrollView>
+      {/* Pinned, so the buttons sit in the same spot on every screen however long the content runs. */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 40) }]}>{footer}</View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { flexGrow: 1, paddingHorizontal: 20, justifyContent: 'space-between', gap: 40 },
-  footer: { gap: 12 },
+  scroll: { flex: 1 },
+  // 40 under the content keeps the old gap above the buttons when it runs long.
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
+  footer: { gap: 12, paddingHorizontal: 20 },
   footerLink: { gap: 16 },
   ink: { color: color.ink },
   splash: {
@@ -376,7 +353,7 @@ const styles = StyleSheet.create({
   // Petals and face share a 160 box centred on the flower's middle, (73.75, 73.4) in the 144x147 frame.
   sunLayer: { position: 'absolute', left: -6.25, top: -6.6, width: 160, height: 160 },
   wordmark: { color: color.ink, letterSpacing: -1.632 },
-  welcome: { paddingVertical: 40, gap: 80, alignItems: 'center' },
+  welcome: { paddingVertical: welcomeScene.paddingY, gap: 80, alignItems: 'center' },
   pitch: { alignSelf: 'stretch', gap: 16 },
   form: { gap: 40 },
   fields: { gap: 20 },

@@ -10,44 +10,47 @@ import WelcomeEyesArt from '@/assets/illustrations/little-guys/sun-eyes.svg';
 import WelcomeFaceArt from '@/assets/illustrations/little-guys/sun-face.svg';
 import WelcomePetalsArt from '@/assets/illustrations/little-guys/sun-petals.svg';
 
-import { takeSun } from './sunHandoff';
+import { takeCelebration, takeSun } from './sunHandoff';
+import { celebratingScene } from './sunLayout';
 
 const native = Platform.OS !== 'web';
 // Pre-login's sun is drawn tipped 8.3° anticlockwise; this one is upright.
 const TILT = 8.3;
 
 /**
- * Sign up's celebrating sun (106x142, as the Figma export). Coming from Pre-login, it takes over that sun:
- * one more spin into its own petals, its eyes close, then the party hat drops on and the confetti pops.
+ * The auth screens' celebrating sun (106x142, as the Figma export). It gently turns into its own petals,
+ * closes its eyes, then gets its party hat and confetti. From Pre-login, it takes over the same sun.
+ * Switching between auth forms keeps the sun settled and only pops the confetti.
  */
 export function CelebratingSun(_: { width?: number; height?: number }) {
   const [from] = useState(takeSun);
+  const [confettiOnly] = useState(takeCelebration);
   const anchor = useRef<View>(null);
   const v = useRef({
-    shown: new Animated.Value(from ? 0 : 1),
-    move: new Animated.Value(from ? 0 : 1),
-    turn: new Animated.Value(from ? 0 : 1),
-    swap: new Animated.Value(from ? 0 : 1),
-    blink: new Animated.Value(from ? 0 : 1),
-    hat: new Animated.Value(from ? 0 : 1),
-    confetti: new Animated.Value(from ? 0 : 1),
+    shown: new Animated.Value(confettiOnly ? 1 : 0),
+    move: new Animated.Value(confettiOnly ? 1 : 0),
+    turn: new Animated.Value(confettiOnly ? 1 : 0),
+    swap: new Animated.Value(confettiOnly ? 1 : 0),
+    blink: new Animated.Value(confettiOnly ? 1 : 0),
+    hat: new Animated.Value(confettiOnly ? 1 : 0),
+    confetti: new Animated.Value(0),
   }).current;
   const [offset, setOffset] = useState<{ dx: number; dy: number }>();
 
   useEffect(() => {
-    if (!from) return;
     let live = true;
     AccessibilityInfo.isReduceMotionEnabled()
       .catch(() => false)
       .then((reduce) => {
         if (!live) return;
-        if (reduce || !anchor.current) return Object.values(v).forEach((a) => a.setValue(1));
+        if (reduce) return Object.values(v).forEach((a) => a.setValue(1));
+        if (confettiOnly || !from || !anchor.current) return setOffset({ dx: 0, dy: 0 });
         anchor.current.measureInWindow((x, y) => live && setOffset({ dx: from.x - (x + 40), dy: from.y - (y + 40) }));
       });
     return () => {
       live = false;
     };
-  }, [from, v]);
+  }, [from, confettiOnly, v]);
 
   // Starts once the offset has rendered, so the sun never shows a frame in the wrong place.
   useEffect(() => {
@@ -57,18 +60,18 @@ export function CelebratingSun(_: { width?: number; height?: number }) {
       Animated.timing(a, { toValue: 1, duration, delay, easing, useNativeDriver: native });
     const s = (a: Animated.Value, delay: number) =>
       Animated.spring(a, { toValue: 1, delay, friction: 5, tension: 80, useNativeDriver: native });
-    const intro = Animated.parallel([
+    const intro = confettiOnly ? s(v.confetti, 0) : Animated.parallel([
       t(v.move, 700, 0, Easing.inOut(Easing.quad)),
-      t(v.turn, 1100, 0, Easing.out(Easing.cubic)),
+      t(v.turn, 2400, 0, Easing.inOut(Easing.quad)),
       // Petals and face swap mid-spin, while it's turning fastest.
-      t(v.swap, 300, 200, Easing.inOut(Easing.quad)),
-      t(v.blink, 280, 850, Easing.in(Easing.quad)),
-      s(v.hat, 1050),
-      s(v.confetti, 1200),
+      t(v.swap, 500, 900, Easing.inOut(Easing.quad)),
+      t(v.blink, 350, 2050, Easing.in(Easing.quad)),
+      s(v.hat, 2400),
+      s(v.confetti, 2600),
     ]);
     intro.start();
     return () => intro.stop();
-  }, [offset, v]);
+  }, [offset, confettiOnly, v]);
 
   const lerp = (a: Animated.Value, out: number[] | string[], input = [0, 1]) =>
     a.interpolate({ inputRange: input, outputRange: out, extrapolate: 'clamp' });
@@ -133,7 +136,7 @@ export function CelebratingSun(_: { width?: number; height?: number }) {
 }
 
 const styles = StyleSheet.create({
-  frame: { width: 106, height: 142 },
+  frame: { width: celebratingScene.width, height: celebratingScene.height },
   // The sun's 80 box, centred on its middle at (53.94, 73.47) in the 106x142 frame.
-  sun: { position: 'absolute', left: 53.94 - 40, top: 73.47 - 40, width: 80, height: 80 },
+  sun: { position: 'absolute', left: celebratingScene.sunX - 40, top: celebratingScene.sunY - 40, width: 80, height: 80 },
 });

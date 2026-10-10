@@ -13,6 +13,7 @@ import YellowArt from '@/assets/illustrations/little-guys/yellow.svg';
 import SplashFaceArt from '@/assets/illustrations/sunshine-face.svg';
 
 import { handOffSun, takeSun } from './sunHandoff';
+import { welcomeScene } from './sunLayout';
 
 const native = Platform.OS !== 'web';
 
@@ -191,8 +192,8 @@ function popStyle(v: Animated.Value): Animated.WithAnimatedValue<ViewStyle> {
 
 const styles = StyleSheet.create({
   // 315x255 in Figma; the export is the scene's full bounds, so its origin sits up and to the left of the frame.
-  frame: { width: 315, height: 255, zIndex: 1 },
+  frame: { width: welcomeScene.width, height: welcomeScene.height, zIndex: 1 },
   layer: { position: 'absolute', left: -10.7, top: -29.5, width: 365, height: 397 },
   // The sun's 160 box, centred on its middle at (296.27, 35.57) in the scene.
-  sun: { position: 'absolute', left: 296.27 - 10.7 - 80, top: 35.57 - 29.5 - 80, width: 160, height: 160 },
+  sun: { position: 'absolute', left: welcomeScene.sunX - 80, top: welcomeScene.sunY - 80, width: 160, height: 160 },
 });
