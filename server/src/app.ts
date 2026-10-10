@@ -4,8 +4,9 @@
 import type pg from 'pg';
 import { verify } from './auth.ts';
 import { createPool } from './db.ts';
-import { HttpError, json, readJson, type Route } from './http.ts';
+import { HttpError, cached, json, readJson, type Route } from './http.ts';
 import { publicRoutes } from './routes/auth.ts';
+import { pageRoutes } from './routes/pages.ts';
 import { eventRoutes } from './routes/events.ts';
 import { fixRoutes } from './routes/fix.ts';
 import { friendRoutes } from './routes/friends.ts';
@@ -23,6 +24,8 @@ export function createHandler(pool: pg.Pool = createPool()) {
       // Sign-in routes run before anyone is signed in.
       const open = publicRoutes.find((x) => x.method === req.method && x.path === url.pathname);
       if (open) return await open.run(req, pool);
+      const pageRoute = pageRoutes.find((x) => x.method === req.method && x.path === url.pathname);
+      if (pageRoute) return await pageRoute.run();
       let match: RegExpExecArray | null = null;
       const r = routes.find((x) => x.method === req.method && (match = x.pattern.exec(url.pathname)));
       if (!r || !match) return json(404, { error: 'not found' });
@@ -31,7 +34,7 @@ export function createHandler(pool: pg.Pool = createPool()) {
       const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(match![i + 1])]));
       const body = req.method === 'GET' ? {} : await readJson(req);
       const out = await r.handler({ pool, claims, params, query: url.searchParams, body });
-      return json(200, out ?? { ok: true });
+      return req.method === 'GET' ? cached(req, out ?? null) : json(200, out ?? { ok: true });
     } catch (e) {
       if (e instanceof HttpError) return json(e.status, { error: e.message });
       // Postgres integrity and input errors (bad handle, taken handle, bad date) are the caller's.

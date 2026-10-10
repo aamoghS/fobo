@@ -141,19 +141,20 @@ export const friendRoutes = [
       const from = query.get('from');
       const last = from ? new Date(Date.parse(from) + 13 * 864e5).toISOString().slice(0, 10) : null;
       const to = query.get('to');
-      const scores = await dayScores(db, params.id, from, to && last && to > last ? last : to);
-      const days = [];
-      for (const s of scores) {
-        const blocks = await friendBlocks(db, params.id, s.day);
-        const titles = blocks.map((b) => b.title).filter((t): t is string => !!t);
-        days.push({
-          date: s.day,
-          busy: blocks.length > 0,
-          load: s.load,
-          ...(titles.length ? { sharedPlanTitles: titles } : {}),
-        });
-      }
-      return days;
+      // One query: each day's score with that day's blocks, instead of one query per day.
+      const { rows } = await db.execute<{ day: string; load: number; blocks: number; titles: string[] }>(sql`  
+        select to_char(s.day, 'YYYY-MM-DD') as day, s.load, count(b.*)::int as blocks,
+               coalesce(array_agg(b.title) filter (where b.title is not null), '{}') as titles
+        from day_scores(${params.id}, ${from}::date, ${to && last && to > last ? last : to}::date) s
+        left join lateral friend_blocks(${params.id}, s.day) b on true
+        group by s.day, s.load
+        order by s.day`);
+      return rows.map((r) => ({
+        date: r.day,
+        busy: r.blocks > 0,
+        load: r.load,
+        ...(r.titles.length ? { sharedPlanTitles: r.titles } : {}),
+      }));
     })),
 
   // Works for an accepted friend who shares scores, or for the caller's own id.

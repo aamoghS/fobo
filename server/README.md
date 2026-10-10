@@ -39,6 +39,17 @@ Neon Auth tokens. Neon Auth cannot sign in from an ID token, so it cannot serve 
 Google Cloud (project `fobo-511204`): the web client lists the API's callback
 (`<PUBLIC_API_URL>/auth/google/callback`); the app is in Testing, so only listed test users can sign in.
 
+## Performance
+
+- GET answers carry a weak ETag (`Cache-Control: private, no-cache`). The app sends `If-None-Match` and
+  reuses its copy on `304`, so the 30 s polling costs little when nothing changed; any write clears it.
+- Google access tokens are reused for their lifetime (about an hour) per function instance.
+- `/google-sync` skips accounts synced in the last 30 s, so several devices polling share one sync;
+  calendars are fetched from Google in parallel.
+- `/friends/:id/days` is one query (scores joined with each day's blocks).
+- One pooled Neon connection per function instance, over WebSockets (port 443); each request is one
+  transaction with `SET LOCAL ROLE`.
+
 ## Routes
 
 Times are the user's local wall-clock, `'2026-10-05T09:00'`, as the app writes them. Times sent without an

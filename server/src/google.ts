@@ -24,11 +24,18 @@ async function token(params: Record<string, string>) {
     }),
   });
   if (!res.ok) throw new Error(`google token request failed: ${res.status}`);
-  return (await res.json()) as { access_token: string };
+  return (await res.json()) as { access_token: string; expires_in?: number };
 }
 
+// Access tokens last about an hour; reuse them instead of asking Google on every sync.
+const accessCache = new Map<string, { token: string; until: number }>();
+
 export async function accessToken(refreshToken: string) {
-  return (await token({ refresh_token: refreshToken, grant_type: 'refresh_token' })).access_token;
+  const hit = accessCache.get(refreshToken);
+  if (hit && hit.until > Date.now()) return hit.token;
+  const t = await token({ refresh_token: refreshToken, grant_type: 'refresh_token' });
+  accessCache.set(refreshToken, { token: t.access_token, until: Date.now() + ((t.expires_in ?? 3600) - 120) * 1000 });
+  return t.access_token;
 }
 
 function call(access: string, path: string, init: RequestInit = {}) {

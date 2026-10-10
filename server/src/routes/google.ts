@@ -30,10 +30,14 @@ export const googleRoutes = [
   // Re-pulls every Google account the caller has connected.
   route('POST', '/google-sync', ({ pool, claims }) =>
     withService(pool, async (db) => {
-      const conns = await db.select({ id: calendarConnections.id }).from(calendarConnections)
-        .where(eq(calendarConnections.userId, claims.sub));
+      const conns = await db.select({ id: calendarConnections.id, lastSyncedAt: calendarConnections.lastSyncedAt })
+        .from(calendarConnections).where(eq(calendarConnections.userId, claims.sub));
       const results = [];
-      for (const { id } of conns) results.push({ connectionId: id, ...(await syncConnection(db, id)) });
+      for (const { id, lastSyncedAt } of conns) {
+        // Several devices polling at once share one sync: skip accounts synced in the last 30 s.
+        if (lastSyncedAt && Date.now() - new Date(lastSyncedAt).getTime() < 30_000) continue;
+        results.push({ connectionId: id, ...(await syncConnection(db, id)) });
+      }
       return { results };
     })),
 
