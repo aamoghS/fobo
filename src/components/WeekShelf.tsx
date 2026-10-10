@@ -37,7 +37,7 @@ export type ShelfDay = {
 };
 
 /** A plan being weighed: drawn on top of its day's stack, flying in before it lands. */
-export type Incoming = { date: string; plan: Plan; onLanded: () => void };
+export type Incoming = { date: string; plan: Plan; mood: Mood; onLanded: () => void };
 
 type Props = {
   days: ShelfDay[];
@@ -89,7 +89,8 @@ function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming
     <View style={styles.stack}>
       {/* Bottom-up by plan: column-reverse puts the first plan on the baseline. */}
       {blocks.map((p, i) => {
-        const isTop = i === blocks.length - 1;
+        // An incoming block is the top already, so nothing below it changes when it lands.
+        const isTop = i === blocks.length - 1 && !incoming;
         // The character grows by OVERLAP and its bottom is tucked over the scrap below, so the stack keeps its height.
         const lapsOver = isTop && blocks.length > 1;
         const visible = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
@@ -104,7 +105,9 @@ function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming
           </View>
         );
       })}
-      {incoming && <IncomingBlock plan={incoming.plan} past={day.past} onLanded={incoming.onLanded} />}
+      {incoming && (
+        <IncomingBlock plan={incoming.plan} mood={incoming.mood} past={day.past} lapsOver={blocks.length > 0} onLanded={incoming.onLanded} />
+      )}
       {/* Rest is a cushion drawn in front of the stack's base. */}
       {rest.length > 0 && (
         <View style={styles.cushion}>
@@ -123,7 +126,9 @@ const FROM_SIDE = 190;
  * upright as it slows, hangs above its day for a beat with motion marks, then drops onto the
  * stack, gives one soft squash and settles (onLanded hands it to the stack).
  */
-function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; onLanded: () => void }) {
+type IncomingProps = { plan: Plan; mood: Mood; past: boolean; lapsOver: boolean; onLanded: () => void };
+
+function IncomingBlock({ plan, mood, past, lapsOver, onLanded }: IncomingProps) {
   // fly: 0 = off to the right, 1 = hanging above the day. drop: 0 = hanging, 1 = on the stack.
   const fly = useRef(new Animated.Value(0)).current;
   const drop = useRef(new Animated.Value(0)).current;
@@ -168,12 +173,15 @@ function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; on
   // Leans into the flight, overshoots upright a touch, then straightens.
   const rotate = fly.interpolate({ inputRange: [0, 0.7, 1], outputRange: ['22deg', '-5deg', '0deg'] });
 
+  // Sized and placed exactly as it will be once it's part of the stack (see Stack).
   const visible = Math.max((plan.energyCost / DAY_ROOM) * FULL - GAP, 10);
-  const scale = Math.min(1, (visible - 2) / FACE_H.spent);
+  const h = visible + (lapsOver ? OVERLAP + GAP : 0);
+  const scale = Math.min(1, (visible - 2) / FACE_H[mood]);
   return (
     <Animated.View
       style={{
         marginTop: GAP,
+        ...(lapsOver && { marginBottom: -(OVERLAP + GAP) }),
         zIndex: 2,
         transformOrigin: 'bottom',
         transform: [
@@ -184,8 +192,8 @@ function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; on
           { scaleX: squash.interpolate({ inputRange: [0.88, 1], outputRange: [1.08, 1] }) },
         ],
       }}>
-      <Scrap cut={plan.kind} past={past} width={STACK_W} height={visible} seed={seedFrom(plan.id)} />
-      <FaceLayer Face={faces.spent} scale={scale} height={FACE_H.spent} />
+      <Scrap cut={plan.kind} past={past} width={STACK_W} height={h} seed={seedFrom(plan.id)} />
+      <FaceLayer Face={faces[mood]} scale={scale} height={FACE_H[mood]} />
       {/* Motion marks, either side, while it hangs there. */}
       <Animated.View pointerEvents="none" style={[styles.marks, { opacity: marks }]}>
         <Svg width={STACK_W + 28} height={24}>

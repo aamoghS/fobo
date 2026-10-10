@@ -29,12 +29,24 @@ function leaveBy(start: string) {
  * Weigh a plan, step two (Tory's mockups): the plan tried on its day. The new scrap flies in and
  * lands on the shelf, then the verdict, a suggestion and the actions arrive.
  */
-export function WeighResult({ candidate, onBack, onClose }: { candidate: Candidate; onBack: () => void; onClose: () => void }) {
+export function WeighResult({
+  candidate,
+  onBack,
+  onClose,
+  onAdd,
+}: {
+  candidate: Candidate;
+  onBack: () => void;
+  onClose: () => void;
+  onAdd: () => void;
+}) {
   const [landed, setLanded] = useState(false);
   const reveal = useRef(new Animated.Value(0)).current;
   const day = weekdayLong(candidate.start);
   const result = verdict(candidate);
   const copy = COPY[result](day);
+  // The face the day will wear once it lands, so nothing changes at the handover.
+  const landedMood = previewWeek(candidate, true).find((d) => d.selected)?.mood ?? 'fine';
 
   useEffect(() => {
     if (landed) Animated.timing(reveal, { toValue: 1, duration: 360, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
@@ -84,7 +96,11 @@ export function WeighResult({ candidate, onBack, onClose }: { candidate: Candida
             headroom={64}
             limitLabel="Your limit"
             separate={candidate.id}
-            incoming={landed ? undefined : { date: candidate.start.slice(0, 10), plan: asPlan(candidate), onLanded: () => setLanded(true) }}
+            incoming={
+              landed
+                ? undefined
+                : { date: candidate.start.slice(0, 10), plan: asPlan(candidate), mood: landedMood, onLanded: () => setLanded(true) }
+            }
           />
 
           {!landed && <Text style={[type.foot, styles.muted, styles.center]}>Preview only</Text>}
@@ -105,8 +121,8 @@ export function WeighResult({ candidate, onBack, onClose }: { candidate: Candida
 
       {landed && (
         <Animated.View style={[styles.footer, rise]}>
-          {/* Adding to the week isn't wired yet. Over the limit, the shorter visit above is the way to adjust. */}
-          <Button label={result === 'room' ? 'Add to my week' : 'Add as planned'} trailingIcon="arrow" />
+          {/* Over the limit, the shorter visit above is the way to adjust. */}
+          <Button label={result === 'room' ? 'Add to my week' : 'Add as planned'} trailingIcon="arrow" onPress={onAdd} />
         </Animated.View>
       )}
     </View>
