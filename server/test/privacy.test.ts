@@ -2,7 +2,8 @@
 // db/migrations applied, connecting as the owner role. Never point it at production.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPool, upsertProfile, withUser } from '../src/db.js';
+import type { Pool } from 'pg';
+import { createPool, upsertProfile, withUser } from '../src/db.ts';
 
 const url = process.env.TEST_DATABASE_URL;
 const run = Date.now().toString(36);
@@ -10,7 +11,7 @@ const ann = { sub: `ann${run}` };
 const ben = { sub: `ben${run}` };
 const sam = { sub: `sam${run}` };
 const day = '2030-01-15';
-let pool;
+let pool: Pool;
 
 before(async () => {
   pool = createPool(url);

@@ -1,13 +1,10 @@
-// Applies db/migrations in order, once each. Usage: node db/migrate.js (reads DATABASE_URL).
-// Run from server/ so `pg` resolves: node --env-file=../.env.local ../db/migrate.js
+// Applies db/migrations in order, once each. Reads DATABASE_URL.
+//   npm run migrate   (from server/, loads ../.env.local)
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import pg from 'pg';
 
-const require = createRequire(path.join(process.cwd(), 'package.json'));
-const pg = require('pg');
-const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
+const dir = path.join(import.meta.dirname, '..', '..', 'db', 'migrations');
 const client = new pg.Client(process.env.DATABASE_URL);
 await client.connect();
 await client.query('create table if not exists schema_migrations (name text primary key)');

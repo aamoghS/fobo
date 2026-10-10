@@ -7,7 +7,7 @@ export default defineConfig({
       uploads: { access: "private" },
     },
     functions: {
-      api: { name: "api", source: "./hello.ts" },
+      api: { name: "api", source: "./server/functions/hello.ts" },
     },
   },
 });
