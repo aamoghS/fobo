@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useSyncExternalStore } from 'react';
 
 import { saveCharacter, type Character } from '@/features/profile/character';
-import { answers } from '@/features/profile/onboarding';
+import { answers } from '@/features/profile/answers';
 import type { Plan } from '@/features/plans/types';
 import { api } from '@/lib/api';
 import { setSession } from '@/lib/session';
