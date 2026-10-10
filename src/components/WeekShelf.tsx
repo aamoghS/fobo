@@ -66,7 +66,7 @@ export function WeekShelf({ days }: { days: ShelfDay[] }) {
 
 function Stack({ day }: { day: ShelfDay }) {
   const rest = day.plans.filter((p) => p.kind === 'rest');
-  const blocks = day.plans.filter((p) => p.kind !== 'rest');
+  const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'));
   const Face = faces[day.mood];
   const faceH = FACE_H[day.mood];
   return (
@@ -96,6 +96,18 @@ function Stack({ day }: { day: ShelfDay }) {
       )}
     </View>
   );
+}
+
+/** The day's character (top scrap) takes in the plans of its own kind right under it, as one tall scrap. */
+function withCharacter(blocks: Plan[]): Plan[] {
+  const top = blocks[blocks.length - 1];
+  if (!top) return blocks;
+  let i = blocks.length - 1;
+  while (i > 0 && blocks[i - 1].kind === top.kind) i--;
+  if (i === blocks.length - 1) return blocks;
+  const merged = blocks.slice(i);
+  const energyCost = merged.reduce((sum, p) => sum + p.energyCost, 0) + (merged.length - 1) * ((GAP / FULL) * DAY_ROOM);
+  return [...blocks.slice(0, i), { ...top, energyCost }];
 }
 
 function FaceLayer({ Face, scale, height }: { Face: (typeof faces)['fine']; scale: number; height: number }) {
