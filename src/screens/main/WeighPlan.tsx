@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import asleepFace from '@/assets/faces/asleep.svg';
-import fineFace from '@/assets/faces/fine.svg';
+import fineEyes from '@/assets/faces/fine-eyes.svg';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { PaperSpirit } from '@/components/PaperSpirit';
@@ -118,15 +118,22 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
       style={[
         styles.row,
         selected
-          ? { backgroundColor: withAlpha(kindColor, 0.06), borderColor: withAlpha(kindColor, 0.3) }
+          ? {
+              backgroundColor: withAlpha(kindColor, 0.08),
+              borderColor: withAlpha(kindColor, 0.25),
+              borderLeftColor: kindColor,
+              borderLeftWidth: 5,
+            }
           : styles.rowRule,
       ]}>
-      <View style={[styles.kindBar, { backgroundColor: kindColor }]} />
-      <View style={styles.rowText}>
+      {/* Selected, the kind colour is the card's edge; otherwise it's a free-standing bar. */}
+      {!selected && <View style={[styles.kindBar, { backgroundColor: kindColor }]} />}
+      {/* Less inset when selected so titles line up with the 5px card edge. */}
+      <View style={[styles.rowText, selected && { paddingLeft: 21 }]}>
         <Text style={[type.itemTitle, styles.ink]}>{invite.title}</Text>
         <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
       </View>
-      <Character invite={invite} />
+      <Character invite={invite} kindColor={kindColor} />
       <View style={[styles.radio, selected && styles.radioOn]}>
         {selected && <Icon name="check" size={18} color={color.paper} />}
       </View>
@@ -134,18 +141,20 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
   );
 }
 
-const CHAR_W = 40;
+const CHAR_W = 42;
 
-function Character({ invite }: { invite: Invite }) {
+function Character({ invite, kindColor }: { invite: Invite; kindColor: string }) {
   const c = invite.character;
-  if (c === 'sun') return <PaperSpirit mood="bright" size={54} />;
-  const Face = c.face === 'fine' ? fineFace : asleepFace;
-  const scale = CHAR_W / 46;
+  if (c === 'sun') return <PaperSpirit mood="bright" size={56} />;
+  // Googly eyes run a size up and sit lower than on the shelf, like the mockup.
+  const Face = c.face === 'fine' ? fineEyes : asleepFace;
+  const faceW = c.face === 'fine' ? 64 : 50;
+  const scale = faceW / 46;
   return (
     <View style={styles.character}>
-      <Scrap cut={c.cut} width={CHAR_W} height={36} seed={seedFrom(invite.id)} />
-      <View style={styles.face}>
-        <Face width={CHAR_W} height={(c.face === 'fine' ? 30 : 24) * scale} color={color.creatureInk} />
+      <Scrap cut={c.cut} fill={kindColor} width={CHAR_W} height={CHAR_W} seed={seedFrom(invite.id)} />
+      <View style={[styles.face, { top: c.face === 'fine' ? -5 : 3, left: (CHAR_W - faceW) / 2 }]}>
+        <Face width={faceW} height={(c.face === 'fine' ? 30 : 24) * scale} color={color.creatureInk} />
       </View>
     </View>
   );
@@ -164,12 +173,13 @@ const styles = StyleSheet.create({
   tab: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
   tabActive: { backgroundColor: color.selBg },
   hint: { paddingTop: 22 },
-  dayHeading: { paddingTop: 26, paddingBottom: 10 },
+  dayHeading: { paddingTop: 30, paddingBottom: 12 },
   row: {
-    minHeight: 78,
-    paddingVertical: 14,
-    paddingRight: 14,
-    gap: 14,
+    minHeight: 86,
+    paddingVertical: 16,
+    paddingLeft: 0,
+    paddingRight: 16,
+    gap: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.md,
@@ -178,14 +188,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rowRule: { borderRadius: 0, borderBottomColor: color.rule },
-  kindBar: { alignSelf: 'stretch', width: 4, borderRadius: radius.full },
-  rowText: { flex: 1, paddingLeft: 10, gap: 2 },
-  character: { width: CHAR_W, height: 40 },
+  kindBar: { position: 'absolute', left: 0, top: 10, bottom: 18, width: 4, borderRadius: radius.full },
+  rowText: { flex: 1, paddingLeft: 26, gap: 4 },
+  character: { width: CHAR_W, height: CHAR_W + 2, alignItems: 'center', justifyContent: 'center' },
   face: { position: 'absolute', top: 0, left: 0 },
   radio: {
-    width: 26,
-    height: 26,
-    marginLeft: 6,
+    width: 28,
+    height: 28,
+    marginLeft: 8,
     borderRadius: radius.full,
     borderWidth: 1.5,
     borderColor: color.ink2,
