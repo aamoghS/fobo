@@ -7,10 +7,11 @@ import { createPool } from './db.ts';
 import { HttpError, json, readJson, type Route } from './http.ts';
 import { eventRoutes } from './routes/events.ts';
 import { friendRoutes } from './routes/friends.ts';
+import { googleRoutes } from './routes/google.ts';
 import { meRoutes } from './routes/me.ts';
 
 export function createHandler(pool: pg.Pool = createPool()) {
-  const routes: Route[] = [...meRoutes, ...eventRoutes, ...friendRoutes];
+  const routes: Route[] = [...meRoutes, ...eventRoutes, ...friendRoutes, ...googleRoutes];
   return async (req: Request): Promise<Response> => {
     try {
       if (req.method === 'OPTIONS') return json(204);
