@@ -92,3 +92,9 @@ export function startTime(iso: string) {
   const d = toDate(iso);
   return `${clock(d)} ${period(d).toUpperCase()}`;
 }
+
+/** Write a plan: "Sat, Oct 10 · 7 PM". */
+export function dayAndTime(iso: string) {
+  const d = toDate(iso);
+  return `${WEEKDAYS[d.getDay()].slice(0, 3)}, ${SHORT_MONTH(d)} ${d.getDate()} · ${clock(d)} ${period(d).toUpperCase()}`;
+}
