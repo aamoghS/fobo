@@ -19,6 +19,15 @@ import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '@fobo/core/constants';
 
+// Jun's banner and large avatar are exports of 387:1613 (the banner has its own painted ground).
+const BANNERS: Record<string, number> = { jun: require('@/assets/people/jun-banner.png') };
+// Transparent cut-outs from Tory: the character with a prop or two, right-aligned on the person's tint.
+// Sized so the props clear the avatar that overlaps the banner's bottom-left.
+const CUTOUTS: Record<string, { source: number; width: number; height: number }> = {
+  hana: { source: require('@/assets/people/hana-banner.png'), width: 216, height: 98 },
+  dani: { source: require('@/assets/people/dani-banner.png'), width: 191, height: 130 },
+  ava: { source: require('@/assets/people/ava-banner.png'), width: 212, height: 112 },
+};
 const BANNER_ART = 190;
 
 /** People detail (387:1613). */
@@ -53,9 +62,15 @@ export function PersonDetail({ id }: { id: string }) {
         <>
           <View style={styles.cardWrap}>
             <View style={styles.card}>
-              <View style={[styles.banner, { backgroundColor: color[person.tint] ?? color.tintSky }]}>
-                {/* Their character, zoomed in and cropped like Jun's drawn banner (387:1613). */}
-                {person.character && <CharacterFigure character={person.character} size={BANNER_ART} style={styles.bannerArt} />}
+              <View style={[styles.banner, { backgroundColor: color[person.tint] }]}>
+                {BANNERS[id] ? (
+                  <Image source={BANNERS[id]} style={StyleSheet.absoluteFill} contentFit="cover" />
+                ) : CUTOUTS[id] ? (
+                  <Image source={CUTOUTS[id].source} style={[styles.cutout, { width: CUTOUTS[id].width, height: CUTOUTS[id].height }]} contentFit="contain" />
+                ) : (
+                  // No drawn banner yet: their character, zoomed in and cropped like Jun's.
+                  Art && <Art width={BANNER_ART} height={BANNER_ART} style={styles.bannerArt} />
+                )}
               </View>
               <View style={styles.avatarSpace}>
                 <View style={styles.avatar}>
@@ -149,6 +164,8 @@ const styles = StyleSheet.create({
   },
   banner: { height: 138, borderRadius: radius.chip, overflow: 'hidden' },
   bannerArt: { position: 'absolute', right: 14, top: -22, transform: [{ rotate: '-8deg' }] },
+  // Stands on the banner's bottom edge, a touch cut off, like Jun's cushion.
+  cutout: { position: 'absolute', right: space[12], bottom: -3 },
   avatarSpace: { height: 42 },
   avatar: { position: 'absolute', left: space[8], top: -66, width: 108, height: 108 },
   avatarRing: { padding: 5, borderRadius: radius.full, backgroundColor: color.paper },
