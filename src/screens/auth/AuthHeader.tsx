@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import type { FC } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { SvgProps } from 'react-native-svg';
 
 import { BackButton } from '@/components/BackButton';
 import { color } from '@/styles/tokens';
@@ -11,7 +10,7 @@ type Props = {
   title: string;
   subtitle?: string;
   /** Scene illustration, 106x142 (Celebrating 360:7731, Cozy 368:8336). */
-  Art: FC<SvgProps>;
+  Art: FC<{ width: number; height: number }>;
 };
 
 /** Back button, character top-right, Display title. Shared by Sign up, Login, Forgot password. */

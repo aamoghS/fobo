@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="365" height="397" viewBox="0 0 365 397" fill="none">
+  <g id="Confetti">
+    <rect id="Confetti / Rectangle" x="318.875" y="137.477" width="4" height="9" transform="rotate(24 318.875 137.477)" fill="#1C9C66" />
+    <path id="Confetti / Curled ribbon" d="M40.53 29.5794C39.644 35.3357 44.9072 38.703 47.7814 35.9211C50.6556 33.1392 47.7735 29.4713 44.7991 31.4595C41.8247 33.4477 43.5202 40.4908 50.9641 41.9701" stroke="#FFADC9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <rect id="Confetti / Rectangle_2" x="114.215" y="59.8447" width="3.5" height="8" transform="rotate(-23 114.215 59.8447)" fill="#1C9C66" />
+    <rect id="Confetti / Rectangle_3" x="20.2147" y="106.559" width="3.5" height="8" transform="rotate(-18 20.2147 106.559)" fill="#FFADC9" />
+    <path id="Confetti / Curled ribbon_2" d="M64.304 133.597C67.7487 136.283 71.8788 134.069 71.1089 131.169C70.3391 128.269 66.8832 128.815 67.0968 131.489C67.3103 134.164 72.5419 135.631 76.2337 131.298" stroke="#FFC22B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <path id="Confetti / Curled ribbon_3" d="M215.66 20.9753C220.38 20.6407 222.101 15.8643 219.379 14.0881C216.657 12.3118 214.27 15.2558 216.381 17.2544C218.492 19.2529 223.767 16.6413 223.598 10.4772" stroke="#1C9C66" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <rect id="Confetti / Rectangle_4" x="235.803" y="125.477" width="3" height="8" transform="rotate(35 235.803 125.477)" fill="#FFADC9" />
+    <rect id="Confetti / Rectangle_5" x="181.924" y="90.4772" width="3" height="7" transform="rotate(32 181.924 90.4772)" fill="#FFC22B" />
+  </g>
+</svg>

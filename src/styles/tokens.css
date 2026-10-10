@@ -36,6 +36,8 @@
   --highlight: #f5c125;
   --rest-dot: #f7a6c9;
   --warn: #ffc48a;
+  /* Not on the Design System page yet: form errors only. Kept apart from the cut-paper reds. */
+  --error: #c8281e;
 
   /* Scraps: kind of plan */
   --scrap-work: #2547d0;

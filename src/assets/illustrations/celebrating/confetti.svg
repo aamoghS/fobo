@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="106" height="142" viewBox="0 0 106 142" fill="none">
+  <g id="Confetti">
+    <path d="M13 26L18 31L13 26ZM91 45L97 42L91 45ZM17 91L12 96L17 91Z" fill="black" />
+    <path d="M13 26L18 31M91 45L97 42M17 91L12 96" stroke="#EF432D" stroke-width="3" stroke-linecap="round" />
+  </g>
+  <path id="Confetti-dot" d="M91 24C92.6569 24 94 22.6569 94 21C94 19.3431 92.6569 18 91 18C89.3431 18 88 19.3431 88 21C88 22.6569 89.3431 24 91 24Z" fill="#199B6C" />
+</svg>

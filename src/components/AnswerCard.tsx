@@ -1,5 +1,5 @@
-import type { FC } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, type FC } from 'react';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 
 import { color, radius } from '@/styles/tokens';
@@ -13,36 +13,67 @@ type Props = {
   /** 95x104 character art. */
   Art: FC<SvgProps>;
   selected: boolean;
+  /** Degrees the card tips when chosen, so a row of them looks hand-stuck. */
+  tilt?: number;
   onPress: () => void;
 };
 
 /**
  * Answer tile from Q1 (378:11162). Unselected as drawn; the selected state isn't drawn,
- * so it borrows the Choice Card's (34:992): ink fill, white title, ink-3 caption.
+ * so it borrows the Choice Card's (34:992): ink fill, white title, ink-3 caption. Chosen, it pops
+ * up with a slight tilt.
  */
-export function AnswerCard({ title, caption, Art, selected, onPress }: Props) {
+export function AnswerCard({ title, caption, Art, selected, tilt = -3, onPress }: Props) {
+  const stuck = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .catch(() => false)
+      .then((reduce) => {
+        if (!live) return;
+        if (reduce) stuck.setValue(selected ? 1 : 0);
+        else Animated.spring(stuck, { toValue: selected ? 1 : 0, friction: 5, tension: 120, useNativeDriver: Platform.OS !== 'web' }).start();
+      });
+    return () => {
+      live = false;
+    };
+  }, [selected, stuck]);
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      aria-checked={selected}
-      accessibilityLabel={`${title}. ${caption}`}
-      onPress={onPress}
-      style={[styles.card, selected && styles.selected]}>
-      <View style={styles.inner}>
-        <View importantForAccessibility="no-hide-descendants">
-          <Art width={95} height={104} />
+    <Animated.View
+      style={[
+        styles.wrap,
+        selected && styles.lifted,
+        {
+          transform: [
+            { rotate: stuck.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${tilt}deg`] }) },
+            { scale: stuck.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) },
+          ],
+        },
+      ]}>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected }}
+        aria-checked={selected}
+        accessibilityLabel={`${title}. ${caption}`}
+        onPress={onPress}
+        style={[styles.card, selected && styles.selected]}>
+        <View style={styles.inner}>
+          <View importantForAccessibility="no-hide-descendants">
+            <Art width={95} height={104} />
+          </View>
+          <Text style={[type.subStrong, styles.center, { color: selected ? color.selInk : color.ink }]}>{title}</Text>
+          <Text style={[type.foot, styles.center, { color: selected ? color.ink3 : color.ink2 }]} numberOfLines={1}>
+            {caption}
+          </Text>
         </View>
-        <Text style={[type.subStrong, styles.center, { color: selected ? color.selInk : color.ink }]}>{title}</Text>
-        <Text style={[type.foot, styles.center, { color: selected ? color.ink3 : color.ink2 }]} numberOfLines={1}>
-          {caption}
-        </Text>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { flex: 1 },
+  lifted: { zIndex: 1 },
   card: {
     flex: 1,
     padding: 8,

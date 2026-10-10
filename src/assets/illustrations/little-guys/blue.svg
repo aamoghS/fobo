@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="365" height="397" viewBox="0 0 365 397" fill="none">
+  <defs>
+    <filter id="filter0_d_1_11" x="30.4356" y="234.474" width="9.15021" height="11.5097" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+      <feOffset dy="3.75999" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0.1 0" />
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_11" />
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_11" result="shape" />
+    </filter>
+    <filter id="filter1_d_1_11" x="54.0132" y="231.099" width="9.15021" height="11.5097" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+      <feOffset dy="3.75999" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0.1 0" />
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_11" />
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_11" result="shape" />
+    </filter>
+  </defs>
+  <g id="Blue / curious">
+    <path id="Vector" d="M10.994 285.046L0.938814 210.984L4.12478e-06 199.696L61.6882 192.615L80.1468 209.338L88.9186 273.786L10.994 285.046Z" fill="#2547D0" />
+    <g id="Group">
+      <path id="Vector_2" d="M33.4712 247.564C38.6988 246.798 42.3586 241.892 41.6456 236.605C40.9325 231.318 36.1167 227.653 30.889 228.419C25.6614 229.184 22.0016 234.091 22.7146 239.377C23.4276 244.664 28.2435 248.329 33.4712 247.564Z" fill="white" stroke="#1E1B18" stroke-width="2.63199" />
+      <g id="Vector_3" filter="url(#filter0_d_1_11)">
+        <path d="M35.6272 242.176C38.1316 241.809 39.8849 239.459 39.5433 236.926C39.2017 234.394 37.1132 234.259 34.6088 234.626C32.1044 234.993 30.1326 235.722 30.4741 238.254C30.8157 240.787 33.1228 242.542 35.6272 242.176Z" fill="#1E1B18" />
+      </g>
+      <g id="Vector_4">
+        <path d="M22.4835 237.416L41.3457 234.715L22.4835 237.416Z" fill="black" />
+        <path d="M22.4835 237.416L22.7147 239.092L41.5769 236.391L41.3457 234.715L41.1145 233.039L22.2522 235.74L22.4835 237.416Z" fill="#1E1B18" />
+      </g>
+      <path id="Vector_5" d="M57.0489 244.188C62.2766 243.422 65.9364 238.516 65.2233 233.229C64.5103 227.943 59.6944 224.278 54.4668 225.043C49.2391 225.809 45.5793 230.715 46.2924 236.002C47.0054 241.288 51.8213 244.954 57.0489 244.188Z" fill="white" stroke="#1E1B18" stroke-width="2.63199" />
+      <g id="Vector_6" filter="url(#filter1_d_1_11)">
+        <path d="M59.2048 238.8C61.7092 238.433 63.4625 236.083 63.1209 233.551C62.7793 231.018 60.6908 230.883 58.1864 231.25C55.682 231.617 53.7102 232.346 54.0517 234.879C54.3933 237.411 56.7004 239.167 59.2048 238.8Z" fill="#1E1B18" />
+      </g>
+      <g id="Vector_7">
+        <path d="M46.0611 234.04L64.9233 231.339L46.0611 234.04Z" fill="black" />
+        <path d="M46.0611 234.04L46.2923 235.716L65.1545 233.016L64.9233 231.339L64.6921 229.663L45.8298 232.364L46.0611 234.04Z" fill="#1E1B18" />
+      </g>
+    </g>
+  </g>
+</svg>
