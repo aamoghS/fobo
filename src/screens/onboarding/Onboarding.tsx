@@ -31,11 +31,13 @@ const PROGRESS: Record<Step, number> = { start: 0, recharge: 1, 'head-home': 2, 
 // Answers are a starting guess; kept in memory until the profile API exists.
 const answers: Partial<Record<Step, string>> = {};
 
-export function OnboardingStep({ step }: { step: Step }) {
+/** `editing`: opened from Capacity Profile to change one answer; Next and Skip go back there. */
+export function OnboardingStep({ step, editing = false }: { step: Step; editing?: boolean }) {
   const router = useRouter();
   const next = () => {
     const i = STEPS.indexOf(step);
-    if (i === STEPS.length - 1) router.replace('/week');
+    if (editing) router.back();
+    else if (i === STEPS.length - 1) router.replace('/week');
     else router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   };
 
@@ -49,7 +51,7 @@ export function OnboardingStep({ step }: { step: Step }) {
       );
     case 'recharge':
       return (
-        <Frame step={step} onNext={next}>
+        <Frame step={step} onNext={next} editing={editing}>
           <Art Svg={BedArt} width={147} />
           {/* "recharge" has no question mark in Figma; copied as drawn. */}
           <Copy title="How do you usually recharge" body="No wrong answer. It's a starting guess, not a label." />
@@ -58,7 +60,7 @@ export function OnboardingStep({ step }: { step: Step }) {
       );
     case 'head-home':
       return (
-        <Frame step={step} onNext={next}>
+        <Frame step={step} onNext={next} editing={editing}>
           <Art Svg={RechargingArt} width={162} />
           <Copy lead="Think of your last group hangout." title="When did you start wanting to head home?" />
           <Radios
@@ -70,7 +72,7 @@ export function OnboardingStep({ step }: { step: Step }) {
       );
     case 'yourself':
       return (
-        <Frame step={step} onNext={next}>
+        <Frame step={step} onNext={next} editing={editing}>
           <Art Svg={BathArt} width={180} />
           <Copy title="After a big social day, when do you feel like yourself again" />
           <Radios
@@ -96,11 +98,13 @@ export function OnboardingStep({ step }: { step: Step }) {
   }
 }
 
-function Header({ step }: { step: Step }) {
+function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
   const router = useRouter();
   const i = STEPS.indexOf(step);
   const skip = () =>
-    i === STEPS.length - 1
+    editing
+      ? router.back()
+      : i === STEPS.length - 1
       ? router.replace('/week')
       : router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   return (
@@ -119,14 +123,28 @@ function Header({ step }: { step: Step }) {
 }
 
 /** px20 py40: header on top, content sat above the bottom button. */
-function Frame({ step, onNext, cta = 'Next', gap = 20, children }: { step: Step; onNext: () => void; cta?: string; gap?: number; children: ReactNode }) {
+function Frame({
+  step,
+  onNext,
+  cta = 'Next',
+  gap = 20,
+  editing = false,
+  children,
+}: {
+  step: Step;
+  onNext: () => void;
+  cta?: string;
+  gap?: number;
+  editing?: boolean;
+  children: ReactNode;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={[styles.frame, { paddingTop: Math.max(insets.top, 40), paddingBottom: Math.max(insets.bottom, 40) }]}>
       {/* Start keeps the header's space but hides it (opacity 0 in Figma). */}
-      {step === 'start' ? <View style={styles.headerSpace} /> : <Header step={step} />}
+      {step === 'start' ? <View style={styles.headerSpace} /> : <Header step={step} editing={editing} />}
       <View style={[styles.body, { gap }]}>{children}</View>
       <Button label={cta} onPress={onNext} />
     </ScrollView>

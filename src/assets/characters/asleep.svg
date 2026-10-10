@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="104" viewBox="0 0 96 104" fill="none">
 <g id="Mood=Asleep" filter="url(#filter0_d_1_6)">
 <g id="Group">
-<path id="Vector" d="M15.8901 98C11.8901 82 22.2901 58 31.8901 66C38.2901 50 57.4901 50 60.6901 66C73.0501 58 83.4501 82 79.4501 98H15.8901Z" fill="#F7A6C9" />
+<path id="Vector" d="M15.8901 98C11.8901 82 22.2901 58 31.8901 66C38.2901 50 57.4901 50 60.6901 66C73.0501 58 83.4501 82 79.4501 98H15.8901Z" fill="currentColor" />
 <g id="Group_2">
 <path id="Vector_2" d="M32.25 74C36.9167 78.6667 41.5833 78.6667 46.25 74M49.75 74C54.4167 78.6667 59.0833 78.6667 63.75 74" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" />
 </g>

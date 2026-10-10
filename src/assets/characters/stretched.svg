@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="104" viewBox="0 0 96 104" fill="none">
 <g id="Mood=Stretched" filter="url(#filter0_d_1_6)">
 <g id="Group">
-<path id="Vector" d="M16 98V20L24 14L32 20L40 14L48 20L56 14L64 20L72 14L80 20V98H16Z" fill="#E9A920" />
+<path id="Vector" d="M16 98V20L24 14L32 20L40 14L48 20L56 14L64 20L72 14L80 20V98H16Z" fill="currentColor" />
 <g id="Group_2">
 <g id="Group 3">
 <path id="Vector_2" d="M39.25 49.4C46.25 49.4 46.25 49.4 46.25 48C46.25 44.134 43.116 41 39.25 41C35.384 41 32.25 44.134 32.25 48C32.2499 49.4 32.25 49.4 39.25 49.4Z" fill="white" stroke="#1E1B18" stroke-width="1.4" />
