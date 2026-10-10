@@ -26,8 +26,7 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
 
   return (
     <View style={styles.card}>
-      <Text style={[type.label, styles.ink]}>Your plan</Text>
-      {/* The ghost text is the only prompt: Medium in ink-3, the lightest the type ramp goes. */}
+      {/* The ghost text is the only prompt, set lighter than the Medium the plan is typed in. */}
       <TextInput
         value={text}
         onChangeText={onChangeText}
@@ -35,7 +34,7 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
         placeholder="Dinner Saturday at 7 with Dani…"
         placeholderTextColor={color.ink3}
         accessibilityLabel="Your plan"
-        style={[type.body, styles.ink, styles.input]}
+        style={[type.body, styles.ink, styles.input, !text && styles.ghost]}
       />
 
       <Pressable accessibilityRole="button" accessibilityLabel="Paste an invite" onPress={paste} hitSlop={8} style={styles.paste}>
@@ -56,17 +55,14 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
 
 type RowProps = { icon: ReactNode; label: string; value?: string; empty: string };
 
-/** Insight Row shape (DS): icon, a quiet label over the value, then a way in. */
+/** Icon, the value (or a ghost prompt), then a way in. The label is only for screen readers. */
 function Row({ icon, label, value, empty }: RowProps) {
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessible accessibilityLabel={`${label}: ${value ?? 'not set'}`}>
       <View style={styles.rowIcon}>{icon}</View>
-      <View style={styles.rowText}>
-        <Text style={[type.foot, styles.muted]}>{label}</Text>
-        <Text style={[value ? type.bodyStrong : type.body, value ? styles.ink : styles.faint]} numberOfLines={1}>
-          {value ?? empty}
-        </Text>
-      </View>
+      <Text style={[type.body, styles.rowText, value ? styles.ink : styles.ghost]} numberOfLines={1}>
+        {value ?? empty}
+      </Text>
       <Icon name="chevron" size={18} color={color.ink2} />
     </View>
   );
@@ -85,10 +81,11 @@ const styles = StyleSheet.create({
   },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
-  faint: { color: color.ink3 },
-  input: { minHeight: 132, marginTop: space[20], padding: 0, textAlignVertical: 'top', outlineWidth: 0 },
+  // Ghost prompts: Regular weight in ink-3 (the plan and values stay Medium / ink).
+  ghost: { fontFamily: 'DMSans_400Regular', color: color.ink3 },
+  input: { minHeight: 132, padding: 0, textAlignVertical: 'top', outlineWidth: 0 },
   paste: { alignSelf: 'flex-start', paddingVertical: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center' },
-  row: { minHeight: 76, gap: space[16], flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: color.rule },
+  row: { minHeight: 64, gap: space[16], flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: color.rule },
   rowIcon: { width: 24, alignItems: 'center' },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1 },
 });

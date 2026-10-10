@@ -1,6 +1,7 @@
 import '@/styles/tokens.css';
 import '@/styles/global.css';
 
+import { DMSans_400Regular } from '@expo-google-fonts/dm-sans/400Regular';
 import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
 import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
 import { DMSans_900Black } from '@expo-google-fonts/dm-sans/900Black';
@@ -24,7 +25,7 @@ const theme = {
 };
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({ DMSans_500Medium, DMSans_700Bold, DMSans_900Black });
+  const [loaded, error] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_700Bold, DMSans_900Black });
   // Real data when signed in; the mock data otherwise.
   const [data, setData] = useState(false);
 
