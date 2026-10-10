@@ -1,5 +1,10 @@
 /** The mock "now": Wednesday 7 October, mid-morning. Your week (439:2323) shows Wednesday as today. */
-export const NOW = '2026-10-07T10:00';
+export let NOW = '2026-10-07T10:00';
+
+/** Set by src/data/live.ts to the real local time when the week comes from the API. */
+export function setNow(now: string) {
+  NOW = now;
+}
 
 export const week = {
   start: '2026-10-05',

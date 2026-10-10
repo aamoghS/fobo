@@ -20,6 +20,7 @@ import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
 import { color, radius, shadow } from '@/styles/tokens';
+import { api } from '@/lib/api';
 import { type } from '@/styles/type';
 
 export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'transition', 'compare'] as const;
@@ -28,7 +29,7 @@ export type Step = (typeof STEPS)[number];
 // Four segments: the three questions, then the comparison (transition + pairs).
 const PROGRESS: Record<Step, number> = { start: 0, recharge: 1, 'head-home': 2, yourself: 3, transition: 4, compare: 4 };
 
-// Answers are a starting guess; kept in memory until the profile API exists.
+// Answers are a starting guess; saved to the profile API when onboarding finishes.
 const answers: Partial<Record<Step, string>> = {};
 
 /** `editing`: opened from Capacity Profile to change one answer; Next and Skip go back there. */
@@ -37,7 +38,10 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
   const next = () => {
     const i = STEPS.indexOf(step);
     if (editing) router.back();
-    else if (i === STEPS.length - 1) router.replace('/week');
+    else if (i === STEPS.length - 1) {
+      void api('PATCH', '/me', { onboarding: answers });
+      router.replace('/week');
+    }
     else router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   };
 

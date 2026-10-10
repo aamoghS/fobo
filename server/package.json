@@ -3,11 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node --env-file=../.env.local src/server.ts",
     "test": "node --test \"test/**/*.test.ts\"",
     "migrate": "node --env-file=../.env.local scripts/migrate.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "jose": "^6.2.12",
     "pg": "^8.13.1"
   },
   "devDependencies": {

@@ -15,16 +15,14 @@ insert into friendships (requester_id, addressee_id, status) values
   ('alice', 'bob',   'accepted'),
   ('carol', 'alice', 'pending');
 
-insert into events (user_id, title, time, category, cost, visibility, declined) values
-  ('alice', 'Dinner',  '[2030-01-15 18:00Z, 2030-01-15 20:00Z)', 'social', 3, 'open',    false),
-  ('alice', 'Therapy', '[2030-01-15 10:00Z, 2030-01-15 11:00Z)', 'health', 4, 'private', false),
-  ('alice', 'Gym',     '[2030-01-15 07:00Z, 2030-01-15 08:00Z)', 'sport',  2, 'open',    true),
-  ('bob',   'Work',    '[2030-01-15 09:00Z, 2030-01-15 17:00Z)', 'work',   5, 'private', false);
+insert into events (user_id, title, time, category, cost, visibility, status) values
+  ('alice', 'Dinner',  '[2030-01-15 18:00Z, 2030-01-15 20:00Z)', 'social', 3, 'open',    'accepted'),
+  ('alice', 'Therapy', '[2030-01-15 10:00Z, 2030-01-15 11:00Z)', 'health', 4, 'private', 'accepted'),
+  ('alice', 'Gym',     '[2030-01-15 07:00Z, 2030-01-15 08:00Z)', 'sport',  2, 'open',    'declined'),
+  ('bob',   'Work',    '[2030-01-15 09:00Z, 2030-01-15 17:00Z)', 'work',   5, 'private', 'accepted');
 
 insert into calendar_connections (id, user_id, account_email)
   values ('00000000-0000-0000-0000-0000000000c1', 'alice', 'alice@example.com');
-insert into connection_secrets (connection_id, refresh_token)
-  values ('00000000-0000-0000-0000-0000000000c1', pgp_sym_encrypt('refresh', 'test-key'));
 
 insert into calendar_fixes (id, user_id, summary, changes) values
   ('00000000-0000-0000-0000-0000000000f1', 'alice', 'Move gym', '{}'),
@@ -76,12 +74,12 @@ do $$ begin
   assert (select count(*) from calendar_fixes) = 0, 'stranger: no fixes';
 end $$;
 
--- app_user cannot read connection_secrets, even its own.
+-- app_user cannot read Google tokens (Neon Auth's), even its own.
 select set_config('request.jwt.claims', '{"sub":"alice"}', true);
 do $$ begin
   begin
-    perform 1 from connection_secrets;
-    raise exception 'app_user read connection_secrets';
+    perform 1 from app.google_refresh_token('alice');
+    raise exception 'app_user read google tokens';
   exception when insufficient_privilege then null;
   end;
 end $$;
@@ -139,7 +137,7 @@ do $$ declare n int; begin
   update calendar_fixes set status = 'applied' where id = '00000000-0000-0000-0000-0000000000f1';
   get diagnostics n = row_count;
   assert n = 1, 'app_service could not apply fix';
-  assert (select count(*) from connection_secrets) = 1, 'app_service reads secrets';
+  perform 1 from app.google_refresh_token('alice');  -- app_service may read Google tokens
 end $$;
 
 -- Deleting a user cascades to everything they own.
@@ -148,7 +146,6 @@ delete from profiles where id = 'alice';
 do $$ begin
   assert (select count(*) from events where user_id = 'alice') = 0, 'events cascade';
   assert (select count(*) from calendar_connections where user_id = 'alice') = 0, 'connections cascade';
-  assert (select count(*) from connection_secrets) = 0, 'secrets cascade';
   assert (select count(*) from calendar_fixes where user_id = 'alice') = 0, 'fixes cascade';
   assert (select count(*) from friendships where 'alice' in (requester_id, addressee_id)) = 0,
     'friendships cascade';
