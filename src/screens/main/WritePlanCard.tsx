@@ -7,6 +7,7 @@ import { Pressable } from '@/components/Pressable';
 import { people as circle } from '@/data/people';
 import { dayAndTime } from '@/lib/format';
 import { readPlan } from '@/lib/read-plan';
+import { withAlpha } from '@/styles/alpha';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
@@ -32,7 +33,7 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
         onChangeText={onChangeText}
         multiline
         placeholder="Dinner Saturday at 7 with Dani…"
-        placeholderTextColor={color.ink3}
+        placeholderTextColor={GHOST}
         accessibilityLabel="Your plan"
         style={[type.body, styles.ink, styles.input, !text && styles.ghost]}
       />
@@ -68,6 +69,10 @@ function Row({ icon, label, value, empty }: RowProps) {
   );
 }
 
+// Ghost prompts sit a step lighter than ink-3 (the lightest token): ink at 34%, in Regular.
+// The plan as typed and the values read out of it stay Medium in ink.
+const GHOST = withAlpha(color.ink, 0.34);
+
 const styles = StyleSheet.create({
   // A composer: paper on the drawer's ground, edged with a hairline.
   card: {
@@ -81,8 +86,7 @@ const styles = StyleSheet.create({
   },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
-  // Ghost prompts: Regular weight in ink-3 (the plan and values stay Medium / ink).
-  ghost: { fontFamily: 'DMSans_400Regular', color: color.ink3 },
+  ghost: { fontFamily: 'DMSans_400Regular', color: GHOST },
   input: { minHeight: 132, padding: 0, textAlignVertical: 'top', outlineWidth: 0 },
   paste: { alignSelf: 'flex-start', paddingVertical: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center' },
   row: { minHeight: 64, gap: space[16], flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: color.rule },
