@@ -50,7 +50,6 @@ export function WeighPlan() {
 
         {tab === 'tentative' ? (
           <>
-            <Text style={[type.sub, styles.muted, styles.hint]}>Invites you haven’t accepted yet.</Text>
             {days.map((day) => (
               <View key={day}>
                 <Text style={[type.body, styles.muted, styles.dayHeading]}>{dayHeading(day)}</Text>
@@ -152,7 +151,6 @@ const styles = StyleSheet.create({
   tabs: { marginTop: space[12], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   tabActive: { backgroundColor: color.selBg },
-  hint: { paddingTop: space[16] },
   dayHeading: { paddingTop: space[28], paddingBottom: space[8] },
   row: {
     minHeight: 84,
