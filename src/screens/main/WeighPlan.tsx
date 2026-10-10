@@ -1,7 +1,5 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import asleepFace from '@/assets/faces/asleep.svg';
 import fineEyes from '@/assets/faces/fine-eyes.svg';
@@ -25,17 +23,13 @@ import { WritePlanCard } from './WritePlanCard';
 type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
-export function WeighPlan() {
-  useLiveScreen();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+export function WeighPlan({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('tentative');
   const [picked, setSelected] = useState<string>();
   // The first invite until one is picked (invites arrive with the live data).
   const selected = invites.some((i) => i.id === picked) ? picked : invites[0]?.id;
   const [written, setWritten] = useState('');
-  const [weighing, setWeighing] = useState(false);
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/week'));
+  const close = onClose;
 
   const weigh = async () => {
     setWeighing(true);
@@ -50,7 +44,7 @@ export function WeighPlan() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
           <IconButton icon="back" label="Back" onPress={close} />
           <Text style={[type.bodyStrong, styles.ink]}>Weigh a plan</Text>
@@ -89,7 +83,7 @@ export function WeighPlan() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+      <View style={styles.footer}>
         {tab === 'tentative' && <Text style={[type.sub, styles.muted, styles.footnote]}>This won’t accept the invite.</Text>}
         {/* Gemini weighs it (POST /weigh); the result opens on Event detail: the cost, why, and a leave-by time. */}
         <Button
@@ -159,7 +153,7 @@ function Character({ invite, kindColor }: { invite: Invite; kindColor: string })
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingHorizontal: space.margin, paddingBottom: space[28] },
+  content: { paddingTop: space[8], paddingHorizontal: space.margin, paddingBottom: space[28] },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   selInk: { color: color.selInk },
@@ -196,6 +190,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioOn: { backgroundColor: color.selBg, borderColor: color.selBg },
-  footer: { paddingTop: space[12], paddingHorizontal: space.margin, gap: space[12] },
+  footer: { paddingTop: space[12], paddingHorizontal: space.margin, paddingBottom: space[16], gap: space[12] },
   footnote: { textAlign: 'center' },
 });
