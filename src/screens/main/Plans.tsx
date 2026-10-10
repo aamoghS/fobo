@@ -71,7 +71,7 @@ export function Plans() {
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<PlanFilter>('all');
+  const [filter, setFilter] = useState<PlanFilter>('social');
   const list = upcoming(filter);
   const summary = SUMMARIES[filter];
   const summaryStyle: ViewStyle = { backgroundColor: summary.tint };
