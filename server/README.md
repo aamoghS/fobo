@@ -90,11 +90,16 @@ The repo is one npm workspace: the app at the root, the API in `server/`, shared
 `packages/core` (`@fobo/core`). From the repo root:
 
 ```
-npm install              # everything: app, server, core
-npx expo start --tunnel  # phones (Expo Go, signed in to the project's Expo account) and the browser
-npm run dev:all -- --web # Expo plus the browser build, against the deployed API
+npm install                 # everything: app, server, core
+npx expo login              # once per computer; the tunnel needs an Expo account
+npm run dev:all             # Expo over a tunnel: scan the QR code in Expo Go from any network
+npm run dev:all -- --web    # also the browser build
+npm run dev:all -- --lan    # same Wi-Fi only, no tunnel
 npm run dev:all -- --local  # also runs the API here on :8787 (Google sign-in needs the deployed one)
 ```
+
+In Expo Go, sign in with the same Expo account (project `aamoghss-team/fobo`). `npm start` also uses the
+tunnel; `npm run start:lan` does not.
 
 The API is deployed as the `api` Neon Function. After API changes, from the repo root, with
 `../.env.local` loaded into the environment: `npx neonctl deploy --no-env-pull`. Migrations:
