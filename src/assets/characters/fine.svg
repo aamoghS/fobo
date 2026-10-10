@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="104" viewBox="0 0 96 104" fill="none">
+<g id="Mood=Fine" filter="url(#filter0_d_1_6)">
+<g id="Group">
+<path id="Vector" d="M16 98C14 62 18 26 41.6 27C60.8 24 82 33.2 80 65.6C81 83.6 80 98 80 98H16Z" fill="#1F9D6B" />
+<g id="Group_2">
+<path id="Vector_2" d="M39.25 61.8C43.116 61.8 46.25 58.666 46.25 54.8C46.25 50.934 43.116 47.8 39.25 47.8C35.384 47.8 32.25 50.934 32.25 54.8C32.25 58.666 35.384 61.8 39.25 61.8Z" fill="white" stroke="#1E1B18" stroke-width="1.4" />
+<path id="Vector_3" d="M38.1998 57.46C40.0555 57.46 41.5598 55.9557 41.5598 54.1C41.5598 52.2443 40.0555 50.74 38.1998 50.74C36.3442 50.74 34.8398 52.2443 34.8398 54.1C34.8398 55.9557 36.3442 57.46 38.1998 57.46Z" fill="#1E1B18" />
+<path id="Vector_4" d="M56.75 61.8C60.616 61.8 63.75 58.666 63.75 54.8C63.75 50.934 60.616 47.8 56.75 47.8C52.884 47.8 49.75 50.934 49.75 54.8C49.75 58.666 52.884 61.8 56.75 61.8Z" fill="white" stroke="#1E1B18" stroke-width="1.4" />
+<path id="Vector_5" d="M55.6998 57.46C57.5555 57.46 59.0598 55.9557 59.0598 54.1C59.0598 52.2443 57.5555 50.74 55.6998 50.74C53.8442 50.74 52.3398 52.2443 52.3398 54.1C52.3398 55.9557 53.8442 57.46 55.6998 57.46Z" fill="#1E1B18" />
+<path id="Vector_6" d="M43.0996 68.1H52.8996" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" />
+</g>
+</g>
+</g>
+<defs>
+<filter id="filter0_d_1_6" x="0" y="0" width="96" height="106" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix" />
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+<feOffset dy="2" />
+<feColorMatrix type="matrix" values="0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0.1 0" />
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_6" />
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_6" result="shape" />
+</filter>
+</defs>
+</svg>
