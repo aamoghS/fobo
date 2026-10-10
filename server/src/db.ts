@@ -2,6 +2,9 @@ import pg from 'pg';
 
 export type Claims = { sub: string };
 
+// Plan costs and day loads are numeric (tenths); hand them to the app as numbers, not strings.
+pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+
 // Use Neon's pooled connection string. SET LOCAL does not survive a transaction pool across
 // statements, so every request runs inside its own transaction.
 export function createPool(connectionString = process.env.DATABASE_URL): pg.Pool {

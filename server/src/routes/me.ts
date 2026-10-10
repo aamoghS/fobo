@@ -3,9 +3,9 @@ import { HttpError, route } from '../http.ts';
 
 const EDITABLE = [
   'handle', 'name', 'character', 'timezone', 'recharge_style', 'busy_streak', 'protected_hours',
-  'write_back', 'share_blocks', 'share_scores',
+  'write_back', 'share_blocks', 'share_scores', 'onboarding',
 ];
-const JSON_COLUMNS = new Set(['character', 'protected_hours']);
+const JSON_COLUMNS = new Set(['character', 'protected_hours', 'onboarding']);
 
 // Picks allowed keys from a body and builds "col = $n" pairs, starting at $2 ($1 is the row id).
 export function setClause(body: Record<string, unknown>, allowed: string[], jsonCols = new Set<string>()) {

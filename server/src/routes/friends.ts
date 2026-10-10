@@ -73,6 +73,28 @@ export const friendRoutes = [
         [params.id, query.get('date')],
       )).rows)),
 
+  // The app's FriendDay (src/features/friends/types.ts) for each day in from..to, at most 14 days.
+  // Empty when the friend shares neither blocks nor scores.
+  route('GET', '/friends/:id/days', ({ pool, claims, params, query }) =>
+    withUser(pool, claims, async (c) => {
+      const scores = (await c.query(
+        `select to_char(day, 'YYYY-MM-DD') as day, load from day_scores($1, $2, least($3::date, $2::date + 13))`,
+        [params.id, query.get('from'), query.get('to')],
+      )).rows;
+      const days = [];
+      for (const s of scores) {
+        const blocks = (await c.query('select title from friend_blocks($1, $2)', [params.id, s.day])).rows;
+        const titles = blocks.map((b) => b.title).filter(Boolean);
+        days.push({
+          date: s.day,
+          busy: blocks.length > 0,
+          load: s.load,
+          ...(titles.length ? { sharedPlanTitles: titles } : {}),
+        });
+      }
+      return days;
+    })),
+
   // Works for an accepted friend who shares scores, or for the caller's own id.
   route('GET', '/scores/:id', ({ pool, claims, params, query }) =>
     withUser(pool, claims, async (c) =>

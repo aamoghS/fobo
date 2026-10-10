@@ -46,7 +46,7 @@ after(async () => {
 });
 
 test('signed-out callers are refused', async () => {
-  for (const path of ['/me', '/events?from=2030-01-01&to=2030-01-02', '/friends']) {
+  for (const path of ['/me', '/plans?from=2030-01-01&to=2030-01-02', '/friends']) {
     assert.equal((await call(null, 'GET', path)).status, 401);
   }
 });
@@ -61,31 +61,40 @@ test('first call creates a profile, and it can be edited', async () => {
   assert.equal((await call(ann, 'PATCH', '/me', { handle: 'NO SPACES' })).status, 400);
 });
 
-test('plans: add, list, edit', async () => {
+test('plans: add, list, edit, in the Plan shape the app uses', async () => {
   const day = (h: number) => `2030-01-15T${String(h).padStart(2, '0')}:00:00Z`;
   const add = (title: string, h: number, extra: object) =>
-    call(ann, 'POST', '/events', { title, starts_at: day(h), ends_at: day(h + 1), ...extra });
-  const lunch = await add('Lunch', 12, { category: 'social', cost: 2, visibility: 'open' });
+    call(ann, 'POST', '/plans', { title, start: day(h), end: day(h + 1), ...extra });
+  const lunch = await add('Lunch', 12, { kind: 'social', energyCost: 2, visibility: 'open', with: ['dani'] });
   assert.equal(lunch.status, 200);
-  assert.equal(lunch.body.visibility, 'open');
-  const gym = await add('Gym', 9, { category: 'enjoy', cost: 1 });
+  assert.deepEqual(
+    { ...lunch.body, id: undefined, start: undefined, end: undefined },
+    { id: undefined, title: 'Lunch', kind: 'social', start: undefined, end: undefined, energyCost: 2,
+      status: 'accepted', shared: true, visibility: 'open', leaveBy: null, with: ['dani'], protected: false,
+      source: 'capacity' },
+  );
+  const gym = await add('Gym', 9, { kind: 'enjoy', energyCost: 1.5, leaveBy: '8:30' });
   assert.equal(gym.body.visibility, 'busy', 'busy is the default');
-  await add('Doctor', 15, { category: 'obligation', cost: 3, visibility: 'private' });
+  assert.equal(gym.body.energyCost, 1.5, 'costs keep tenths');
+  assert.equal(gym.body.leaveBy, '8:30');
+  await add('Doctor', 15, { kind: 'obligation', energyCost: 3.5, shared: false });
 
-  const list = await call(ann, 'GET', '/events?from=2030-01-15T00:00Z&to=2030-01-16T00:00Z');
-  assert.deepEqual(list.body.map((e: any) => e.title), ['Gym', 'Lunch', 'Doctor']);
+  const list = await call(ann, 'GET', '/plans?from=2030-01-15T00:00Z&to=2030-01-16T00:00Z');
+  assert.deepEqual(list.body.map((e: any) => [e.title, e.shared]), [['Gym', true], ['Lunch', true], ['Doctor', false]]);
 
-  const moved = await call(ann, 'PATCH', `/events/${gym.body.id}`, { starts_at: day(7), ends_at: day(8), cost: 2 });
-  assert.equal(moved.body.cost, 2);
-  assert.equal(new Date(moved.body.starts_at).toISOString(), '2030-01-15T07:00:00.000Z');
+  const moved = await call(ann, 'PATCH', `/plans/${gym.body.id}`, { start: day(7), end: day(8), energyCost: 2.5, status: 'moved' });
+  assert.equal(moved.body.energyCost, 2.5);
+  assert.equal(moved.body.status, 'moved');
+  assert.equal(new Date(moved.body.start).toISOString(), '2030-01-15T07:00:00.000Z');
 
-  assert.equal((await call(ben, 'GET', `/events/${gym.body.id}`)).status, 404, 'others cannot read it');
-  assert.equal((await call(ann, 'POST', '/events', { title: 'x' })).status, 400);
+  assert.equal((await call(ben, 'GET', `/plans/${gym.body.id}`)).status, 404, 'others cannot read it');
+  assert.equal((await call(ann, 'POST', '/plans', { title: 'x' })).status, 400);
+  assert.equal((await call(ann, 'PATCH', `/plans/${gym.body.id}`, { energyCost: 11 })).status, 400, 'over DAY_ROOM');
 });
 
 test('own day scores', async () => {
   const r = await call(ann, 'GET', `/scores/${ann}?from=2030-01-15&to=2030-01-15`);
-  assert.deepEqual(r.body, [{ day: '2030-01-15', load: 7, room: 10 }]);
+  assert.deepEqual(r.body, [{ day: '2030-01-15', load: 8, room: 10 }]);
 });
 
 test('friend flow: ask by handle, accept, then see blocks and scores', async () => {
@@ -107,7 +116,12 @@ test('friend flow: ask by handle, accept, then see blocks and scores', async () 
     [null, null],         // private
   ]);
   const scores = (await call(ben, 'GET', `/scores/${ann}?from=2030-01-15&to=2030-01-15`)).body;
-  assert.equal(scores[0].load, 7);
+  assert.equal(scores[0].load, 8);
+  const days = (await call(ben, 'GET', `/friends/${ann}/days?from=2030-01-15&to=2030-01-16`)).body;
+  assert.deepEqual(days, [
+    { date: '2030-01-15', busy: true, load: 8, sharedPlanTitles: ['Lunch'] },
+    { date: '2030-01-16', busy: false, load: 0 },
+  ]);
 });
 
 test('stranger sees nothing, sharing switches turn things off', async () => {
