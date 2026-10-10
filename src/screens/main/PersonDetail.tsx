@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
-import { getPerson } from '@/data/people';
+import { bioFor, getPerson } from '@/data/people';
 import { plans } from '@/data/plans';
 import { NOW } from '@/data/week';
 import { shortDateRange } from '@/lib/format';
@@ -72,7 +72,7 @@ export function PersonDetail({ id }: { id: string }) {
                 {person.name}
               </Text>
               <View style={styles.bio}>
-                {person.bio && <Text style={[type.sub, styles.muted]}>{person.bio}</Text>}
+                <Text style={[type.sub, styles.muted]}>{bioFor(person)}</Text>
               </View>
               {/* Figma reads "Check availibility"; DESIGN.md §5 fixes the typo. */}
               <Button label="Check availability" trailingArrow style={styles.check} />
