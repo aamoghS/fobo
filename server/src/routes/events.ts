@@ -36,7 +36,7 @@ export const eventRoutes = [
     return withUser(pool, claims, async (c) =>
       (await c.query(
         `insert into events (user_id, title, time, category, cost, visibility, protected)
-         values ($1, $2, tstzrange($3, $4), $5, coalesce($6, 0), coalesce($7, 'private'), coalesce($8, false))
+         values ($1, $2, tstzrange($3, $4), $5, coalesce($6, 0), coalesce($7, 'busy'), coalesce($8, false))
          returning ${EVENT_COLUMNS}`,
         [claims.sub, body.title, body.starts_at, body.ends_at, body.category ?? null, body.cost,
           body.visibility, body.protected],

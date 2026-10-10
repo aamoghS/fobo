@@ -5,9 +5,10 @@ import { verify } from './auth.ts';
 import { createPool } from './db.ts';
 import { HttpError, readJson, send, type Route } from './http.ts';
 import { eventRoutes } from './routes/events.ts';
+import { friendRoutes } from './routes/friends.ts';
 import { meRoutes } from './routes/me.ts';
 
-export const routes: Route[] = [...meRoutes, ...eventRoutes];
+export const routes: Route[] = [...meRoutes, ...eventRoutes, ...friendRoutes];
 
 export function createServer(pool = createPool()) {
   return http.createServer(async (req, res) => {
@@ -25,6 +26,9 @@ export function createServer(pool = createPool()) {
       send(res, 200, out ?? { ok: true });
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.message });
+      // Postgres integrity and input errors (bad handle, taken handle, bad date) are the caller's.
+      const code = (e as { code?: string }).code ?? '';
+      if (code.startsWith('23') || code.startsWith('22')) return send(res, 400, { error: 'invalid input' });
       console.error(e);
       send(res, 500, { error: 'server error' });
     }
