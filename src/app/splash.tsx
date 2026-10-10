@@ -1,5 +1,3 @@
-import { Placeholder } from '@/screens/Placeholder';
+import { Splash } from '@/screens/auth/Screens';
 
-export default function Route() {
-  return <Placeholder name="Splash" node="360:7537" />;
-}
+export default Splash;
