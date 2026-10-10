@@ -11,13 +11,14 @@ import { eventRoutes } from './routes/events.ts';
 import { fixRoutes } from './routes/fix.ts';
 import { friendRoutes } from './routes/friends.ts';
 import { googleRoutes } from './routes/google.ts';
+import { invitePage, inviteRoutes } from './routes/invite.ts';
 import { meRoutes } from './routes/me.ts';
 import { weekRoutes } from './routes/week.ts';
 import { weighRoutes } from './routes/weigh.ts';
 import { youRoutes } from './routes/you.ts';
 
 export function createHandler(pool: pg.Pool = createPool()) {
-  const routes: Route[] = [...meRoutes, ...youRoutes, ...weekRoutes, ...eventRoutes, ...friendRoutes, ...googleRoutes, ...fixRoutes, ...weighRoutes];
+  const routes: Route[] = [...meRoutes, ...youRoutes, ...weekRoutes, ...eventRoutes, ...friendRoutes, ...googleRoutes, ...fixRoutes, ...weighRoutes, ...inviteRoutes];
   return async (req: Request): Promise<Response> => {
     try {
       if (req.method === 'OPTIONS') return json(204);
@@ -27,6 +28,7 @@ export function createHandler(pool: pg.Pool = createPool()) {
       if (open) return await open.run(req, pool);
       const pageRoute = pageRoutes.find((x) => x.method === req.method && x.path === url.pathname);
       if (pageRoute) return await pageRoute.run();
+      if (req.method === 'GET' && url.pathname.startsWith('/invite/')) return await invitePage(url.pathname.slice('/invite/'.length), pool);
       let match: RegExpExecArray | null = null;
       const r = routes.find((x) => x.method === req.method && (match = x.pattern.exec(url.pathname)));
       if (!r || !match) return json(404, { error: 'not found' });

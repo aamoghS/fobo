@@ -1,8 +1,11 @@
 import { PLAN_KINDS, UNSORTED_KIND } from '@fobo/core/options';
 import { asc, eq, sql } from 'drizzle-orm';
-import { withUser, type Db } from '../db.ts';
+import type pg from 'pg';
+import { withService, withUser, type Db } from '../db.ts';
+import { accessToken, patchEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
-import { events } from '../schema.ts';
+import { calendarConnections, events, profiles } from '../schema.ts';
+import { googleAccount } from '../sync.ts';
 
 // The owner's timezone, for turning stored instants into the app's local wall-clock strings.
 const ownerTz = sql`(select timezone from profiles where id = ${events.userId})`;
@@ -36,7 +39,7 @@ const FIELDS = {
   leaveBy: 'leaveBy', with: 'withPeople', protected: 'protected', costNote: 'costNote', exitNote: 'exitNote',
   reminder: 'reminder',
 } as const;
-// Google keeps title and time; Fobo keeps the rest.
+// Title and time belong to Google Calendar: changing them writes there first (writeToGoogle).
 const GOOGLE_LOCKED = new Set(['title', 'start', 'end']);
 
 // A time from the app: local wall-clock ('2026-10-05T09:00') is read in the user's timezone; a time
@@ -61,6 +64,33 @@ function normalize(body: Record<string, unknown>) {
     out.visibility = out.shared ? 'busy' : 'private';
   }
   return out;
+}
+
+type GoogleRef = { externalId: string | null; calendarId: string | null; connectionId: string | null };
+
+// Renames or moves the event in Google Calendar, when its account allows write-back. Local times are sent
+// with the user's timezone.
+async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body: Record<string, unknown>) {
+  const { account, writeBack, tz } = await withService(pool, async (db) => {
+    const conn = ev.connectionId
+      ? (await db.select({ writeBack: calendarConnections.writeBack }).from(calendarConnections)
+        .where(eq(calendarConnections.id, ev.connectionId)))[0]
+      : undefined;
+    const me = (await db.select({ tz: profiles.timezone }).from(profiles).where(eq(profiles.id, userId)))[0];
+    return { account: await googleAccount(db, userId), writeBack: !!conn?.writeBack, tz: me?.tz };
+  });
+  if (!account || !writeBack || !ev.externalId) {
+    throw new HttpError(400, 'This plan comes from Google Calendar. Change its name or time there.');
+  }
+  const at = (t: unknown) => {
+    const s = String(t);
+    return /([zZ]|[+-]\d\d:?\d\d)$/.test(s) ? { dateTime: s } : { dateTime: s.length === 16 ? `${s}:00` : s, timeZone: tz };
+  };
+  const timed = body.start !== undefined && body.end !== undefined;
+  await patchEvent(await accessToken(account.refresh_token), ev.calendarId ?? 'primary', ev.externalId, {
+    ...(typeof body.title === 'string' ? { summary: body.title } : {}),
+    ...(timed ? { start: at(body.start), end: at(body.end) } : {}),
+  });
 }
 
 async function onePlan(db: Db, id: string) {
@@ -121,14 +151,17 @@ export const eventRoutes = [
     });
   }),
 
-  route('PATCH', '/plans/:id', ({ pool, claims, params, body: raw }) =>
-    withUser(pool, claims, async (db) => {
-      const body = normalize(raw);
-      const current = (await db.select({ source: events.source }).from(events).where(eq(events.id, params.id)))[0];
-      if (!current) throw new HttpError(404, 'not found');
-      if (current.source === 'google' && Object.keys(body).some((k) => GOOGLE_LOCKED.has(k))) {
-        throw new HttpError(400, 'title and time come from Google Calendar');
-      }
+  route('PATCH', '/plans/:id', async ({ pool, claims, params, body: raw }) => {
+    const body = normalize(raw);
+    const current = (await withUser(pool, claims, (db) => db.select({
+      source: events.source, externalId: events.externalId, calendarId: events.calendarId, connectionId: events.connectionId,
+    }).from(events).where(eq(events.id, params.id))))[0];
+    if (!current) throw new HttpError(404, 'not found');
+    // A Google plan's new name or time goes to Google Calendar first, so the next sync agrees.
+    if (current.source === 'google' && Object.keys(body).some((k) => GOOGLE_LOCKED.has(k))) {
+      await writeToGoogle(pool, claims.sub, current, body);
+    }
+    return withUser(pool, claims, async (db) => {
       const timed = body.start !== undefined && body.end !== undefined;
       const fields = Object.keys(FIELDS).filter((k) => k in body) as (keyof typeof FIELDS)[];
       if (!fields.length && !timed) throw new HttpError(400, 'nothing to update');
@@ -136,7 +169,8 @@ export const eventRoutes = [
       if (timed) set.time = range(body.start, body.end, claims.sub);
       await db.update(events).set(set).where(eq(events.id, params.id));
       return planDetail(db, params.id);
-    })),
+    });
+  }),
 
   // A plan from Google Calendar is declined (sync would bring it back); Fobo's own plans are removed.
   route('DELETE', '/plans/:id', ({ pool, claims, params }) =>

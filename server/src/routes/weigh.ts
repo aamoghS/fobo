@@ -21,7 +21,8 @@ async function dayLoad(db: Db, userId: string, date: string, exceptId: string | 
 }
 
 export const weighRoutes = [
-  // Weigh a plan. { planId }: a plan from the calendar (usually an invite not answered yet); { text }: a
+  // Weigh a plan. { planId }: a plan from the calendar (usually an invite not answered yet), with exit: true for
+  // Plan my exit (a leave-by time always); { text }: a
   // plan or invite as written, saved as a tentative plan. Gemini weighs it from the profile, memories and
   // the next two weeks; the plan keeps the cost, why (with what it does to that day) and a leave-by time
   // when one helps. Answers the plan with `detail`, plus `day`: the load before and after, and `over`.
@@ -65,6 +66,7 @@ export const weighRoutes = [
         },
         memories: ctx.recent,
         plans: ctx.upcoming,
+        wants_exit: body.exit === true,
         ...(plan
           ? { calendar_plan: { title: plan.title, kind: plan.kind, starts_at: plan.start, ends_at: plan.end, with: plan.with } }
           : { text }),

@@ -100,7 +100,8 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | GET | `/profile` | `src/data/profile.ts`: `{ profile { name, title, email, streak }, achievements, widget, capacity }` |
 | GET | `/people` | `src/data/people.ts`: `Person[]` (`id`, `name`, `tint`, `character`, `nextLabel`, `bio`, `pastTogether`) |
 | GET | `/plans?from&to` | plans overlapping the window, as `Plan` (+ `visibility`, `protected`, `source`) |
-| GET, PATCH | `/plans/:id` | one plan with `detail` (PlanDetail: costNote, exit, reminder); title and time of Google plans are read-only |
+| GET, PATCH | `/plans/:id` | one plan with `detail` (PlanDetail: costNote, exit, reminder); a Google plan's new title or time is written to Google Calendar first (when its account allows write-back) |
+| POST | `/plans/:id/invite` | `{ url }`: a signed link to a public page with the plan's name, time and who's inviting (`GET /invite/<id>.<signature>`, no token needed) |
 | DELETE | `/plans/:id` | removes a Fobo plan; a Google plan is declined instead, so sync does not bring it back |
 | POST | `/plans` | adds a plan: `title`, `start`, `end`, `kind` (a shared plan kind), `energyCost`, `shared` or `visibility`, `leaveBy`, `with`, `costNote`, `exitNote`, `reminder` |
 | GET | `/friends` | `{ friends, incoming, outgoing }`; friends carry `bio`, `tint`, `nextPlan`, `pastTogether` |
@@ -117,7 +118,7 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | GET, PATCH, DELETE | `/connections[/:id]` | Connected Apps & Devices; per-account `writeBack`; disconnecting removes that account's synced plans |
 | POST | `/fix-calendar` | `{ days }` (1 to 14): asks the planner, saves a proposed fix |
 | POST | `/apply-fix` | `{ fixId, only? }`: applies the picked changes once |
-| POST | `/weigh` | `{ planId }` or `{ text }`: Gemini weighs one plan; answers the plan (a written one is saved as tentative) with `detail` and `day { date, before, after, room, over }` |
+| POST | `/weigh` | `{ planId, exit? }` or `{ text }` (`exit`: Plan my exit, always a leave-by time): Gemini weighs one plan; answers the plan (a written one is saved as tentative) with `detail` and `day { date, before, after, room, over }` |
 
 Friends never read `events`: blocks and scores come from `friend_blocks` and `day_scores`, which hide
 titles by visibility (`private` grey block, `busy` block and colour, `open` with title).
@@ -187,8 +188,8 @@ The API is deployed as the `api` Neon Function. After API changes, from the repo
   The streak counts days in a row within the day's room, from the day the user joined.
 - Achievements, checked on each `/profile`: The Irish Goodbye (a plan with a leave-by time has ended), Slow and
   Steady (a 7-day streak), More the Merrier (a plan with 3 or more people), The First Week (a week after joining).
-- Buttons with no API call yet: add plan, add person, Check availability, Edit, Move it, Plan my exit, Invite
-  via link, Forgot password.
+- Forgot password has no API call: there is no email service to send a code.
+- Add plan, Add person (`/people/add`) and the plan form are built from design system parts, not Figma frames.
 - A Google invite declined and later accepted stays declined in Fobo.
 - Email log-in has no rate limit, and there is no password reset.
 - `/google-sync` and `/fix-calendar` hold a database transaction open while they call Google and Gemini.

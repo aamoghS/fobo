@@ -28,7 +28,9 @@ Return:
   words, no numbers, no em dashes.
 - leave_by: when the plan runs past the point the profile says they fade, or the day would go over
   ${DAY_ROOM}, a local 'HH:MM' inside the plan when leaving keeps them okay. Otherwise null.
-- leave_reason: one short sentence on why that time, or null.`;
+- leave_reason: one short sentence on why that time, or null.
+
+When wants_exit is true the person asked you to plan their exit: always give leave_by and leave_reason.`;
 
 const str = { type: 'string' };
 const nullableStr = { type: 'string', nullable: true };

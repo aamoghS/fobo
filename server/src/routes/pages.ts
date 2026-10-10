@@ -2,10 +2,13 @@
 const CONTACT = process.env.CONTACT_EMAIL ?? '';
 const UPDATED = '10 October 2026';
 
-function page(title: string, body: string) {
+export const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+export function page(title: string, body: string, status = 200) {
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title>
+<title>${escapeHtml(title)}</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 680px; margin: 40px auto; padding: 0 16px; line-height: 1.55;
          color: #141414; background: #fbfbf9; }
@@ -13,7 +16,7 @@ function page(title: string, body: string) {
   footer { margin-top: 40px; font-size: 14px; color: #6a6a66; }
 </style></head><body>${body}
 <footer><a href="/">Fobo</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · ${CONTACT}</footer>
-</body></html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+</body></html>`, { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
 }
 
 const home = () => page('Fobo', `
