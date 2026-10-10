@@ -27,6 +27,10 @@
   --divider: #ecece8;
   --tint-peach: #ffe6dd;
   --tint-sky: #dbe9ff;
+  /* Avatar rings on People (387:1456), not Figma variables */
+  --tint-butter: #fdf0c4;
+  --tint-rose: #fde3ee;
+  --tint-mint: #d9f3e3;
 
   /* Signal */
   --highlight: #f5c125;

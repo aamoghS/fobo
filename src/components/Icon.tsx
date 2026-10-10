@@ -45,8 +45,10 @@ import plans from '@/assets/icons/plans.svg';
 import plus from '@/assets/icons/plus.svg';
 import refresh from '@/assets/icons/refresh.svg';
 import scissors from '@/assets/icons/scissors.svg';
+import search from '@/assets/icons/search.svg';
 import settings from '@/assets/icons/settings.svg';
 import show from '@/assets/icons/show.svg';
+import sort from '@/assets/icons/sort.svg';
 import sun from '@/assets/icons/sun.svg';
 import train from '@/assets/icons/train.svg';
 import trash from '@/assets/icons/trash.svg';
@@ -56,12 +58,12 @@ import water from '@/assets/icons/water.svg';
 import week from '@/assets/icons/week.svg';
 import you from '@/assets/icons/you.svg';
 
-// 50 tiles from Iconography (34:681), plus scissors and more from Event (368:9064).
+// 50 tiles from Iconography (34:681), plus scissors and more (Event 368:9064), search and sort (People 387:1456).
 const icons = {
   apple, arrow, back, bell, bolt, book, box, calendar, car, chain, check, chevron, clock, close,
   copy, cup, file, film, fork, google, hand, heart, hide, home, leaf, mail, meeting, message, mic,
   moon, more, mountain, music, noise, paste, pencil, people, phone, plans, plus, refresh, scissors,
-  settings, show, sun, train, trash, undo, walk, water, week, you,
+  search, settings, show, sort, sun, train, trash, undo, walk, water, week, you,
 } satisfies Record<string, FC<SvgProps>>;
 
 export type IconName = keyof typeof icons;
