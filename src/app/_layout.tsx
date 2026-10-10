@@ -48,7 +48,10 @@ export default function RootLayout() {
         {/* 393 design width; centred in a 430 column on larger screens. */}
         <View style={styles.page}>
           <View style={styles.column}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }} />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }}>
+              {/* Weigh a plan is a drawer: see-through so the tab beneath stays, and it animates itself. */}
+              <Stack.Screen name="weigh" options={{ presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }} />
+            </Stack>
           </View>
         </View>
       </ThemeProvider>
