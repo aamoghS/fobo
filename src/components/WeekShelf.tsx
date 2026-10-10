@@ -16,13 +16,15 @@ import { Scrap } from './Scrap';
 
 // Face layers from the Your week shelf (438:3584); 46 wide, drawn from the top of a scrap.
 const faces = { asleep: asleepFace, fine: fineFace, stretched: stretchedFace, spent: spentFace, bright: fineFace };
-const FACE_H = { asleep: 24, fine: 26, stretched: 28, spent: 34, bright: 26 };
+const FACE_H = { asleep: 24, fine: 30, stretched: 28, spent: 34, bright: 26 };
 
 const STACK_W = 46;
 /** Height of a full day (DAY_ROOM) between the baseline and the dotted line. */
 const FULL = 154;
 const GAP = 2;
 const REST_H = 16;
+/** How far the character (top scrap) laps over the scrap below it, like paper stuck on top. */
+const OVERLAP = 6;
 
 export type ShelfDay = {
   date: string;
@@ -38,7 +40,7 @@ export function WeekShelf({ days }: { days: ShelfDay[] }) {
   return (
     <View style={styles.shelf} accessibilityRole="image" accessibilityLabel={describe(days)}>
       <Svg style={styles.fullLine} width="100%" height={2}>
-        <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeWidth={2} strokeDasharray="6 5" />
+        <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
       </Svg>
       <View style={styles.stacks}>
         {days.map((day) => (
@@ -71,14 +73,17 @@ function Stack({ day }: { day: ShelfDay }) {
     <View style={styles.stack}>
       {/* Bottom-up by plan: column-reverse puts the first plan on the baseline. */}
       {blocks.map((p, i) => {
-        const h = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
         const isTop = i === blocks.length - 1;
+        // The character grows by OVERLAP and its bottom is tucked over the scrap below, so the stack keeps its height.
+        const lapsOver = isTop && blocks.length > 1;
+        const visible = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
+        const h = visible + (lapsOver ? OVERLAP + GAP : 0);
         return (
-          <View key={p.id} style={{ marginTop: GAP }}>
+          <View key={p.id} style={[{ marginTop: GAP }, lapsOver && styles.lapsOver]}>
             <Scrap cut={p.kind} past={day.past} width={STACK_W} height={h} seed={seedFrom(p.id)} />
             {isTop && (
               // A short top scrap shrinks the face so it never crosses into the gap below.
-              <FaceLayer Face={Face} scale={Math.min(1, (h - 2) / faceH)} height={faceH} />
+              <FaceLayer Face={Face} scale={Math.min(1, (visible - 2) / faceH)} height={faceH} />
             )}
           </View>
         );
@@ -132,6 +137,10 @@ const styles = StyleSheet.create({
     width: STACK_W,
     flexDirection: 'column-reverse',
     alignItems: 'center',
+  },
+  lapsOver: {
+    marginBottom: -(OVERLAP + GAP),
+    zIndex: 1,
   },
   face: {
     position: 'absolute',
