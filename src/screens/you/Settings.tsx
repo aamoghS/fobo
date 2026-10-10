@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,6 +8,7 @@ import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { signOut, useLiveScreen } from '@/data/live';
 import { profile, settingsRows } from '@/data/profile';
+import { API_URL } from '@/lib/api';
 import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
@@ -22,7 +24,11 @@ export function Settings() {
       </Text>
       <View style={styles.rows}>
         {settingsRows.map((label) => (
-          <Pressable key={label} accessibilityRole="button" style={styles.row}>
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            onPress={label === 'Privacy Policy' ? () => void WebBrowser.openBrowserAsync(`${API_URL}/privacy`) : undefined}
+            style={styles.row}>
             <Text style={[type.bodyStrong, styles.ink]}>{label}</Text>
             <Icon name="chevron" />
           </Pressable>

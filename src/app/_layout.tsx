@@ -27,7 +27,7 @@ const INSTANT = ['splash', 'welcome', 'signup', 'login', 'forgot', 'auth', 'onbo
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({ DMSans_500Medium, DMSans_700Bold, DMSans_900Black });
-  // Real data when signed in; the mock data otherwise.
+  // The signed-in user's data, loaded before the splash hides.
   const [data, setData] = useState(false);
 
   useEffect(() => {

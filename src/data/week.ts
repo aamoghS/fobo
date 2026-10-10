@@ -1,19 +1,47 @@
-/** The mock "now": Wednesday 7 October, mid-morning. Your week (439:2323) shows Wednesday as today. */
-export let NOW = '2026-10-07T10:00';
+import { NOTHING_PLANNED } from '@fobo/core/copy';
 
-/** Set by src/data/live.ts to the real local time when the week comes from the API. */
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** "2026-10-07" in the phone's timezone. */
+export const localDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** "2026-10-07T10:00" in the phone's timezone. */
+export const localNow = (d = new Date()) => `${localDay(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+/** The Monday that starts the week holding `d`. */
+export function mondayOf(d = new Date()) {
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return monday;
+}
+
+/** Now, as local wall-clock time. src/data/live.ts updates it on every load. */
+export let NOW = localNow();
+
 export function setNow(now: string) {
   NOW = now;
 }
 
+function thisWeek() {
+  const monday = mondayOf();
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: localDay(monday), end: localDay(sunday) };
+}
+
+export const NO_NEXT = { title: NOTHING_PLANNED, when: '' };
+
+/** Your week (439:2323), filled from the API by src/data/live.ts. */
 export const week = {
-  start: '2026-10-05',
-  end: '2026-10-11',
+  ...thisWeek(),
   /** "Time for you" on Your week. */
-  personalHours: 2.5,
-  /**
-   * "Up next" on Your week. Figma shows this as its own row ("Social", "Tomorrow 11:30"),
-   * and it doesn't match any plan in the Plans list, so it stays separate until design confirms.
-   */
-  upNext: { title: 'Social', when: 'Tomorrow 11:30' },
+  personalHours: 0,
+  /** "Up next" on Your week: the next plan from now. */
+  upNext: NO_NEXT as { id?: string; title: string; when: string; kind?: string },
 };
+
+/** This week with nothing in it (signed out). */
+export function resetWeek() {
+  Object.assign(week, thisWeek(), { personalHours: 0, upNext: NO_NEXT });
+  setNow(localNow());
+}

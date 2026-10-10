@@ -12,6 +12,7 @@ import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { Scrap, scrapColor } from '@/components/Scrap';
 import { invites, type Invite } from '@/data/invites';
+import { useLiveScreen } from '@/data/live';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { seedFrom } from '@/lib/scrap-path';
 import { color, radius, space } from '@/styles/tokens';
@@ -23,6 +24,7 @@ type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
 export function WeighPlan() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('tentative');

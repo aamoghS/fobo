@@ -21,8 +21,10 @@ import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
 import { Tooltip } from '@/components/Tooltip';
-import { loadLive } from '@/data/live';
+import { isSignedIn, loadLive } from '@/data/live';
+import { logInWithEmail, signUpWithEmail } from '@/lib/email-auth';
 import { signInWithGoogle } from '@/lib/google-auth';
+import { notify } from '@/lib/notify';
 import { color } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
@@ -32,7 +34,7 @@ import { SwitchLink } from './SwitchLink';
 import { handOffSun } from './sunHandoff';
 import { handOffWelcomeSun, useFadeIn, WelcomeArt } from './WelcomeArt';
 
-// Google sign-in goes through Neon Auth. Email sign-in isn't wired yet: it continues into onboarding.
+// Google and email sign-in both go through the Fobo API (src/lib/google-auth.ts, src/lib/email-auth.ts).
 const ONBOARDING = '/onboarding/start' as const;
 
 /** Signs in with Google, then continues to `next` (the web build gets there through Google's redirect). */
@@ -45,12 +47,15 @@ function useGoogle(next: typeof ONBOARDING | '/week') {
         router.replace(next);
       }
     } catch (e) {
-      console.warn('Google sign-in failed', e);
+      notify(e instanceof Error ? e.message : 'Google sign-in failed. Try again.');
     }
   };
 }
 
-/** Splash (360:7537). The petals turn under a still face; the wordmark fades and the sun flies on into Pre-login. */
+/**
+ * Splash (360:7537). The petals turn under a still face; the wordmark fades and the sun flies on into
+ * Pre-login, or the app opens on Your week when already signed in.
+ */
 export function Splash() {
   const router = useRouter();
   const spin = useRef(new Animated.Value(0)).current;
@@ -81,6 +86,7 @@ export function Splash() {
           });
           leaving.start(({ finished }) => {
             if (!finished) return;
+            if (isSignedIn()) return router.replace('/week');
             // Pre-login's sun picks up from here, mid-turn.
             spin.stopAnimation((v) => {
               const sun = sunshine.current;
@@ -187,7 +193,13 @@ export function SignUp() {
     setShakes((s) => ({ ...s, ...Object.fromEntries(fields.map((f) => [f, s[f] + 1])) }));
   };
   const leave = (f: SignUpField) => () => bad(f) && !seen[f] && flag([f]);
-  const create = () => (ready ? router.push(ONBOARDING) : flag(FIELDS.filter(bad)));
+  const create = async () => {
+    if (!ready) return flag(FIELDS.filter(bad));
+    const result = await signUpWithEmail(form.name, form.email, form.password);
+    if (!result.ok) return notify(result.error);
+    await loadLive();
+    router.replace(ONBOARDING);
+  };
   return (
     <Screen
       footer={
@@ -262,7 +274,15 @@ export function Login() {
     <Screen
       footer={
         <View style={styles.footerLink}>
-          <Button label="Log in" onPress={() => router.replace('/week')} />
+          <Button
+            label="Log in"
+            onPress={async () => {
+              const result = await logInWithEmail(form.email, form.password);
+              if (!result.ok) return notify(result.error);
+              await loadLive();
+              router.replace('/week');
+            }}
+          />
           <SwitchLink prompt="New to Fobo?" link="Sign up" onPress={() => router.replace('/signup')} />
         </View>
       }>
