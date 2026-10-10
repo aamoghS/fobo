@@ -115,7 +115,7 @@ function describe(days: ShelfDay[]) {
 
 const styles = StyleSheet.create({
   shelf: {
-    height: 190,
+    height: 193,
     width: '100%',
   },
   fullLine: {
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   labels: {
     position: 'absolute',
-    top: 165,
+    top: 171,
     left: 0,
     right: 0,
     flexDirection: 'row',

@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     boxShadow: shadow.soft,
   },
   summary: {
-    paddingTop: 22,
+    paddingTop: 14,
     paddingBottom: 26,
     paddingHorizontal: 2,
     gap: 26,

@@ -25,10 +25,12 @@ type Props = {
 /** One scrap of paper = one plan. Carries --shadow-paper as an offset copy underneath. */
 export function Scrap({ cut, past = false, width, height, seed = 1 }: Props) {
   const d = scrapPath(cut, width, height, seed);
+  const fill = past && cut !== 'rest' ? color.scrapPast : scrapColor[cut];
   return (
     <Svg width={width} height={height + paperShadow.y} viewBox={`0 0 ${width} ${height + paperShadow.y}`}>
-      <Path d={d} fill={paperShadow.color} transform={`translate(${paperShadow.x} ${paperShadow.y})`} />
-      <Path d={d} fill={past && cut !== 'rest' ? color.scrapPast : scrapColor[cut]} />
+      {/* A same-colour round-joined stroke softens the corners, like torn paper rather than cut card. */}
+      <Path d={d} fill={paperShadow.color} stroke={paperShadow.color} strokeWidth={2} strokeLinejoin="round" transform={`translate(${paperShadow.x} ${paperShadow.y})`} />
+      <Path d={d} fill={fill} stroke={fill} strokeWidth={2} strokeLinejoin="round" />
     </Svg>
   );
 }
