@@ -117,7 +117,7 @@ titles by visibility (`private` grey block, `busy` block and colour, `open` with
 On start, `src/data/live.ts` asks the API for the signed-in user's week, plans, people and You tab, and
 fills the modules in `src/data/` with them, so screens read real data through the same imports.
 Signed out, the modules are empty; the app opens on Your week when signed in, else on Pre-login. Declined
-plans are left out. In the foreground the app refreshes every
+plans are left out, and tentative ones fill `invites` (Weigh a plan). In the foreground the app refreshes every
 30 s, when a screen opens, and when it comes back from the background (Google Calendar sync at most once
 a minute); screens redraw after each load. Choices save as they are made: each onboarding or Capacity
 Profile answer, and each character change (0.4 s after the last one), write to `/me` and reload, so the
@@ -126,8 +126,9 @@ You tab updates at once. Log out empties the modules. Email sign-up and log-in c
 Google sync reads every calendar shown in the person's Google Calendar (fetched in parallel), including
 all-day events, which cover their days and cost nothing. Timed events start at half a point an hour
 (0.5 to 5). Sign-in asks for the calendar list (`calendar.calendarlist.readonly`) and event access. Events are
-keyed by account, calendar and Google id. Sync keeps Fobo's own status (deleted, moved) unless Google says
-the user declined.
+keyed by account, calendar and Google id. An invite the user hasn't answered (or said maybe to) is a tentative
+plan (`proposed`): it waits on Weigh a plan and doesn't fill a day until accepted. Sync keeps Fobo's own status
+(deleted, moved) unless Google says the user declined.
 
 - Sign-in (web, Expo Go, builds): Continue with Google opens `/auth/google/start`; the session comes back
   to `/auth` on the web (`src/app/auth.tsx`, kept in localStorage) or into the app through an in-app
