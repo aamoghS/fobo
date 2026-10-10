@@ -59,10 +59,10 @@ export function useAuthForm(mode: Mode) {
     error: visibleHint === key ? RULES[key].hint : undefined,
   });
 
-  const submit = (onValid: () => void) => {
+  const submit = (onValid: (values: Record<AuthField, string>) => void) => {
     const invalidFields = fields.filter(bad);
     if (invalidFields.length === 0) {
-      onValid();
+      onValid(values);
       return;
     }
     flag(invalidFields);

@@ -11,8 +11,11 @@ export type Character = {
   height: number;
 };
 
-// Loaded from the profile API when signed in (src/data/live.ts). Defaults match Profile v.1: a stretched slab.
-let character: Character = { shape: 'slab', color: 'moodStretched', eyes: 'bored', height: 0.2 };
+/** Before the user picks one: Profile v.1's stretched slab. */
+export const DEFAULT_CHARACTER: Character = { shape: 'slab', color: 'moodStretched', eyes: 'bored', height: 0.2 };
+
+// Loaded from the profile API when signed in (src/data/live.ts).
+let character: Character = DEFAULT_CHARACTER;
 const listeners = new Set<() => void>();
 
 export function useCharacter() {

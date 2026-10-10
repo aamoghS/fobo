@@ -6,3 +6,12 @@ export const DAY_ROOM = 10;
 
 /** A day at 8 or more is full. */
 export const FULL_DAY = 8;
+
+/** The streak on Profile looks back this many days. */
+export const STREAK_DAYS = 7;
+
+/** "Free tonight" on the widget means nothing planned from this local time to midnight. */
+export const EVENING = '18:00';
+
+/** Friend days are served at most this many at a time. */
+export const MAX_FRIEND_DAYS = 14;

@@ -10,34 +10,35 @@ import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
-import { getPerson, people } from '@/data/people';
-import { getPlan } from '@/data/plans';
+import { getPerson, people, requests } from '@/data/people';
+import { plans } from '@/data/plans';
+import { NOW } from '@/data/week';
 import { dayAndHour } from '@/lib/format';
 import { paperShadow } from '@/styles/shadow';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
-// The featured plan on People. Its card art is a flattened export of 387:1470.
-const FEATURED = 'comal';
-
-/** People (387:1456). */
+/** People (387:1456). The featured card is your next plan with people; its art is a flattened export of 387:1470. */
 export function People() {
-  useLiveScreen();
+  const version = useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [byName, setByName] = useState(false);
 
+  // The lists fill in place when data loads, so the live version is a dependency too.
   const circle = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = people.filter((p) => p.name.toLowerCase().includes(q));
     return byName ? [...list].sort((a, b) => a.name.localeCompare(b.name)) : list;
-  }, [query, byName]);
+  }, [query, byName, version]);
 
-  const featured = getPlan(FEATURED);
-  const host = featured?.with?.[0] ? getPerson(featured.with[0]) : undefined;
+  const featured = plans.filter((p) => p.with?.length && p.end > NOW).sort((a, b) => a.start.localeCompare(b.start))[0];
+  // People are friend ids on Fobo plans, and names or emails on Google invites.
+  const first = featured?.with?.[0];
+  const host = first ? (getPerson(first)?.name ?? first.split('@')[0]) : undefined;
   const others = (featured?.with?.length ?? 1) - 1;
-  const featuredWhen = featured && `${dayAndHour(featured.start)} · ${host?.name}${others ? ` + ${others}` : ''}`;
+  const featuredWhen = featured && `${dayAndHour(featured.start)} · ${host}${others ? ` + ${others}` : ''}`;
 
   return (
     <View style={styles.screen}>
@@ -46,8 +47,18 @@ export function People() {
           <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             People
           </Text>
-          <IconButton icon="plus" label="Add person" />
+          <IconButton icon="plus" label="Add person" onPress={() => router.push('/people/add')} />
         </View>
+
+        {requests.length > 0 && (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/people/add')} style={styles.requests}>
+            <Icon name="people" size={20} color={color.ink2} />
+            <Text style={[type.bodyStrong, styles.ink, styles.requestsText]}>
+              {requests.length === 1 ? `${requests[0].name} asked to add you` : `${requests.length} people asked to add you`}
+            </Text>
+            <Icon name="chevron" size={19} color={color.ink2} />
+          </Pressable>
+        )}
 
         <Text accessibilityRole="header" style={[type.title, styles.ink, styles.section]}>
           Plans with people
@@ -125,6 +136,8 @@ export function People() {
 }
 
 const styles = StyleSheet.create({
+  requests: { marginTop: space[16], minHeight: 56, paddingHorizontal: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center', borderRadius: radius.row, backgroundColor: color.fill },
+  requestsText: { flex: 1 },
   screen: { flex: 1, backgroundColor: color.ground },
   content: { paddingHorizontal: space.margin, paddingBottom: 200 },
   ink: { color: color.ink },

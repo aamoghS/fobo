@@ -1,23 +1,30 @@
-import { eq, sql } from 'drizzle-orm';
-import { upsertProfile, withUser, type Db } from '../db.ts';
+import { EYES, ONBOARDING, SHAPES, SWATCHES, TINTS } from '@fobo/core/options';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { upsertProfile, withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
-import { profiles } from '../schema.ts';
+import { calendarConnections, calendarSync, profiles } from '../schema.ts';
 
 const EDITABLE = [
   'handle', 'name', 'character', 'timezone', 'rechargeStyle', 'busyStreak', 'protectedHours',
   'onboarding', 'writeBack', 'shareBlocks', 'shareScores', 'bio', 'tint', 'stressRelief',
 ] as const;
 
-// The app's options, from src/data/profile.ts (Edit character) and src/screens/onboarding/Onboarding.tsx.
-const SHAPES = ['slab', 'drip', 'flower', 'cloud', 'square'];
-const SWATCHES = ['moodFine', 'moodStretched', 'moodAsleep', 'moodSpent', 'scrapWork', 'paintViolet', 'paintCharcoal'];
-const EYES = ['sleepy', 'happy', 'bored'];
-const ONBOARDING: Record<string, string[] | null> = {
-  recharge: ['alone', 'depends', 'people'],
-  'head-home': ['In the first hour', 'After 1 to 2 hours', 'After 2 to 3 hours', 'I stayed happily to the end'],
-  yourself: ['Same evening', 'Next morning', 'After a day', '2 to 3 days', 'Longer'],
-  compare: null, // a plan id
-};
+// The app's options (Edit Character, onboarding, avatar tints), shared through @fobo/core.
+const SHAPE_KEYS: readonly string[] = SHAPES.map((s) => s.key);
+const SWATCH_KEYS: readonly string[] = SWATCHES;
+const EYE_KEYS: readonly string[] = EYES.map((e) => e.key);
+const TINT_KEYS: readonly string[] = TINTS;
+
+/** True for an IANA timezone name the runtime knows, like 'America/New_York'. */
+export function isTimezone(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz) return false;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Picks the allowed keys from a request body.
 export function pick<K extends string>(body: Record<string, unknown>, allowed: readonly K[]) {
@@ -27,7 +34,7 @@ export function pick<K extends string>(body: Record<string, unknown>, allowed: r
 }
 
 function checkCharacter(c: any) {
-  const ok = c && SHAPES.includes(c.shape) && SWATCHES.includes(c.color) && EYES.includes(c.eyes)
+  const ok = c && SHAPE_KEYS.includes(c.shape) && SWATCH_KEYS.includes(c.color) && EYE_KEYS.includes(c.eyes)
     && typeof c.height === 'number' && c.height >= 0 && c.height <= 1;
   if (!ok) throw new HttpError(400, 'character needs shape, color, eyes and a height from 0 to 1');
 }
@@ -56,6 +63,8 @@ export const meRoutes = [
   route('PATCH', '/me', ({ pool, claims, body }) => {
     const patch = pick(body, EDITABLE);
     if ('character' in patch) checkCharacter(patch.character);
+    if ('timezone' in patch && !isTimezone(patch.timezone)) throw new HttpError(400, 'unknown timezone');
+    if ('tint' in patch && patch.tint !== null && !TINT_KEYS.includes(patch.tint)) throw new HttpError(400, 'unknown tint');
     if ('onboarding' in patch) {
       checkOnboarding(patch.onboarding);
       // Answers merge into the saved ones, so changing one answer keeps the rest.
@@ -64,7 +73,13 @@ export const meRoutes = [
       if (answers.recharge) patch.rechargeStyle = answers.recharge;
     }
     return withUser(pool, claims, async (db) => {
+      const before = (await db.select({ timezone: profiles.timezone }).from(profiles).where(eq(profiles.id, claims.sub)))[0];
       await db.update(profiles).set(patch).where(eq(profiles.id, claims.sub));
+      // All-day Google events were placed in the old timezone: the next sync reads every calendar in full.
+      if ('timezone' in patch && before && before.timezone !== patch.timezone) {
+        await withService(pool, (svc) => svc.delete(calendarSync).where(inArray(calendarSync.connectionId,
+          svc.select({ id: calendarConnections.id }).from(calendarConnections).where(eq(calendarConnections.userId, claims.sub)))));
+      }
       return me(db, claims.sub);
     });
   }),

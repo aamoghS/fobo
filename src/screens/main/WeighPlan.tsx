@@ -12,7 +12,10 @@ import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { Scrap, scrapColor } from '@/components/Scrap';
 import { invites, type Invite } from '@/data/invites';
+import { loadLive, useLiveScreen } from '@/data/live';
+import { api } from '@/lib/api';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
+import { notify } from '@/lib/notify';
 import { seedFrom } from '@/lib/scrap-path';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -23,12 +26,25 @@ type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
 export function WeighPlan() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('tentative');
-  const [selected, setSelected] = useState(invites[0]?.id);
+  const [picked, setSelected] = useState<string>();
+  // The first invite until one is picked (invites arrive with the live data).
+  const selected = invites.some((i) => i.id === picked) ? picked : invites[0]?.id;
   const [written, setWritten] = useState('');
+  const [weighing, setWeighing] = useState(false);
   const close = () => (router.canGoBack() ? router.back() : router.replace('/week'));
+
+  const weigh = async () => {
+    setWeighing(true);
+    const weighed = await api<{ id: string }>('POST', '/weigh', tab === 'tentative' ? { planId: selected } : { text: written });
+    if (weighed) await loadLive();
+    setWeighing(false);
+    if (!weighed) return notify("Couldn't weigh that plan. Try again in a moment.");
+    router.push({ pathname: '/plans/[id]', params: { id: weighed.id } });
+  };
 
   const days = [...new Set(invites.map((i) => isoDay(i.start)))];
 
@@ -75,11 +91,12 @@ export function WeighPlan() {
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         {tab === 'tentative' && <Text style={[type.sub, styles.muted, styles.footnote]}>This won’t accept the invite.</Text>}
-        {/* The weighing step itself isn't designed yet. */}
+        {/* Gemini weighs it (POST /weigh); the result opens on Event detail: the cost, why, and a leave-by time. */}
         <Button
-          label="Weigh this plan"
+          label={weighing ? 'Weighing…' : 'Weigh this plan'}
           trailingIcon="arrow"
-          disabled={tab === 'tentative' ? !selected : !written.trim()}
+          disabled={weighing || (tab === 'tentative' ? !selected : !written.trim())}
+          onPress={weigh}
         />
       </View>
     </View>

@@ -78,7 +78,7 @@ export function Plans() {
             </Text>
             <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
           </View>
-          <IconButton icon="plus" label="Add plan" />
+          <IconButton icon="plus" label="Add plan" onPress={() => router.push('/plans/new')} />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>

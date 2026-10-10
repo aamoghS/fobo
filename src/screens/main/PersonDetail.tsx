@@ -1,10 +1,9 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import JunAvatar from '@/assets/people/jun-avatar.svg';
-import { FaceAvatar, personArt } from '@/components/Avatar';
+import { Avatar, CharacterFigure } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
@@ -12,13 +11,14 @@ import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
 import { bioFor, getPerson } from '@/data/people';
 import { plans } from '@/data/plans';
-import { NOW } from '@/data/week';
-import { shortDateRange } from '@/lib/format';
+import { localDay, NOW } from '@/data/week';
+import { isOver, type FriendDay } from '@/features/friends/types';
+import { api } from '@/lib/api';
+import { dateTile, shortDateRange } from '@/lib/format';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
+import { DAY_ROOM } from '@fobo/core/constants';
 
-// Only Jun's profile is drawn (387:1613); its banner and large avatar are exports of that frame.
-const BANNERS: Record<string, number> = { jun: require('@/assets/people/jun-banner.png') };
 const BANNER_ART = 190;
 
 /** People detail (387:1613). */
@@ -27,8 +27,15 @@ export function PersonDetail({ id }: { id: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const person = getPerson(id);
-  const Art = personArt(id);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/people'));
+
+  const [days, setDays] = useState<FriendDay[] | null>(null);
+  // Their next seven days, as much as they share: free or busy, and how full (GET /friends/:id/days).
+  const checkAvailability = async () => {
+    const to = new Date();
+    to.setDate(to.getDate() + 6);
+    setDays((await api<FriendDay[]>('GET', `/friends/${id}/days?from=${localDay(new Date())}&to=${localDay(to)}`)) ?? []);
+  };
 
   const together = plans
     .filter((p) => p.with?.includes(id) && p.start >= NOW)
@@ -46,23 +53,15 @@ export function PersonDetail({ id }: { id: string }) {
         <>
           <View style={styles.cardWrap}>
             <View style={styles.card}>
-              <View style={[styles.banner, { backgroundColor: color[person.tint] }]}>
-                {BANNERS[id] ? (
-                  <Image source={BANNERS[id]} style={StyleSheet.absoluteFill} contentFit="cover" />
-                ) : (
-                  // No drawn banner yet: their character, zoomed in and cropped like Jun's.
-                  Art && <Art width={BANNER_ART} height={BANNER_ART} style={styles.bannerArt} />
-                )}
+              <View style={[styles.banner, { backgroundColor: color[person.tint] ?? color.tintSky }]}>
+                {/* Their character, zoomed in and cropped like Jun's drawn banner (387:1613). */}
+                {person.character && <CharacterFigure character={person.character} size={BANNER_ART} style={styles.bannerArt} />}
               </View>
               <View style={styles.avatarSpace}>
                 <View style={styles.avatar}>
-                  {id === 'jun' ? (
-                    <JunAvatar width={108} height={108} />
-                  ) : (
-                    <View style={styles.avatarRing}>
-                      <FaceAvatar person={person} size={98} />
-                    </View>
-                  )}
+                  <View style={styles.avatarRing}>
+                    <Avatar person={person} size={98} />
+                  </View>
                 </View>
               </View>
               <Text accessibilityRole="header" style={[type.display, styles.ink, styles.name]}>
@@ -72,7 +71,33 @@ export function PersonDetail({ id }: { id: string }) {
                 <Text style={[type.sub, styles.muted]}>{bioFor(person)}</Text>
               </View>
               {/* Figma reads "Check availibility"; DESIGN.md §5 fixes the typo. */}
-              <Button label="Check availability" trailingArrow style={styles.check} />
+              <Button label="Check availability" trailingArrow style={styles.check} onPress={checkAvailability} />
+              {days && (
+                <View style={styles.days}>
+                  {days.length === 0 && (
+                    <Text style={[type.sub, styles.muted]}>{`${person.name} isn’t sharing their week yet.`}</Text>
+                  )}
+                  {days.map((d, i) => {
+                    const tile = dateTile(d.date);
+                    const state = isOver(d) ? 'Too full' : d.busy || d.load > 0 ? `${d.load} of ${DAY_ROOM}` : 'Free';
+                    return (
+                      <View
+                        key={d.date}
+                        accessible
+                        accessibilityLabel={`${tile.weekday} ${tile.day}: ${state}`}
+                        style={[styles.day, i < days.length - 1 && styles.rule]}>
+                        <Text style={[type.foot, styles.muted, styles.dayName]}>{`${tile.weekday} ${tile.day}`}</Text>
+                        <Text style={[type.bodyStrong, styles.ink]}>{state}</Text>
+                        {d.sharedPlanTitles?.length ? (
+                          <Text style={[type.foot, styles.muted, styles.dayPlans]} numberOfLines={1}>
+                            {d.sharedPlanTitles.join(', ')}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </View>
 
@@ -130,6 +155,10 @@ const styles = StyleSheet.create({
   name: { paddingTop: space[8] },
   bio: { paddingTop: space[4], paddingBottom: space[16], borderBottomWidth: 1, borderBottomColor: color.rule },
   check: { marginTop: space[16] },
+  days: { marginTop: space[12] },
+  day: { minHeight: 44, paddingVertical: space[8], gap: space[12], flexDirection: 'row', alignItems: 'center' },
+  dayName: { width: 56 },
+  dayPlans: { flex: 1, textAlign: 'right' },
   together: { paddingTop: space[28], paddingHorizontal: space.margin },
   planRow: { paddingVertical: space[12], gap: space[16], flexDirection: 'row', alignItems: 'center' },
   rule: { borderBottomWidth: 1, borderBottomColor: color.rule },

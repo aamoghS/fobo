@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -8,9 +8,11 @@ import { Icon, type IconName } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
-import { useLiveScreen } from '@/data/live';
+import { loadLive, useLiveScreen } from '@/data/live';
 import { getPlan, planDetails } from '@/data/plans';
+import { send } from '@/lib/api';
 import { eventDateLine } from '@/lib/format';
+import { notify } from '@/lib/notify';
 import { color, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
@@ -22,8 +24,31 @@ export function PlanDetail({ id }: { id: string }) {
   const insets = useSafeAreaInsets();
   const plan = getPlan(id);
   const detail = planDetails[id] ?? {};
+  const [planning, setPlanning] = useState(false);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plans'));
+  const edit = (focus?: 'time' | 'exit') => router.push({ pathname: '/plans/new', params: { id, ...(focus ? { focus } : {}) } });
+
+  // Gemini picks a leave-by time for this plan (POST /weigh with exit); it shows here once saved.
+  const planExit = async () => {
+    setPlanning(true);
+    const result = await send('POST', '/weigh', { planId: id, exit: true });
+    if (!('error' in result)) await loadLive();
+    setPlanning(false);
+    if ('error' in result) notify(result.error);
+  };
+
+  // A link to a page with the plan's name and time, through the share sheet.
+  const invite = async () => {
+    const result = await send<{ url: string }>('POST', `/plans/${id}/invite`);
+    if ('error' in result) return notify(result.error);
+    const message = plan ? `${plan.title}, ${eventDateLine(plan.start, plan.end)}. ${result.data.url}` : result.data.url;
+    try {
+      await Share.share(Platform.OS === 'ios' ? { message: message.replace(` ${result.data.url}`, ''), url: result.data.url } : { message });
+    } catch {
+      notify(result.data.url);
+    }
+  };
 
   if (!plan) {
     return (
@@ -41,7 +66,7 @@ export function PlanDetail({ id }: { id: string }) {
         <View style={styles.topBar}>
           <IconButton icon="close" label="Close" onPress={close} />
           <View style={styles.actions}>
-            <IconButton icon="pencil" label="Edit plan" />
+            <IconButton icon="pencil" label="Edit plan" onPress={() => edit()} />
             <IconButton icon="more" label="More" />
           </View>
         </View>
@@ -64,18 +89,24 @@ export function PlanDetail({ id }: { id: string }) {
               icon="scissors"
               title={`Leave by ${detail.exit.leaveBy}`}
               detail={detail.exit.note}
-              trailing={<Button label="Edit" variant="quiet" size="small" />}
+              trailing={<Button label="Edit" variant="quiet" size="small" onPress={() => edit('exit')} />}
             />
           )}
           {detail.reminder && <Row icon="bell" title={detail.reminder} />}
           {detail.people && <Row icon="people" title={detail.people.names} detail={detail.people.insight} />}
-          <Row icon="arrow" title="Invite via link" last onPress={() => {}} />
+          <Row icon="arrow" title="Invite via link" last onPress={invite} />
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        <Button label="Move it" variant="quiet" style={styles.footerButton} />
-        <Button label="Plan my exit" variant="ink" style={styles.footerButton} />
+        <Button label="Move it" variant="quiet" style={styles.footerButton} onPress={() => edit('time')} />
+        <Button
+          label={planning ? 'Planning…' : 'Plan my exit'}
+          variant="ink"
+          style={styles.footerButton}
+          disabled={planning}
+          onPress={planExit}
+        />
       </View>
     </View>
   );

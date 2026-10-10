@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
-import { calendarConnections } from '../schema.ts';
+import { calendarConnections, calendarSync, events } from '../schema.ts';
 import { googleAccount, syncConnection } from '../sync.ts';
 
 const connection = {
@@ -21,6 +21,8 @@ export async function connect(db: Db, userId: string) {
       set: { syncToken: null },
     })
     .returning({ id: calendarConnections.id });
+  // A fresh link reads every calendar in full again.
+  await db.delete(calendarSync).where(eq(calendarSync.connectionId, conn.id));
   return { connectionId: conn.id, account: account.email, ...(await syncConnection(db, conn.id)) };
 }
 
@@ -28,10 +30,14 @@ export const googleRoutes = [
   // Re-pulls every Google account the caller has connected.
   route('POST', '/google-sync', ({ pool, claims }) =>
     withService(pool, async (db) => {
-      const conns = await db.select({ id: calendarConnections.id }).from(calendarConnections)
-        .where(eq(calendarConnections.userId, claims.sub));
+      const conns = await db.select({ id: calendarConnections.id, lastSyncedAt: calendarConnections.lastSyncedAt })
+        .from(calendarConnections).where(eq(calendarConnections.userId, claims.sub));
       const results = [];
-      for (const { id } of conns) results.push({ connectionId: id, ...(await syncConnection(db, id)) });
+      for (const { id, lastSyncedAt } of conns) {
+        // Several devices polling at once share one sync: skip accounts synced in the last 30 s.
+        if (lastSyncedAt && Date.now() - new Date(lastSyncedAt).getTime() < 30_000) continue;
+        results.push({ connectionId: id, ...(await syncConnection(db, id)) });
+      }
       return { results };
     })),
 
@@ -45,8 +51,10 @@ export const googleRoutes = [
         .where(eq(calendarConnections.id, params.id));
     })),
 
+  // Disconnecting removes that account's synced plans too; linking it again syncs them afresh.
   route('DELETE', '/connections/:id', ({ pool, claims, params }) =>
     withUser(pool, claims, async (db) => {
+      await db.delete(events).where(eq(events.connectionId, params.id));
       await db.delete(calendarConnections).where(eq(calendarConnections.id, params.id));
     })),
 ];

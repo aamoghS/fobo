@@ -3,12 +3,12 @@ import { withService, type Db } from '../db.ts';
 import { accessToken, deleteEvent, getEvent, insertEvent, patchEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
 import {
-  allowedChanges, askGemini, PlannerError, scoreDays, type Change, type PlanRow,
+  allowedChanges, askGemini, PlannerError, plannerReady, scoreDays, type Change, type PlanRow,
 } from '../planner.ts';
 import { calendarConnections, calendarFixes, events, memories, profiles } from '../schema.ts';
 import { googleAccount } from '../sync.ts';
 import { DAY_ROOM, localIso } from '../time.ts';
-import { range } from './events.ts';
+import { instant, range } from './events.ts';
 
 const fixColumns = {
   id: calendarFixes.id, summary: calendarFixes.summary, changes: calendarFixes.changes,
@@ -18,7 +18,7 @@ const fixColumns = {
 export const fixRoutes = [
     // { days: 1..14 }: asks the planner and saves its answer as a proposed fix.
     route('POST', '/fix-calendar', ({ pool, claims, body }) => {
-      if (!process.env.GEMINI_API_KEY) {
+      if (!plannerReady()) {
         throw new HttpError(503, "The planner isn't set up yet");
       }
       const days = Math.min(14, Math.max(1, Number(body.days) || 7));
@@ -96,8 +96,9 @@ export const fixRoutes = [
           eq(calendarFixes.status, 'proposed'),
         )))[0];
         if (!fix) throw new HttpError(404, 'no proposed fix with that id');
-        const writeBack = (await db.select({ writeBack: profiles.writeBack }).from(profiles)
-          .where(eq(profiles.id, claims.sub)))[0]?.writeBack ?? false;
+        const me = (await db.select({ writeBack: profiles.writeBack, timezone: profiles.timezone }).from(profiles)
+          .where(eq(profiles.id, claims.sub)))[0];
+        const writeBack = me?.writeBack ?? false;
         const only: number[] | undefined = Array.isArray(body.only) ? body.only : undefined;
         const results = [];
         for (const [i, change] of (fix.changes as Change[]).entries()) {
@@ -105,7 +106,7 @@ export const fixRoutes = [
           // A failed change rolls back alone; the others still apply.
           await db.execute(sql`savepoint change`);
           try {
-            results.push({ i, op: change.op, ...(await applyChange(db, claims.sub, change, writeBack)) });
+            results.push({ i, op: change.op, ...(await applyChange(db, claims.sub, change, writeBack, me?.timezone ?? 'UTC')) });
             await db.execute(sql`release savepoint change`);
           } catch (e) {
             await db.execute(sql`rollback to savepoint change`);
@@ -118,7 +119,9 @@ export const fixRoutes = [
       })),
 ];
 
-async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolean) {
+async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolean, tz: string) {
+  // Times without an offset are the user's local time, in Fobo and in Google.
+  const at = (dateTime: string) => ({ dateTime, timeZone: tz });
   if (ch.op === 'add_rest') {
     const [rest] = await db.insert(events).values({
       userId, title: ch.title!, time: range(ch.starts_at, ch.ends_at, userId) as unknown as string,
@@ -129,16 +132,16 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
     const conn = (await db.select({ id: calendarConnections.id }).from(calendarConnections)
       .where(and(eq(calendarConnections.userId, userId), eq(calendarConnections.writeBack, true))).limit(1))[0];
     if (!conn) return { local: 'added' };
-    const g = await insertEvent(await googleAccessFor(db, userId), {
-      summary: ch.title!, start: { dateTime: ch.starts_at! }, end: { dateTime: ch.ends_at! }, transparency: 'opaque',
+    const g = await insertEvent(await googleAccessFor(db, userId), 'primary', {
+      summary: ch.title!, start: at(ch.starts_at!), end: at(ch.ends_at!), transparency: 'opaque',
     });
-    await db.update(events).set({ connectionId: conn.id, externalId: g.id, source: 'google' })
+    await db.update(events).set({ connectionId: conn.id, externalId: g.id, calendarId: 'primary', source: 'google' })
       .where(eq(events.id, rest.id));
     return { local: 'added', remote: 'google' };
   }
 
   const e = (await db.select({
-    id: events.id, protected: events.protected, externalId: events.externalId,
+    id: events.id, protected: events.protected, externalId: events.externalId, calendarId: events.calendarId,
     connWriteBack: calendarConnections.writeBack,
   }).from(events)
     .leftJoin(calendarConnections, eq(calendarConnections.id, events.connectionId))
@@ -148,7 +151,7 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
 
   const set =
     ch.op === 'move' ? { time: range(ch.starts_at, ch.ends_at, userId), status: 'moved' }
-    : ch.op === 'shorten' ? { time: sql`tstzrange(lower(${events.time}), ${ch.ends_at}::timestamptz)` }
+    : ch.op === 'shorten' ? { time: sql`tstzrange(lower(${events.time}), ${instant(ch.ends_at, userId)})` }
     : ch.op === 'decline' ? { status: 'declined' }
     : { protected: true };
   await db.update(events).set(set as Record<string, unknown>).where(eq(events.id, e.id));
@@ -156,16 +159,17 @@ async function applyChange(db: Db, userId: string, ch: Change, writeBack: boolea
   const push = writeBack && e.connWriteBack && e.externalId && ch.op !== 'protect';
   if (!push) return { local: 'updated' };
   const access = await googleAccessFor(db, userId);
-  if (ch.op === 'move') await patchEvent(access, e.externalId!, { start: { dateTime: ch.starts_at! }, end: { dateTime: ch.ends_at! } });
-  if (ch.op === 'shorten') await patchEvent(access, e.externalId!, { end: { dateTime: ch.ends_at! } });
+  const cal = e.calendarId ?? 'primary';
+  if (ch.op === 'move') await patchEvent(access, cal, e.externalId!, { start: at(ch.starts_at!), end: at(ch.ends_at!) });
+  if (ch.op === 'shorten') await patchEvent(access, cal, e.externalId!, { end: at(ch.ends_at!) });
   if (ch.op === 'decline') {
     // Someone else's invite gets the reply "declined"; the user's own solo event is removed.
-    const g = await getEvent(access, e.externalId!);
+    const g = await getEvent(access, cal, e.externalId!);
     if (g.attendees?.some((a) => a.self)) {
-      await patchEvent(access, e.externalId!, {
+      await patchEvent(access, cal, e.externalId!, {
         attendees: g.attendees.map((a) => (a.self ? { ...a, responseStatus: 'declined' } : a)),
       });
-    } else await deleteEvent(access, e.externalId!);
+    } else await deleteEvent(access, cal, e.externalId!);
   }
   return { local: 'updated', remote: 'google' };
 }

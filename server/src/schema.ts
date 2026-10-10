@@ -60,6 +60,7 @@ export const events = pgTable('events', {
   source: text('source').notNull().default('capacity'),
   connectionId: uuid('connection_id'),
   externalId: text('external_id'),
+  calendarId: text('calendar_id'),
   etag: text('etag'),
   costNote: text('cost_note'),
   exitNote: text('exit_note'),
@@ -94,6 +95,12 @@ export const calendarFixes = pgTable('calendar_fixes', {
   appliedAt: timestamp('applied_at', { withTimezone: true }),
 });
 
+export const calendarSync = pgTable('calendar_sync', {
+  connectionId: uuid('connection_id').notNull(),
+  calendarId: text('calendar_id').notNull(),
+  syncToken: text('sync_token'),
+}, (t) => [primaryKey({ columns: [t.connectionId, t.calendarId] })]);
+
 export const achievements = pgTable('achievements', {
   userId: text('user_id').notNull(),
   achievementId: text('achievement_id').notNull(),
@@ -110,4 +117,4 @@ export const profilePublic = pgView('profile_public', {
   tint: text('tint'),
 }).existing();
 
-export const schema = { profiles, achievements, calendarConnections, events, memories, friendships, calendarFixes, profilePublic };
+export const schema = { profiles, achievements, calendarSync, calendarConnections, events, memories, friendships, calendarFixes, profilePublic };
