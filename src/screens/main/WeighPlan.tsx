@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import asleepFace from '@/assets/faces/asleep.svg';
-import fineEyes from '@/assets/faces/fine-eyes.svg';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
-import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
-import { Scrap, scrapColor } from '@/components/Scrap';
+import { scrapColor } from '@/components/Scrap';
 import { invites, type Invite } from '@/data/invites';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
-import { seedFrom } from '@/lib/scrap-path';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
@@ -99,30 +95,10 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
         <Text style={[type.bodyStrong, styles.ink]}>{invite.title}</Text>
         <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
       </View>
-      <Character invite={invite} kindColor={kindColor} />
       <View style={[styles.radio, selected && styles.radioOn]}>
         {selected && <Icon name="check" size={18} color={color.paper} />}
       </View>
     </Pressable>
-  );
-}
-
-const CHAR_W = 42;
-
-function Character({ invite, kindColor }: { invite: Invite; kindColor: string }) {
-  const c = invite.character;
-  if (c === 'sun') return <PaperSpirit mood="bright" size={56} />;
-  // Googly eyes run a size up and sit lower than on the shelf, like the mockup.
-  const Face = c.face === 'fine' ? fineEyes : asleepFace;
-  const faceW = c.face === 'fine' ? 64 : 50;
-  const scale = faceW / 46;
-  return (
-    <View style={styles.character}>
-      <Scrap cut={c.cut} fill={kindColor} width={CHAR_W} height={CHAR_W} seed={seedFrom(invite.id)} />
-      <View style={[styles.face, { top: c.face === 'fine' ? -5 : 3, left: (CHAR_W - faceW) / 2 }]}>
-        <Face width={faceW} height={(c.face === 'fine' ? 30 : 24) * scale} color={color.creatureInk} />
-      </View>
-    </View>
   );
 }
 
@@ -151,8 +127,6 @@ const styles = StyleSheet.create({
   rowRule: { borderRadius: 0, borderBottomWidth: 1, borderBottomColor: color.rule },
   kindBar: { position: 'absolute', left: 0, top: space[12], bottom: space[12], width: 4, borderRadius: radius.full },
   rowText: { flex: 1, paddingLeft: space[20], gap: space[4] },
-  character: { width: CHAR_W, height: CHAR_W + 2, alignItems: 'center', justifyContent: 'center' },
-  face: { position: 'absolute', top: 0, left: 0 },
   radio: {
     width: 28,
     height: 28,
