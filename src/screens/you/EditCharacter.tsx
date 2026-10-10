@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState, type FC } from 'react';
+import { useRef, useState, type FC } from 'react';
 import { ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,7 +39,14 @@ export function EditCharacter() {
   const insets = useSafeAreaInsets();
   const saved = useCharacter();
   const [draft, setDraft] = useState(saved);
-  const set = <K extends keyof Character>(key: K, value: Character[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  // Each choice shows everywhere at once and saves to the profile shortly after the last change.
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const set = <K extends keyof Character>(key: K, value: Character[K]) => {
+    const next = { ...draft, [key]: value };
+    setDraft(next);
+    if (pending.current) clearTimeout(pending.current);
+    pending.current = setTimeout(() => saveCharacter(next), 400);
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 120 }}>
@@ -129,6 +136,7 @@ export function EditCharacter() {
           label="Save Character!"
           style={styles.save}
           onPress={() => {
+            if (pending.current) clearTimeout(pending.current);
             saveCharacter(draft);
             router.back();
           }}

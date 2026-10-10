@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { loadLive, refreshLive } from '@/data/live';
+import { autoRefresh, loadLive, refreshLive } from '@/data/live';
 import { color } from '@/styles/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -30,9 +30,16 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadLive().catch(() => false).finally(() => setData(true));
-    // Coming back to the app refreshes its data.
-    const sub = AppState.addEventListener('change', (s) => s === 'active' && void refreshLive());
-    return () => sub.remove();
+    // Live while in the foreground: refreshes every 30 s, and right away when the app comes back.
+    autoRefresh(true);
+    const sub = AppState.addEventListener('change', (s) => {
+      autoRefresh(s === 'active');
+      if (s === 'active') void refreshLive();
+    });
+    return () => {
+      sub.remove();
+      autoRefresh(false);
+    };
   }, []);
 
   useEffect(() => {

@@ -20,7 +20,7 @@ import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
 import { loadLive } from '@/data/live';
-import { answers } from '@/features/profile/onboarding';
+import { answers, chooseAnswer } from '@/features/profile/onboarding';
 import { api } from '@/lib/api';
 import { color, radius, shadow } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -196,7 +196,7 @@ function RechargeAnswers() {
           caption={a.caption}
           Art={a.Art}
           selected={value === a.value}
-          onPress={() => setValue((answers.recharge = a.value))}
+          onPress={() => setValue(chooseAnswer('recharge', a.value))}
         />
       ))}
     </View>
@@ -211,7 +211,7 @@ function Radios({ step, label, options }: { step: Step; label: string; options: 
         label={label}
         options={options.map((o) => ({ value: o, label: o }))}
         value={value}
-        onChange={(v) => setValue((answers[step] = v))}
+        onChange={(v) => setValue(chooseAnswer(step, v))}
       />
     </View>
   );
@@ -227,7 +227,7 @@ const PAIR = [
 function Compare({ onDone }: { onDone: () => void }) {
   const insets = useSafeAreaInsets();
   const pick = (id: string) => {
-    answers.compare = id;
+    chooseAnswer('compare', id);
     onDone();
   };
   return (
