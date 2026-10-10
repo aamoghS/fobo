@@ -1,35 +1,31 @@
+import { eq } from 'drizzle-orm';
 import { upsertProfile, withUser } from '../db.ts';
 import { HttpError, route } from '../http.ts';
+import { profiles } from '../schema.ts';
 
 const EDITABLE = [
-  'handle', 'name', 'character', 'timezone', 'recharge_style', 'busy_streak', 'protected_hours',
-  'write_back', 'share_blocks', 'share_scores', 'onboarding',
-];
-const JSON_COLUMNS = new Set(['character', 'protected_hours', 'onboarding']);
+  'handle', 'name', 'character', 'timezone', 'rechargeStyle', 'busyStreak', 'protectedHours',
+  'onboarding', 'writeBack', 'shareBlocks', 'shareScores',
+] as const;
 
-// Picks allowed keys from a body and builds "col = $n" pairs, starting at $2 ($1 is the row id).
-export function setClause(body: Record<string, unknown>, allowed: string[], jsonCols = new Set<string>()) {
-  const keys = allowed.filter((k) => k in body);
-  if (!keys.length) throw new HttpError(400, 'nothing to update');
-  return {
-    sql: keys.map((k, i) => `${k} = $${i + 2}`).join(', '),
-    values: keys.map((k) => (jsonCols.has(k) ? JSON.stringify(body[k]) : body[k])),
-  };
+// Picks the allowed keys from a request body.
+export function pick<K extends string>(body: Record<string, unknown>, allowed: readonly K[]) {
+  const out = Object.fromEntries(allowed.filter((k) => k in body).map((k) => [k, body[k]]));
+  if (!Object.keys(out).length) throw new HttpError(400, 'nothing to update');
+  return out as Partial<Record<K, any>>;
 }
 
 export const meRoutes = [
-  // First call after sign-in creates the profile.
+  // First call after sign-in creates the profile. Row-level security limits profiles to the caller.
   route('GET', '/me', ({ pool, claims }) =>
-    withUser(pool, claims, async (c) => {
-      await upsertProfile(c, claims.sub);
-      return (await c.query('select * from my_profile')).rows[0];
+    withUser(pool, claims, async (db) => {
+      await upsertProfile(db, claims.sub);
+      return (await db.select().from(profiles).where(eq(profiles.id, claims.sub)))[0];
     })),
 
   route('PATCH', '/me', ({ pool, claims, body }) => {
-    const set = setClause(body, EDITABLE, JSON_COLUMNS);
-    return withUser(pool, claims, async (c) => {
-      await c.query(`update profiles set ${set.sql} where id = $1`, [claims.sub, ...set.values]);
-      return (await c.query('select * from my_profile')).rows[0];
-    });
+    const patch = pick(body, EDITABLE);
+    return withUser(pool, claims, async (db) =>
+      (await db.update(profiles).set(patch).where(eq(profiles.id, claims.sub)).returning())[0]);
   }),
 ];

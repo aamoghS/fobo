@@ -1,4 +1,3 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import type pg from 'pg';
 import type { Claims } from './db.ts';
 
@@ -22,26 +21,26 @@ export class HttpError extends Error {
 
 export type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
 
-// '/events/:id' becomes a regex with named keys.
+// '/plans/:id' becomes a regex with named keys.
 export function route(method: string, path: string, handler: Handler): Route {
   const keys: string[] = [];
   const src = path.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)'));
   return { method, pattern: new RegExp(`^${src}$`), keys, handler };
 }
 
-export function send(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, content-type',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  });
-  res.end(body === undefined ? '' : JSON.stringify(body));
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+};
+
+export function json(status: number, body?: unknown): Response {
+  if (body === undefined) return new Response(null, { status, headers: CORS });
+  return Response.json(body, { status, headers: CORS });
 }
 
-export async function readJson(req: IncomingMessage): Promise<any> {
-  let raw = '';
-  for await (const chunk of req) raw += chunk;
+export async function readJson(req: Request): Promise<any> {
+  const raw = await req.text();
   if (!raw) return {};
   try {
     return JSON.parse(raw);

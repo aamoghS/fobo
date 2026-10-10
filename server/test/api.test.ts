@@ -1,4 +1,4 @@
-// HTTP-level API test. Signs its own tokens and serves them from a local JWKS, so it needs only
+// HTTP-level API test. Signs its own Ed25519 tokens, as Neon Auth does, and serves them from a local JWKS, so it needs only
 // TEST_DATABASE_URL (a throwaway database with db/migrations applied). Never point it at production.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,11 +30,11 @@ async function call(who: string | null, method: string, path: string, body?: unk
 }
 
 before(async () => {
-  const { privateKey, publicKey } = await generateKeyPair('RS256');
-  const jwk = { ...(await exportJWK(publicKey)), alg: 'RS256', kid: 'test' };
+  const { privateKey, publicKey } = await generateKeyPair('EdDSA', { crv: 'Ed25519' });
+  const jwk = { ...(await exportJWK(publicKey)), alg: 'EdDSA', kid: 'test' };
   const jwksUrl = await listen(http.createServer((_, res) => res.end(JSON.stringify({ keys: [jwk] }))));
   process.env.NEON_AUTH_JWKS_URL = jwksUrl;
-  sign = (sub) => new SignJWT({}).setProtectedHeader({ alg: 'RS256', kid: 'test' }).setSubject(sub)
+  sign = (sub) => new SignJWT({}).setProtectedHeader({ alg: 'EdDSA', kid: 'test' }).setSubject(sub)
     .setIssuedAt().setExpirationTime('5m').sign(privateKey);
   base = await listen(createServer(pool));
 });
@@ -54,7 +54,7 @@ test('signed-out callers are refused', async () => {
 test('first call creates a profile, and it can be edited', async () => {
   for (const u of [ann, ben, sam]) assert.equal((await call(u, 'GET', '/me')).status, 200);
   const r = await call(ann, 'PATCH', '/me', {
-    handle: `ann_${run}`, name: 'Ann', timezone: 'UTC', share_blocks: true, share_scores: true,
+    handle: `ann_${run}`, name: 'Ann', timezone: 'UTC', shareBlocks: true, shareScores: true,
   });
   assert.equal(r.status, 200);
   assert.equal(r.body.handle, `ann_${run}`);
@@ -130,7 +130,7 @@ test('stranger sees nothing, sharing switches turn things off', async () => {
   assert.equal((await call(sam, 'GET', `/people/${ann}`)).body.name, 'Ann');
   assert.equal((await call(sam, 'GET', `/people/${ann}`)).body.timezone, undefined);
 
-  await call(ann, 'PATCH', '/me', { share_blocks: false, share_scores: false });
+  await call(ann, 'PATCH', '/me', { shareBlocks: false, shareScores: false });
   assert.equal((await call(ben, 'GET', `/friends/${ann}/blocks?date=2030-01-15`)).body.length, 0);
   assert.equal((await call(ben, 'GET', `/scores/${ann}?from=2030-01-15&to=2030-01-15`)).body.length, 0);
 

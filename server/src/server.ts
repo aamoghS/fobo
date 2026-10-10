@@ -1,37 +1,25 @@
-// Fobo API server. Every request is verified against Neon Auth, then runs in one transaction.
+// Serves the API handler with Node, for local runs and tests. Production runs functions/api.ts
+// on Neon Functions.
 //   npm run dev   (from server/, loads ../.env.local)
 import http from 'node:http';
-import { verify } from './auth.ts';
+import type pg from 'pg';
+import { createHandler } from './app.ts';
 import { createPool } from './db.ts';
-import { HttpError, readJson, send, type Route } from './http.ts';
-import { eventRoutes } from './routes/events.ts';
-import { friendRoutes } from './routes/friends.ts';
-import { meRoutes } from './routes/me.ts';
 
-export const routes: Route[] = [...meRoutes, ...eventRoutes, ...friendRoutes];
-
-export function createServer(pool = createPool()) {
+export function createServer(pool: pg.Pool = createPool()) {
+  const handle = createHandler(pool);
   return http.createServer(async (req, res) => {
-    try {
-      if (req.method === 'OPTIONS') return send(res, 204, undefined);
-      const url = new URL(req.url ?? '/', 'http://localhost');
-      let match: RegExpExecArray | null = null;
-      const r = routes.find((x) => x.method === req.method && (match = x.pattern.exec(url.pathname)));
-      if (!r || !match) return send(res, 404, { error: 'not found' });
-      const claims = await verify(req.headers.authorization);
-      if (!claims) return send(res, 401, { error: 'not signed in' });
-      const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(match![i + 1])]));
-      const body = req.method === 'GET' ? {} : await readJson(req);
-      const out = await r.handler({ pool, claims, params, query: url.searchParams, body });
-      send(res, 200, out ?? { ok: true });
-    } catch (e) {
-      if (e instanceof HttpError) return send(res, e.status, { error: e.message });
-      // Postgres integrity and input errors (bad handle, taken handle, bad date) are the caller's.
-      const code = (e as { code?: string }).code ?? '';
-      if (code.startsWith('23') || code.startsWith('22')) return send(res, 400, { error: 'invalid input' });
-      console.error(e);
-      send(res, 500, { error: 'server error' });
-    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
+    const out = await handle(new Request(`http://${req.headers.host ?? 'localhost'}${req.url}`, {
+      method: req.method,
+      headers,
+      body: chunks.length && req.method !== 'GET' ? Buffer.concat(chunks) : undefined,
+    }));
+    res.writeHead(out.status, Object.fromEntries(out.headers));
+    res.end(Buffer.from(await out.arrayBuffer()));
   });
 }
 
