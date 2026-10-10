@@ -49,7 +49,7 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 |---|---|---|
 | GET | `/me` | creates the profile on first call, returns it with the sign-in `email` |
 | PATCH | `/me` | handle, name, bio, tint, character, timezone, rechargeStyle, busyStreak, protectedHours, onboarding, writeBack, shareBlocks, shareScores; character and onboarding must be the app's options |
-| GET | `/week?start` | `src/data/week.ts`: `start`, `end`, `personalHours`, `upNext { title, when, start }`, plus `days` with loads |
+| GET | `/week?start` | `src/data/week.ts`: `start`, `end`, `personalHours`, `upNext { title, when, start }`, plus `days` with `load`, `room` and `over` |
 | GET | `/profile` | `src/data/profile.ts`: `{ profile { name, title, email, streak }, achievements, widget, capacity }` |
 | GET | `/people` | `src/data/people.ts`: `Person[]` (`id`, `name`, `tint`, `nextLabel`, `bio`, `pastTogether`) |
 | GET | `/plans?from&to` | plans overlapping the window, as `Plan` (+ `visibility`, `protected`, `source`) |
@@ -61,7 +61,7 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | DELETE | `/friends/:id` | unfriend, cancel or decline |
 | GET | `/friends/:id/days?from&to` | `FriendDay[]`, at most 14 days |
 | GET | `/friends/:id/blocks?date` | a friend's blocks for one day |
-| GET | `/scores/:id?from&to` | daily loads, for yourself or a friend who shares them |
+| GET | `/scores/:id?from&to` | daily `load`, `room` and `over` (past the room), for yourself or a friend who shares them |
 | GET | `/people/:id` | public profile (handle, name, character, bio, tint) with `nextPlan` and `pastTogether` |
 | GET | `/auth/google/start?return`, `/auth/google/callback` | Google sign-in for the apps (no token needed) |
 | POST | `/google-sync` | pulls Google changes for every connected account |

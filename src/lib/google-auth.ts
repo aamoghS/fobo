@@ -2,9 +2,8 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { API_URL } from './api';
 import { setSession } from './session';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 /** True when signed in; false when the person closed the browser. */
 export async function signInWithGoogle(_next: string): Promise<boolean> {

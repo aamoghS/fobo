@@ -102,7 +102,7 @@ test('plans: add, list, edit, in the Plan shape the app uses', async () => {
 
 test('own day scores', async () => {
   const r = await call(ann, 'GET', `/scores/${ann}?from=2030-01-15&to=2030-01-15`);
-  assert.deepEqual(r.body, [{ day: '2030-01-15', load: 8, room: 10 }]);
+  assert.deepEqual(r.body, [{ day: '2030-01-15', load: 8, room: 10, over: false }]);
 });
 
 test('times are local wall-clock, in and out', async () => {
@@ -143,7 +143,11 @@ test('week summary: personal hours, up next, day loads', async () => {
   assert.equal(w.body.end, '2030-01-20');
   assert.equal(w.body.personalHours, 1, 'the Gym plan (enjoy) is one hour');
   assert.equal(w.body.days.length, 7);
-  assert.equal(w.body.days.find((d: any) => d.date === '2030-01-15').load, 8);
+  assert.deepEqual(w.body.days.find((d: any) => d.date === '2030-01-15'), { date: '2030-01-15', load: 8, room: 10, over: false });
+  await call(ann, 'POST', '/plans', { title: 'Double shift', start: '2030-01-19T08:00', end: '2030-01-19T20:00', kind: 'work', energyCost: 10 });
+  await call(ann, 'POST', '/plans', { title: 'Late dinner', start: '2030-01-19T21:00', end: '2030-01-19T23:00', kind: 'social', energyCost: 2 });
+  const w2 = await call(ann, 'GET', '/week?start=2030-01-14');
+  assert.deepEqual(w2.body.days.find((d: any) => d.date === '2030-01-19'), { date: '2030-01-19', load: 12, room: 10, over: true }, 'over its room');
   assert.ok(w.body.upNext && typeof w.body.upNext.start === 'string');
   assert.equal((await call(ann, 'GET', '/week')).status, 400);
 });

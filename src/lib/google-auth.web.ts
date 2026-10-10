@@ -1,5 +1,5 @@
 // Browser build: Google sign-in through the API; it comes back to /auth (src/app/auth.tsx).
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
+import { API_URL } from './api';
 
 export async function signInWithGoogle(next: string): Promise<boolean> {
   const returnTo = `${window.location.origin}/auth?next=${encodeURIComponent(next)}`;

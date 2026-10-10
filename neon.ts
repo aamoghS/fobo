@@ -11,7 +11,6 @@ export default defineConfig({
       source: "./server/functions/api.ts",
       env: {
         DATABASE_URL: process.env.DATABASE_URL!,
-        NEON_AUTH_URL: process.env.NEON_AUTH_URL!,
         NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL!,
         GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID!,
         GOOGLE_WEB_CLIENT_SECRET: process.env.GOOGLE_WEB_CLIENT_SECRET!,
