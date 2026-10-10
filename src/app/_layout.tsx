@@ -59,6 +59,11 @@ export default function RootLayout() {
         <View style={styles.page}>
           <View style={styles.column}>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }}>
+              {/* Pre-onboarding and onboarding cut straight to the next screen, so the sun can carry across,
+                  and there's no swipe back: the back buttons move between them. */}
+              {INSTANT.map((name) => (
+                <Stack.Screen key={name} name={name} options={{ animation: 'none', gestureEnabled: false }} />
+              ))}
               {/* Weigh a plan is a drawer: see-through so the tab beneath stays, and it animates itself. */}
               <Stack.Screen name="weigh" options={{ presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }} />
             </Stack>

@@ -16,8 +16,28 @@ export type Invite = {
   replaces?: string;
 };
 
-export const invites: Invite[] = [
-  { id: 'invite-comal', title: 'Dinner at Comal', kind: 'social', start: '2026-10-10T19:00', with: 'Dani + 2', energyCost: 3, replaces: 'comal' },
-  { id: 'invite-jun-coffee', title: 'Coffee with Jun', kind: 'enjoy', start: '2026-10-11T10:00', with: 'Jun', energyCost: 1 },
-  { id: 'invite-team-lunch', title: 'Team lunch', kind: 'work', start: '2026-10-12T12:00', with: 'Work', energyCost: 2 },
-];
+export const invites: Invite[] = [];
+
+const KIND_LABEL: Record<PlanKind, string> = {
+  work: 'Work',
+  social: 'Social',
+  obligation: 'Obligation',
+  enjoy: 'Enjoy',
+  rest: 'Rest',
+};
+
+/** A plan you haven't answered, as Weigh a plan's row shows it. */
+export function inviteFrom(plan: Plan, circle: Person[]): Invite {
+  // People are friend ids for Fobo plans, and names or emails for Google invites.
+  const names = (plan.with ?? []).map((w) => circle.find((p) => p.id === w)?.name ?? w.split('@')[0]);
+  return {
+    id: plan.id,
+    title: plan.title,
+    kind: plan.kind,
+    start: plan.start,
+    with: names.length ? (names.length > 1 ? `${names[0]} + ${names.length - 1}` : names[0]) : KIND_LABEL[plan.kind],
+    energyCost: plan.energyCost,
+    // The invite is that plan on the week, so weighing doesn't count it twice.
+    replaces: plan.id,
+  };
+}

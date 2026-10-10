@@ -38,7 +38,7 @@ export function Plans() {
             </Text>
             <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
           </View>
-          <IconButton icon="plus" label="Weigh a plan" onPress={() => router.push('/weigh')} />
+          <IconButton icon="plus" label="Add plan" onPress={() => router.push('/plans/new')} />
         </View>
 
         <View style={styles.toggle} accessibilityRole="tablist">
