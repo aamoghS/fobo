@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
 import { NavFade } from '@/components/NavFade';
-import { PlanRow } from '@/components/PlanRow';
+import { PlanLine } from '@/components/PlanLine';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
 import { useLiveScreen } from '@/data/live';
@@ -13,7 +13,7 @@ import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { dateTile, daysBetween, timeRange, weekRange } from '@/lib/format';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
-import { color, radius, space } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
@@ -61,21 +61,34 @@ function Segment({ label, active, onPress }: { label: string; active: boolean; o
   );
 }
 
-/** The rest of the week as one list, as Plans first had it: date tile, title and time, energy. */
+/** The rest of the week, a section per day: "WED 7" with its load, then a card of plans. */
 function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void }) {
-  const list = days.flatMap(plansOn).filter((p) => p.end > NOW);
   return (
-    <View style={styles.agenda}>
-      <View style={styles.listHead}>
-        <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>
-          Upcoming
-        </Text>
-        <Text style={[type.foot, styles.muted]}>Energy</Text>
-      </View>
-      {list.map((p, i) => (
-        <PlanRow key={p.id} plan={p} last={i === list.length - 1} onPress={() => onOpen(p)} />
-      ))}
-    </View>
+    <>
+      {days.map((date) => {
+        const list = plansOn(date);
+        const tile = dateTile(date);
+        return (
+          <View key={date}>
+            <View style={styles.dayHead}>
+              <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>{`${tile.weekday} ${tile.day}`}</Text>
+              <Text style={[type.foot, styles.muted]}>
+                Day load <Text style={[type.label, styles.ink]}>{`${dayLoadOn(date)}/${DAY_ROOM}`}</Text>
+              </Text>
+            </View>
+            {list.length === 0 ? (
+              <Text style={[type.sub, styles.muted]}>Nothing planned</Text>
+            ) : (
+              <View style={styles.card}>
+                {list.map((p, i) => (
+                  <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => onOpen(p)} />
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </>
   );
 }
 
@@ -172,8 +185,8 @@ const styles = StyleSheet.create({
   toggle: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
-  agenda: { paddingTop: space[28], gap: space[8] },
-  listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  card: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
   calendar: { marginTop: space[16], marginHorizontal: -space.margin },
   calHead: { flexDirection: 'row', paddingTop: space[8], paddingBottom: space[12] },
   calDay: { flex: 1, alignItems: 'center' },
