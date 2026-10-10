@@ -15,7 +15,7 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-/** Radio rows in a radiogroup (DESIGN.md §3). Spec from onboarding; verify when building it. */
+/** Radio rows in a radiogroup (Q2 378:11668, Q3 378:11902). Selected state isn't drawn; it fills with ink. */
 export function RadioGroup({ label, options, value, onChange }: Props) {
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.group}>
@@ -31,6 +31,7 @@ export function RadioRow({ label, selected, onPress }: { label: string; selected
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
+      aria-checked={selected}
       accessibilityLabel={label}
       onPress={onPress}
       style={styles.row}>
@@ -55,8 +56,9 @@ const styles = StyleSheet.create({
     width: 25,
     height: 25,
     borderRadius: radius.full,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: color.ink3,
+    backgroundColor: color.paper,
     alignItems: 'center',
     justifyContent: 'center',
   },

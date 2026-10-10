@@ -34,6 +34,7 @@ export function TabButton({ icon, label, isFocused, disabled, ...props }: TabBut
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: !!isFocused, disabled }}
+      aria-selected={!!isFocused}
       disabled={disabled}
       style={[styles.tab, isFocused && styles.active]}>
       <Icon name={icon} color={ink} />

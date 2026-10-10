@@ -1,8 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-import { Placeholder } from '@/screens/Placeholder';
+import { OnboardingStep, STEPS, type Step } from '@/screens/onboarding/Onboarding';
 
 export default function Route() {
   const { step } = useLocalSearchParams<{ step: string }>();
-  return <Placeholder name={`Onboarding · ${step}`} />;
+  if (!STEPS.includes(step as Step)) return <Redirect href="/onboarding/start" />;
+  return <OnboardingStep step={step as Step} />;
 }
