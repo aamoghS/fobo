@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="147" height="155" viewBox="0 0 147 155" fill="none">
+  <defs>
+    <clipPath id="sleepy-bed-clip">
+      <rect width="142" height="98.9655" fill="white" transform="translate(0 56.0001)" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#sleepy-bed-clip)">
+    <g id="Pink / tucked in">
+      <path id="Vector" d="M30.518 126.5C25.3387 105.692 38.8048 74.4782 51.235 84.8827C59.5218 64.0738 84.3822 64.0738 88.5256 84.8827C104.529 74.4782 117.995 105.692 112.816 126.5H30.518Z" fill="#F7A6C9" />
+      <g id="Group">
+        <path id="Vector_2" d="M51.7012 95.2871C57.7436 101.356 63.7861 101.356 69.8285 95.2871M74.3604 95.2871C80.4029 101.356 86.4453 101.356 92.4878 95.2871" stroke="#1E1B18" stroke-width="2.02115" stroke-linecap="round" />
+      </g>
+    </g>
+  </g>
+</svg>

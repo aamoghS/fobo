@@ -23,6 +23,8 @@ const theme = {
   colors: { ...DefaultTheme.colors, background: color.ground, card: color.ground, text: color.ink, border: color.rule },
 };
 
+const INSTANT = ['splash', 'welcome', 'signup', 'login', 'forgot', 'auth', 'onboarding/[step]'];
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({ DMSans_500Medium, DMSans_700Bold, DMSans_900Black });
   // Real data when signed in; the mock data otherwise.
@@ -55,7 +57,13 @@ export default function RootLayout() {
         {/* 393 design width; centred in a 430 column on larger screens. */}
         <View style={styles.page}>
           <View style={styles.column}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }} />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }}>
+              {/* Pre-onboarding and onboarding cut straight to the next screen, so the sun can carry across,
+                  and there's no swipe back: the back buttons move between them. */}
+              {INSTANT.map((name) => (
+                <Stack.Screen key={name} name={name} options={{ animation: 'none', gestureEnabled: false }} />
+              ))}
+            </Stack>
           </View>
         </View>
       </ThemeProvider>

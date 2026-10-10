@@ -24,6 +24,7 @@ export const color = {
   "highlight": "#f5c125",
   "restDot": "#f7a6c9",
   "warn": "#ffc48a",
+  "error": "#c8281e",
   "scrapWork": "#2547d0",
   "scrapSocial": "#e8402a",
   "scrapObligation": "#e9a920",

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="295" height="155" viewBox="0 0 295 155" fill="none">
+  <defs>
+    <filter id="filter0_d_1_11" x="41.103" y="80.7155" width="7.90906" height="9.92035" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+      <feOffset dy="3.40906" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0.1 0" />
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_11" />
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_11" result="shape" />
+    </filter>
+    <filter id="filter1_d_1_11" x="61.7277" y="80.7155" width="7.90906" height="9.92035" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+      <feOffset dy="3.40906" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0 0.0784314 0 0 0 0.1 0" />
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_11" />
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_11" result="shape" />
+    </filter>
+  </defs>
+  <g id="Character / editable body and face">
+    <path id="Vector" d="M19 120.36L19.0213 56.6391L19.5327 47L73.1507 48.5788L87 64.9487V120.401L19 120.36Z" fill="#2547D0" />
+    <g id="Group">
+      <path id="Vector_2" d="M42.5859 91.5222C47.1422 91.5222 50.8358 87.8286 50.8358 83.2723C50.8358 78.716 47.1422 75.0224 42.5859 75.0224C38.0295 75.0224 34.3359 78.716 34.3359 83.2723C34.3359 87.8286 38.0295 91.5222 42.5859 91.5222Z" fill="white" stroke="#1E1B18" stroke-width="2.38634" />
+      <g id="Vector_3" filter="url(#filter0_d_1_11)">
+        <path d="M45.0575 87.2267C47.2415 87.2267 49.012 85.4562 49.012 83.2722C49.012 81.0882 47.2415 80.7155 45.0575 80.7155C42.8735 80.7155 41.103 81.0882 41.103 83.2722C41.103 85.4562 42.8735 87.2267 45.0575 87.2267Z" fill="#1E1B18" />
+      </g>
+      <g id="Vector_4">
+        <path d="M34.3359 81.6187H50.8358H34.3359Z" fill="black" />
+        <path d="M34.3359 81.6187H50.8358" stroke="#1E1B18" stroke-width="3.06815" />
+      </g>
+      <path id="Vector_5" d="M63.2105 91.5222C67.7668 91.5222 71.4604 87.8286 71.4604 83.2723C71.4604 78.716 67.7668 75.0223 63.2105 75.0223C58.6542 75.0223 54.9606 78.716 54.9606 83.2723C54.9606 87.8286 58.6542 91.5222 63.2105 91.5222Z" fill="white" stroke="#1E1B18" stroke-width="2.38634" />
+      <g id="Vector_6" filter="url(#filter1_d_1_11)">
+        <path d="M65.6822 87.2267C67.8662 87.2267 69.6367 85.4562 69.6367 83.2722C69.6367 81.0882 67.8662 80.7155 65.6822 80.7155C63.4982 80.7155 61.7277 81.0882 61.7277 83.2722C61.7277 85.4562 63.4982 87.2267 65.6822 87.2267Z" fill="#1E1B18" />
+      </g>
+      <g id="Vector_7">
+        <path d="M54.9606 81.6187H71.4604H54.9606Z" fill="black" />
+        <path d="M54.9606 81.6187H71.4604" stroke="#1E1B18" stroke-width="3.06815" />
+      </g>
+    </g>
+  </g>
+  <g id="Focused / editable accessories">
+    <path id="Headphone-band" d="M19 85V61C19 31 86 31 86 62V85" stroke="#24231F" stroke-width="6" stroke-linecap="round" />
+    <path id="Ear-cushions" d="M15 68C13 67.3333 12 68.6666 12 72V87C12 90.3333 15 92 21 92L24 90V68H15ZM82 68H89C91.6667 68 93 69.6666 93 73V88C93 90.6666 90 92 84 92L81 89L82 68Z" fill="#F5ACCB" />
+  </g>
+</svg>

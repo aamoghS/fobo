@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="295" height="155" viewBox="0 0 295 155" fill="none">
+  <path id="Arm painting" d="M244 96.24C248.667 100.347 253.333 97.2667 258 87" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path id="Paintbrush handle" d="M257 90L267 72" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path id="Brush dipped in pink" d="M264.444 74C263.111 70.6667 264.778 68 269.444 66C270.778 70.6667 269.111 73.3333 264.444 74Z" fill="#F7A6C9" />
+  <ellipse id="Painting hand" cx="257" cy="89.5" rx="3" ry="2.5" fill="#FFD15A" />
+</svg>

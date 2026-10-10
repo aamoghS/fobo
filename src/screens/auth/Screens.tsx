@@ -1,22 +1,36 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CelebratingArt from '@/assets/illustrations/celebrating.svg';
 import CozyArt from '@/assets/illustrations/cozy.svg';
-import LittleGuysArt from '@/assets/illustrations/little-guys.svg';
-import SunshineArt from '@/assets/illustrations/sunshine.svg';
+import SunshineFaceArt from '@/assets/illustrations/sunshine-face.svg';
+import SunshinePetalsArt from '@/assets/illustrations/sunshine-petals.svg';
 import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
+import { Tooltip } from '@/components/Tooltip';
 import { loadLive } from '@/data/live';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { color } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { AuthHeader } from './AuthHeader';
+import { CelebratingSun } from './CelebratingSun';
 import { SwitchLink } from './SwitchLink';
+import { handOffSun } from './sunHandoff';
+import { handOffWelcomeSun, useFadeIn, WelcomeArt } from './WelcomeArt';
 
 // Google sign-in goes through Neon Auth. Email sign-in isn't wired yet: it continues into onboarding.
 const ONBOARDING = '/onboarding/start' as const;
@@ -36,20 +50,76 @@ function useGoogle(next: typeof ONBOARDING | '/week') {
   };
 }
 
-/** Splash (360:7537). Moves on to Pre-login after a beat. */
+/** Splash (360:7537). The petals turn under a still face; the wordmark fades and the sun flies on into Pre-login. */
 export function Splash() {
   const router = useRouter();
+  const spin = useRef(new Animated.Value(0)).current;
+  const fade = useRef(new Animated.Value(1)).current;
+  const sunshine = useRef<View>(null);
   useEffect(() => {
-    const t = setTimeout(() => router.replace('/welcome'), 1500);
-    return () => clearTimeout(t);
-  }, [router]);
+    const native = Platform.OS !== 'web';
+    let turning: Animated.CompositeAnimation | undefined;
+    let leaving: Animated.CompositeAnimation | undefined;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    let done = false;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .catch(() => false)
+      .then((reduce) => {
+        if (done) return;
+        if (!reduce) {
+          turning = Animated.loop(
+            Animated.timing(spin, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: native }),
+          );
+          turning.start();
+        }
+        t = setTimeout(() => {
+          leaving = Animated.timing(fade, {
+            toValue: 0,
+            duration: 400,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: native,
+          });
+          leaving.start(({ finished }) => {
+            if (!finished) return;
+            // Pre-login's sun picks up from here, mid-turn.
+            spin.stopAnimation((v) => {
+              const sun = sunshine.current;
+              if (!sun) return router.replace('/welcome');
+              sun.measureInWindow((x, y) => {
+                handOffSun({ x: x + 73.75, y: y + 73.4, angle: v * 360 });
+                router.replace('/welcome');
+              });
+            });
+          });
+        }, 1500);
+      });
+    return () => {
+      done = true;
+      clearTimeout(t);
+      turning?.stop();
+      leaving?.stop();
+    };
+  }, [router, spin, fade]);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   return (
     <View style={styles.splash}>
-      <View accessible accessibilityRole="image" accessibilityLabel="Fobo">
-        <SunshineArt width={144} height={147} />
+      <View
+        ref={sunshine}
+        collapsable={false}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="Fobo"
+        style={styles.sunshine}>
+        <Animated.View style={[styles.sunLayer, { transform: [{ rotate }] }]}>
+          <SunshinePetalsArt width={160} height={160} />
+        </Animated.View>
+        {/* Its own view so it stacks above the positioned petals on web too. */}
+        <View style={styles.sunLayer}>
+          <SunshineFaceArt width={160} height={160} />
+        </View>
       </View>
       {/* Figma tracks Display/Time at -2.4%, i.e. -1.632px at 68. tokens.css says -2.4px. */}
-      <Text style={[type.time, styles.wordmark]}>Fobo</Text>
+      <Animated.Text style={[type.time, styles.wordmark, { opacity: fade }]}>Fobo</Animated.Text>
     </View>
   );
 }
@@ -58,32 +128,46 @@ export function Splash() {
 export function Welcome() {
   const router = useRouter();
   const google = useGoogle(ONBOARDING);
+  // The copy and buttons come in once the sun is out of the way.
+  const copyIn = useFadeIn(700);
   return (
     <Screen
       footer={
-        <>
+        <Animated.View style={[styles.footer, { opacity: copyIn }]}>
           <Button label="Continue with Google" icon="google" onPress={google} />
-          <Button label="Continue with email" variant="quiet" icon="mail" onPress={() => router.push('/signup')} />
-        </>
+          <Button
+            label="Continue with email"
+            variant="quiet"
+            icon="mail"
+            onPress={() => handOffWelcomeSun(() => router.push('/signup'))}
+          />
+        </Animated.View>
       }>
       <View style={styles.welcome}>
-        <View style={styles.littleGuys} importantForAccessibility="no-hide-descendants">
-          <View style={styles.littleGuysArt}>
-            <LittleGuysArt width={365} height={397} />
-          </View>
-        </View>
-        <View style={styles.pitch}>
+        <WelcomeArt />
+        <Animated.View style={[styles.pitch, { opacity: copyIn }]}>
           <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             Free isn’t the same as being full of energy.
           </Text>
           <Text style={[type.sub, styles.ink]}>
             Let Fobo prevent your <Text style={type.subStrong}>fear of being burnt out.</Text>
           </Text>
-        </View>
+        </Animated.View>
       </View>
     </Screen>
   );
 }
+
+type SignUpField = 'name' | 'email' | 'password';
+const FIELDS: SignUpField[] = ['name', 'email', 'password'];
+
+/** Every field is required. Hints aren't in Figma yet: they need a pass from UX writing. */
+const RULES: Record<SignUpField, { ok: (v: string) => boolean; hint: string }> = {
+  name: { ok: (v) => v.trim() !== '', hint: 'Enter your name' },
+  // Something@something.ending, with an ending of at least two letters.
+  email: { ok: (v) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v.trim()), hint: 'Enter a valid email, like name@example.com' },
+  password: { ok: (v) => v.length >= 8, hint: 'Use at least 8 characters for your password' },
+};
 
 /** Sign up (360:7306). */
 export function SignUp() {
@@ -91,25 +175,59 @@ export function SignUp() {
   const google = useGoogle(ONBOARDING);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  // A field turns red once it's been left, or after a tap on Create Account. It shakes as it turns red.
+  const [seen, setSeen] = useState<Record<SignUpField, boolean>>({ name: false, email: false, password: false });
+  const [shakes, setShakes] = useState<Record<SignUpField, number>>({ name: 0, email: 0, password: 0 });
+  const bad = (f: SignUpField) => !RULES[f].ok(form[f]);
+  const red = (f: SignUpField) => seen[f] && bad(f);
+  const ready = FIELDS.every((f) => !bad(f));
+  const hint = FIELDS.find(red);
+  const flag = (fields: SignUpField[]) => {
+    setSeen((s) => ({ ...s, ...Object.fromEntries(fields.map((f) => [f, true])) }));
+    setShakes((s) => ({ ...s, ...Object.fromEntries(fields.map((f) => [f, s[f] + 1])) }));
+  };
+  const leave = (f: SignUpField) => () => bad(f) && !seen[f] && flag([f]);
+  const create = () => (ready ? router.push(ONBOARDING) : flag(FIELDS.filter(bad)));
   return (
     <Screen
       footer={
         <View style={styles.footerLink}>
-          <Button label="Create Account" onPress={() => router.push(ONBOARDING)} />
+          <View>
+            <Tooltip text={hint ? RULES[hint].hint : ''} visible={!!hint} />
+            <Button
+              label="Create Account"
+              dimmed={!ready}
+              accessibilityHint={ready ? undefined : 'Fill in your name, email and password first'}
+              onPress={create}
+            />
+          </View>
           <SwitchLink prompt="Already have an account?" link="Log in" strongPrompt onPress={() => router.replace('/login')} />
         </View>
       }>
       <View style={styles.form}>
-        <AuthHeader title="Create your account" Art={CelebratingArt} />
+        <AuthHeader title="Create your account" Art={CelebratingSun} />
         <View style={styles.fields}>
           <GoogleOr label="Sign up with Google" onPress={google} />
           <View style={styles.fieldList}>
-            <TextField label="Name" placeholder="Enter your full name" value={form.name} onChangeText={set('name')} autoComplete="name" textContentType="name" />
+            <TextField
+              label="Name"
+              placeholder="Enter your full name"
+              value={form.name}
+              onChangeText={set('name')}
+              onBlur={leave('name')}
+              invalid={red('name')}
+              shake={shakes.name}
+              autoComplete="name"
+              textContentType="name"
+            />
             <TextField
               label="Email"
               placeholder="Enter your email"
               value={form.email}
               onChangeText={set('email')}
+              onBlur={leave('email')}
+              invalid={red('email')}
+              shake={shakes.email}
               autoComplete="email"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -121,6 +239,9 @@ export function SignUp() {
               password
               value={form.password}
               onChangeText={set('password')}
+              onBlur={leave('password')}
+              invalid={red('password')}
+              shake={shakes.password}
               autoComplete="new-password"
               textContentType="newPassword"
             />
@@ -251,11 +372,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: color.ground,
   },
+  sunshine: { width: 144, height: 147 },
+  // Petals and face share a 160 box centred on the flower's middle, (73.75, 73.4) in the 144x147 frame.
+  sunLayer: { position: 'absolute', left: -6.25, top: -6.6, width: 160, height: 160 },
   wordmark: { color: color.ink, letterSpacing: -1.632 },
   welcome: { paddingVertical: 40, gap: 80, alignItems: 'center' },
-  littleGuys: { width: 315, height: 255 },
-  // The export is the scene's full bounds; its origin sits here relative to the 315x255 frame.
-  littleGuysArt: { position: 'absolute', left: -10.7, top: -29.5 },
   pitch: { alignSelf: 'stretch', gap: 16 },
   form: { gap: 40 },
   fields: { gap: 20 },

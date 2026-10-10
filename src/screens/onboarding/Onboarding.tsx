@@ -9,10 +9,8 @@ import AloneArt from '@/assets/illustrations/onboarding/answer-alone.svg';
 import DependsArt from '@/assets/illustrations/onboarding/answer-depends.svg';
 import PeopleArt from '@/assets/illustrations/onboarding/answer-people.svg';
 import BathArt from '@/assets/illustrations/onboarding/bubble-bath.svg';
-import TrioArt from '@/assets/illustrations/onboarding/quiet-trio.svg';
 import NookArt from '@/assets/illustrations/onboarding/reading-nook.svg';
 import RechargingArt from '@/assets/illustrations/onboarding/recharging.svg';
-import BedArt from '@/assets/illustrations/onboarding/sleepy-bed.svg';
 import { AnswerCard } from '@/components/AnswerCard';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
@@ -25,6 +23,9 @@ import { api } from '@/lib/api';
 import { color, radius, shadow } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
+import { QuietTrio } from './QuietTrio';
+import { SleepyBed } from './SleepyBed';
+
 export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'transition', 'compare'] as const;
 export type Step = (typeof STEPS)[number];
 
@@ -34,6 +35,10 @@ const PROGRESS: Record<Step, number> = { start: 0, recharge: 1, 'head-home': 2, 
 /** `editing`: opened from Capacity Profile to change one answer; Next and Skip go back there. */
 export function OnboardingStep({ step, editing = false }: { step: Step; editing?: boolean }) {
   const router = useRouter();
+  // The question steps hold Next back until something's picked. Skip still moves on.
+  const [picked, setPicked] = useState(answers[step] ?? null);
+  // Each answer saves to the profile as it's picked (src/features/profile/onboarding.ts).
+  const pick = (v: string) => setPicked(chooseAnswer(step, v));
   // Answers save to the profile, then the app reloads it so the You tab shows the change.
   const save = async (changed: Partial<Record<Step, string>>) => {
     if (await api('PATCH', '/me', { onboarding: changed })) await loadLive();
@@ -53,26 +58,27 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
     case 'start':
       return (
         <Frame step={step} onNext={next} cta="Continue" gap={40}>
-          <Art Svg={TrioArt} width={295} />
+          <Art Svg={QuietTrio} width={295} />
           <Copy title="Now, for some questions about you." body="A few quick ones so Fobo can guess how tall your days stack up. It learns the rest from your week." />
         </Frame>
       );
     case 'recharge':
       return (
-        <Frame step={step} onNext={next} editing={editing}>
-          <Art Svg={BedArt} width={147} />
+        <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
+          <Art Svg={SleepyBed} width={147} />
           {/* "recharge" has no question mark in Figma; copied as drawn. */}
           <Copy title="How do you usually recharge" body="No wrong answer. It's a starting guess, not a label." />
-          <RechargeAnswers />
+          <RechargeAnswers value={picked} onChange={pick} />
         </Frame>
       );
     case 'head-home':
       return (
-        <Frame step={step} onNext={next} editing={editing}>
+        <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
           <Art Svg={RechargingArt} width={162} />
           <Copy lead="Think of your last group hangout." title="When did you start wanting to head home?" />
           <Radios
-            step={step}
+            value={picked}
+            onChange={pick}
             label="When did you start wanting to head home?"
             options={['In the first hour', 'After 1 to 2 hours', 'After 2 to 3 hours', 'I stayed happily to the end']}
           />
@@ -80,11 +86,12 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
       );
     case 'yourself':
       return (
-        <Frame step={step} onNext={next} editing={editing}>
+        <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
           <Art Svg={BathArt} width={180} />
           <Copy title="After a big social day, when do you feel like yourself again" />
           <Radios
-            step={step}
+            value={picked}
+            onChange={pick}
             label="After a big social day, when do you feel like yourself again"
             options={['Same evening', 'Next morning', 'After a day', '2 to 3 days', 'Longer']}
           />
@@ -137,6 +144,7 @@ function Frame({
   cta = 'Next',
   gap = 20,
   editing = false,
+  ready = true,
   children,
 }: {
   step: Step;
@@ -144,6 +152,8 @@ function Frame({
   cta?: string;
   gap?: number;
   editing?: boolean;
+  /** False greys out the button. */
+  ready?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -154,7 +164,7 @@ function Frame({
       {/* Start keeps the header's space but hides it (opacity 0 in Figma). */}
       {step === 'start' ? <View style={styles.headerSpace} /> : <Header step={step} editing={editing} />}
       <View style={[styles.body, { gap }]}>{children}</View>
-      <Button label={cta} onPress={onNext} />
+      <Button label={cta} disabled={!ready} onPress={onNext} />
     </ScrollView>
   );
 }
@@ -185,33 +195,34 @@ const RECHARGE = [
   { value: 'people', title: 'With people', caption: 'Company time', Art: PeopleArt },
 ];
 
-function RechargeAnswers() {
-  const [value, setValue] = useState(answers.recharge ?? null);
+type Answer = { value: string | null; onChange: (v: string) => void };
+
+function RechargeAnswers({ value, onChange }: Answer) {
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="How do you usually recharge" style={styles.answers}>
-      {RECHARGE.map((a) => (
+      {RECHARGE.map((a, i) => (
         <AnswerCard
           key={a.value}
+          tilt={i % 2 ? 3 : -3}
           title={a.title}
           caption={a.caption}
           Art={a.Art}
           selected={value === a.value}
-          onPress={() => setValue(chooseAnswer('recharge', a.value))}
+          onPress={() => onChange(a.value)}
         />
       ))}
     </View>
   );
 }
 
-function Radios({ step, label, options }: { step: Step; label: string; options: string[] }) {
-  const [value, setValue] = useState(answers[step] ?? null);
+function Radios({ value, onChange, label, options }: Answer & { label: string; options: string[] }) {
   return (
     <View style={styles.radios}>
       <RadioGroup
         label={label}
         options={options.map((o) => ({ value: o, label: o }))}
         value={value}
-        onChange={(v) => setValue(chooseAnswer(step, v))}
+        onChange={onChange}
       />
     </View>
   );

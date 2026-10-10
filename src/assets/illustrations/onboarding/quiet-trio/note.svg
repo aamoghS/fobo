@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="295" height="155" viewBox="0 0 295 155" fill="none">
+  <path id="Music-note" d="M82 38V25L93 22V34" stroke="#199B6C" stroke-width="2.5" />
+  <path id="Note-one" d="M79 41C81.2091 41 83 39.6569 83 38C83 36.3431 81.2091 35 79 35C76.7909 35 75 36.3431 75 38C75 39.6569 76.7909 41 79 41Z" fill="#199B6C" />
+  <path id="Note-two" d="M90 37C92.2091 37 94 35.6569 94 34C94 32.3431 92.2091 31 90 31C87.7909 31 86 32.3431 86 34C86 35.6569 87.7909 37 90 37Z" fill="#199B6C" />
+</svg>

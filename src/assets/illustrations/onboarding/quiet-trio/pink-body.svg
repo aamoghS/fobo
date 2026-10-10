@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="295" height="155" viewBox="0 0 295 155" fill="none">
+  <path id="Pink little guy" d="M97.9963 104C93.4641 84.7273 105.248 55.8182 116.125 65.4545C123.377 46.1818 145.132 46.1818 148.758 65.4545C162.763 55.8182 174.546 84.7273 170.014 104H97.9963Z" fill="#F7A6C9" />
+  <path id="Peaceful closed eyes" d="M119 76C123 81.3333 127 81.3333 131 76M137 76C141 81.3333 145 81.3333 149 76" stroke="#1E1B18" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+  <path id="Resting left arm" d="M123 89C113 100.333 105.333 103 100 97" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path id="Resting right arm" d="M169 89C179 100.333 186.667 103 192 97" stroke="#1E1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <ellipse id="Left hand" cx="77" cy="97.5" rx="4" ry="2.5" fill="#F7A6C9" />
+  <ellipse id="Right hand" cx="192" cy="97.5" rx="4" ry="2.5" fill="#F7A6C9" />
+</svg>

@@ -23,6 +23,8 @@ type Props = {
   /** Ink button with a paper circle and arrow on the right ("Weigh a plan" on Your week). */
   trailingArrow?: boolean;
   disabled?: boolean;
+  /** Looks disabled but still takes the tap, so a form can show what's missing. */
+  dimmed?: boolean;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
@@ -36,11 +38,14 @@ export function Button({
   trailingIcon,
   trailingArrow = false,
   disabled = false,
+  dimmed = false,
   onPress,
   style,
   accessibilityHint,
 }: Props) {
-  const text = variant === 'ink' ? color.paper : variant === 'quiet' ? color.ink : color.ink2;
+  // Disabled (34:965): primary takes an ink-3 fill; quiet and text drop to ink-3 text.
+  const grey = disabled || dimmed;
+  const text = variant === 'ink' ? color.paper : grey ? color.ink3 : variant === 'quiet' ? color.ink : color.ink2;
   return (
     <Pressable
       accessibilityRole="button"
@@ -57,7 +62,7 @@ export function Button({
         variant === 'quiet' && styles.quiet,
         variant === 'text' && styles.text,
         trailingArrow && styles.withArrow,
-        disabled && styles.disabled,
+        grey && variant === 'ink' && styles.inkDisabled,
         style,
       ]}>
       {icon && <Icon name={icon} color={text} />}
@@ -102,5 +107,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabled: { opacity: 0.45 },
+  inkDisabled: { backgroundColor: color.ink3 },
 });
