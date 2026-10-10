@@ -13,7 +13,7 @@ import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { dateTile, daysBetween, timeRange, weekRange } from '@/lib/format';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
-import { color, radius, shadow, space } from '@/styles/tokens';
+import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
@@ -79,7 +79,7 @@ function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void })
             {list.length === 0 ? (
               <Text style={[type.sub, styles.muted]}>Nothing planned</Text>
             ) : (
-              <View style={styles.card}>
+              <View>
                 {list.map((p, i) => (
                   <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => onOpen(p)} />
                 ))}
@@ -186,7 +186,6 @@ const styles = StyleSheet.create({
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  card: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
   calendar: { marginTop: space[16], marginHorizontal: -space.margin },
   calHead: { flexDirection: 'row', paddingTop: space[8], paddingBottom: space[12] },
   calDay: { flex: 1, alignItems: 'center' },
