@@ -63,6 +63,7 @@ async function circle(db: Db, me: string) {
       id: p.id,
       name: p.name ?? p.handle,
       tint: p.tint ?? 'tintSky',
+      ...(p.character ? { character: p.character } : {}),
       nextLabel: t.nextPlan?.start ? `${t.nextPlan.title} · ${weekday(t.nextPlan.start)}` : 'No upcoming plans',
       ...(p.bio ? { bio: p.bio } : {}),
       ...(t.pastTogether ? { pastTogether: t.pastTogether } : {}),
@@ -100,12 +101,14 @@ export const friendRoutes = [
       return { ...row, ...(await together(db, claims.sub, params.id)) };
     })),
 
-  // Add by exact handle: creates a pending request.
+  // Add by exact handle, or by the email they signed in with: creates a pending request.
   route('POST', '/friends', ({ pool, claims, body }) =>
     withUser(pool, claims, async (db) => {
-      const other = (await db.select({ id: profilePublic.id }).from(profilePublic)
-        .where(eq(profilePublic.handle, cleanHandle(body.handle))))[0];
-      if (!other || other.id === claims.sub) throw new HttpError(404, 'no one with that handle');
+      const other = body.email
+        ? (await db.execute<{ id: string | null }>(sql`select app.profile_id_by_email(${String(body.email).trim()}) as id`)).rows[0]
+        : (await db.select({ id: profilePublic.id }).from(profilePublic)
+          .where(eq(profilePublic.handle, cleanHandle(body.handle))))[0];
+      if (!other?.id || other.id === claims.sub) throw new HttpError(404, 'no one with that handle or email');
       const added = await db.insert(friendships).values({ requesterId: claims.sub, addresseeId: other.id })
         .onConflictDoNothing().returning();
       if (!added.length) throw new HttpError(409, 'already friends or asked');

@@ -5,7 +5,7 @@ import { achievements, profiles } from '../schema.ts';
 import { DAY_ROOM, clock } from '../time.ts';
 
 // The You tab, in the shape of src/data/profile.ts: { profile, achievements, widget, capacity }.
-// Copy matches the app's mock where it exists; the rest is marked in server/README.md for design.
+// Copy follows the Figma frames where they have it; the rest is marked in server/README.md for design.
 
 // The achievement catalog, as the app draws it (src/data/profile.ts achievements).
 const CATALOG = [
@@ -37,10 +37,10 @@ const TITLES: Record<string, string> = { people: 'Social Butterfly', depends: 'S
 const sentence = (items: string[]) =>
   items.length ? items.map((s, i) => (i ? s.toLowerCase() : s[0].toUpperCase() + s.slice(1))).join(', ') : null;
 
-// Days in a row, ending today, whose load stayed within the day's room.
-async function streak(db: Db, userId: string, today: string) {
+// Days in a row, ending today and counted from the day the user joined, whose load stayed within the day's room.
+async function streak(db: Db, userId: string, today: string, joined: string) {
   const { rows } = await db.execute<{ load: number }>(sql`
-    select load from day_scores(${userId}, ${today}::date - 6, ${today}::date) order by day desc`);
+    select load from day_scores(${userId}, greatest(${today}::date - 6, ${joined}::date), ${today}::date) order by day desc`);
   let days = 0;
   for (const r of rows) {
     if (r.load > DAY_ROOM) break;
@@ -81,13 +81,27 @@ export const youRoutes = [
     withUser(pool, claims, async (db) => {
       const me = (await db.select().from(profiles).where(eq(profiles.id, claims.sub)))[0];
       if (!me) return null;
-      const { rows } = await db.execute<{ email: string | null; today: string }>(sql`
-        select app.my_email() as email, to_char(now() at time zone ${me.timezone}, 'YYYY-MM-DD') as today`);
-      const { email, today } = rows[0];
+      const { rows } = await db.execute<{ email: string | null; today: string; joined: string }>(sql`
+        select app.my_email() as email, to_char(now() at time zone ${me.timezone}, 'YYYY-MM-DD') as today,
+               to_char(${me.createdAt}::timestamptz at time zone ${me.timezone}, 'YYYY-MM-DD') as joined`);
+      const { email, today, joined } = rows[0];
 
-      // The First Week is earned a week after joining.
-      if (Date.now() - new Date(me.createdAt).getTime() >= 7 * 864e5) {
-        await db.insert(achievements).values({ userId: claims.sub, achievementId: 'first-week' }).onConflictDoNothing();
+      // Earned from what the user has done: a planned exit that came and went (The Irish Goodbye), a full
+      // week within room (Slow and Steady), a plan with three or more people (More the Merrier), and a
+      // week since joining (The First Week). Once earned, they stay.
+      const done = (await db.execute<{ exit: boolean; merrier: boolean }>(sql`
+        select exists(select 1 from events where leave_by is not null and not declined and upper(time) <= now()) as exit,
+               exists(select 1 from events where cardinality(with_people) >= 3 and not declined) as merrier`)).rows[0];
+      const strk = await streak(db, claims.sub, today, joined);
+      const reached = [
+        done.exit && 'irish-goodbye',
+        strk.days >= strk.of && 'slow-steady',
+        done.merrier && 'merrier',
+        Date.now() - new Date(me.createdAt).getTime() >= 7 * 864e5 && 'first-week',
+      ].filter((a): a is string => Boolean(a));
+      if (reached.length) {
+        await db.insert(achievements).values(reached.map((achievementId) => ({ userId: claims.sub, achievementId })))
+          .onConflictDoNothing();
       }
       const earned = new Set((await db.select().from(achievements).where(eq(achievements.userId, claims.sub)))
         .map((a) => a.achievementId));
@@ -108,7 +122,7 @@ export const youRoutes = [
           name: me.name ?? me.handle,
           title: TITLES[answers.recharge] ?? null,
           email,
-          streak: await streak(db, claims.sub, today),
+          streak: strk,
         },
         achievements: CATALOG.filter((a) => earned.has(a.id)),
         widget: await widget(db, claims.sub, today),

@@ -12,7 +12,8 @@ export const weekRoutes = [
     if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new HttpError(400, 'start is required (YYYY-MM-DD)');
     return withUser(pool, claims, async (db) => {
       const { rows } = await db.execute<{
-        end: string; personal_hours: number; next_title: string | null; next_start: string | null; today: string;
+        end: string; personal_hours: number; next_id: string | null; next_title: string | null; next_kind: string | null;
+        next_start: string | null; today: string;
       }>(sql`
         with me as (select timezone as tz from profiles where id = ${claims.sub}),
         span as (
@@ -24,11 +25,11 @@ export const weekRoutes = [
                coalesce((select round(sum(extract(epoch from upper(e.time) - lower(e.time))) / 3600, 1)
                          from events e where not e.declined and e.category in ('enjoy', 'rest')
                            and e.time && tstzrange(span.lo, span.hi)), 0) as personal_hours,
-               n.title as next_title,
+               n.id as next_id, n.title as next_title, coalesce(n.category, 'work') as next_kind,
                to_char(lower(n.time) at time zone span.tz, 'YYYY-MM-DD"T"HH24:MI') as next_start
         from span
         left join lateral (
-          select title, time from events
+          select id, title, category, time from events
           where not declined and lower(time) > now() order by lower(time) limit 1
         ) n on true`);
       const days = await db.execute<{ day: string; load: number; room: number; over: boolean }>(sql`
@@ -42,7 +43,7 @@ export const weekRoutes = [
         personalHours: r.personal_hours,
         // The app shows `when` ('Tomorrow 11:30'); `start` is the plan's local time.
         upNext: r.next_title && r.next_start
-          ? { title: r.next_title, when: when(r.next_start, r.today), start: r.next_start }
+          ? { id: r.next_id, title: r.next_title, kind: r.next_kind, when: when(r.next_start, r.today), start: r.next_start }
           : null,
         // over: the day is past its room (the app's isOverflowing).
         days: days.rows.map((d) => ({ date: d.day, load: d.load, room: d.room, over: d.over })),

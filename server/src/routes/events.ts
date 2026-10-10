@@ -73,7 +73,7 @@ export async function planDetail(db: Db, id: string) {
     reminder,
     detail: {
       ...(costNote ? { costNote } : {}),
-      ...(exitNote && plan.leaveBy ? { exit: { leaveBy: plan.leaveBy, note: exitNote } } : {}),
+      ...(plan.leaveBy ? { exit: { leaveBy: plan.leaveBy, ...(exitNote ? { note: exitNote } : {}) } } : {}),
       ...(reminder ? { reminder } : {}),
     },
   };
@@ -130,5 +130,14 @@ export const eventRoutes = [
       if (timed) set.time = range(body.start, body.end, claims.sub);
       await db.update(events).set(set).where(eq(events.id, params.id));
       return planDetail(db, params.id);
+    })),
+
+  // A plan from Google Calendar is declined (sync would bring it back); Fobo's own plans are removed.
+  route('DELETE', '/plans/:id', ({ pool, claims, params }) =>
+    withUser(pool, claims, async (db) => {
+      const current = (await db.select({ source: events.source }).from(events).where(eq(events.id, params.id)))[0];
+      if (!current) throw new HttpError(404, 'not found');
+      if (current.source === 'google') await db.update(events).set({ status: 'declined' }).where(eq(events.id, params.id));
+      else await db.delete(events).where(eq(events.id, params.id));
     })),
 ];

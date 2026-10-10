@@ -1,12 +1,12 @@
 # Fobo server
 
 The API for the Fobo app: profiles, plans, friends and capacity sharing, Google Calendar sync, and
-the "Fix my week" planner. Everything runs on Neon: Postgres, Neon Auth (email and Google sign-in),
-and the API itself as a Neon Function. The frontend (`../src`) is the source of truth for shapes.
+the "Fix my week" planner. Everything runs on Neon: Postgres and the API itself as a Neon Function, which also
+runs sign-in (Google and email). The frontend (`../src`) is the source of truth for shapes.
 
 - `functions/api.ts` the Neon Function (declared as `api` in `../neon.ts`)
 - `src/app.ts` the API as a fetch handler; `src/server.ts` serves it with Node for local runs
-- `src/auth.ts` verifies Neon Auth JWTs (EdDSA) against `NEON_AUTH_JWKS_URL`
+- `src/auth.ts` issues and checks the API's session tokens (HS256), and accepts Neon Auth JWTs (EdDSA)
 - `src/db.ts` one transaction per request, `SET LOCAL ROLE app_user | app_service`, Drizzle on top
 - `src/schema.ts` Drizzle schema; `../db/migrations` (SQL) stays the source of truth, since it also
   holds roles, row-level security and the friend functions
@@ -37,7 +37,15 @@ the browser back to the app with a session token (HS256, `AUTH_SECRET`, 60 days)
 Neon Auth tokens. Neon Auth cannot sign in from an ID token, so it cannot serve the phone apps.
 
 Google Cloud (project `fobo-511204`): the web client lists the API's callback
-(`<PUBLIC_API_URL>/auth/google/callback`); the app is in Testing, so only listed test users can sign in.
+(`<PUBLIC_API_URL>/auth/google/callback`). The app is published but unverified: anyone can sign in after
+Google's unverified-app warning, up to 100 users.
+
+## Email sign-in
+
+`POST /auth/email/signup` `{ name, email, password }` creates the profile and an `email_accounts` row
+(migration 018: the email lowercased, the password as a bcrypt hash made by pgcrypto's `crypt`, readable only
+by `app_service`) and answers `{ session }`. `POST /auth/email/login` `{ email, password }` answers `{ session }`,
+or 401. Passwords need at least 8 characters; a taken email is a 409. There is no password reset yet.
 
 ## Performance
 
@@ -59,14 +67,15 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 |---|---|---|
 | GET | `/me` | creates the profile on first call, returns it with the sign-in `email` |
 | PATCH | `/me` | handle, name, bio, tint, character, timezone, rechargeStyle, busyStreak, protectedHours, onboarding, writeBack, shareBlocks, shareScores; character and onboarding must be the app's options |
-| GET | `/week?start` | `src/data/week.ts`: `start`, `end`, `personalHours`, `upNext { title, when, start }`, plus `days` with `load`, `room` and `over` |
+| GET | `/week?start` | `src/data/week.ts`: `start`, `end`, `personalHours`, `upNext { id, title, kind, when, start }`, plus `days` with `load`, `room` and `over` |
 | GET | `/profile` | `src/data/profile.ts`: `{ profile { name, title, email, streak }, achievements, widget, capacity }` |
-| GET | `/people` | `src/data/people.ts`: `Person[]` (`id`, `name`, `tint`, `nextLabel`, `bio`, `pastTogether`) |
+| GET | `/people` | `src/data/people.ts`: `Person[]` (`id`, `name`, `tint`, `character`, `nextLabel`, `bio`, `pastTogether`) |
 | GET | `/plans?from&to` | plans overlapping the window, as `Plan` (+ `visibility`, `protected`, `source`) |
 | GET, PATCH | `/plans/:id` | one plan with `detail` (PlanDetail: costNote, exit, reminder); title and time of Google plans are read-only |
+| DELETE | `/plans/:id` | removes a Fobo plan; a Google plan is declined instead, so sync does not bring it back |
 | POST | `/plans` | adds a plan: `title`, `start`, `end`, `kind`, `energyCost`, `shared` or `visibility`, `leaveBy`, `with`, `costNote`, `exitNote`, `reminder` |
 | GET | `/friends` | `{ friends, incoming, outgoing }`; friends carry `bio`, `tint`, `nextPlan`, `pastTogether` |
-| POST | `/friends` | `{ handle }`: sends a request |
+| POST | `/friends` | `{ handle }` or `{ email }` (the email they signed in with): sends a request |
 | POST | `/friends/:id/accept` | accepts their request |
 | DELETE | `/friends/:id` | unfriend, cancel or decline |
 | GET | `/friends/:id/days?from&to` | `FriendDay[]`, at most 14 days |
@@ -74,6 +83,7 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | GET | `/scores/:id?from&to` | daily `load`, `room` and `over` (past the room), for yourself or a friend who shares them |
 | GET | `/people/:id` | public profile (handle, name, character, bio, tint) with `nextPlan` and `pastTogether` |
 | GET | `/auth/google/start?return`, `/auth/google/callback` | Google sign-in for the apps (no token needed) |
+| POST | `/auth/email/signup`, `/auth/email/login` | email sign-in; answers `{ session }` (no token needed) |
 | POST | `/google-sync` | pulls Google changes for every connected account |
 | GET, PATCH, DELETE | `/connections[/:id]` | Connected Apps & Devices; per-account `writeBack` |
 | POST | `/fix-calendar` | `{ days }` (1 to 14): asks the planner, saves a proposed fix |
@@ -125,7 +135,7 @@ The API is deployed as the `api` Neon Function. After API changes, from the repo
 
 ## Setup still needed
 
-1. Add each tester in Google Cloud (Audience, Test users) while the app is in Testing.
+1. Google verification (needs a domain we own) to drop the unverified-app warning and the 100-user cap.
 2. Store builds: `npx eas-cli build` needs an Apple Developer account for iPhone.
 
 ## Known gaps
@@ -138,6 +148,8 @@ The API is deployed as the `api` Neon Function. After API changes, from the repo
 - Copy written in the API because the mock has no version of it (`src/routes/you.ts`), for design to replace:
   profile title `Homebody`; widget headlines `A full day.` and `Over the line today.`; widget next
   `Nothing else today`; Capacity Profile values other than the mock's own (`Recharges alone`,
-  `Fades after ~1 hr`, recovery wording). The streak counts days in a row within the day's room.
-- Achievements: only The First Week is awarded (a week after joining); the other three have no rule yet.
-- Email sign-up and log-in screens are not wired yet; only Google is.
+  `Fades after ~1 hr`, recovery wording). The streak counts days in a row within the day's room, from the
+  day the user joined.
+- Achievements, checked on each `/profile`: The Irish Goodbye (a plan with a leave-by time has ended), Slow and
+  Steady (a 7-day streak), More the Merrier (a plan with 3 or more people), The First Week (a week after joining).
+- The app's email sign-up and log-in screens don't call `/auth/email/*` yet.
