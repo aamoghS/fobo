@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/Chip';
 import { IconButton } from '@/components/IconButton';
+import { NavFade } from '@/components/NavFade';
 import { PlanRow } from '@/components/PlanRow';
 import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
@@ -76,56 +77,59 @@ export function Plans() {
   const summaryStyle: ViewStyle = { backgroundColor: summary.tint };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 40) }]}>
-      <View style={styles.header}>
-        <View style={styles.heading}>
-          <Text accessibilityRole="header" style={[type.pageTitle, styles.ink]}>
-            Plans
-          </Text>
-          <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
+    <View style={styles.screen}>
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 40) }]}>
+        <View style={styles.header}>
+          <View style={styles.heading}>
+            <Text accessibilityRole="header" style={[type.pageTitle, styles.ink]}>
+              Plans
+            </Text>
+            <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
+          </View>
+          <IconButton icon="plus" label="Add plan" size={46} />
         </View>
-        <IconButton icon="plus" label="Add plan" size={46} />
-      </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-        {PLAN_FILTERS.map((f) => (
-          <Chip key={f.key} label={f.label} pressed={filter === f.key} onPress={() => setFilter(f.key)} />
-        ))}
-      </ScrollView>
-
-      <View style={styles.summaryWrap}>
-        <View style={[styles.summary, summaryStyle]}>
-          {summary.art}
-          <Text style={[type.statCard, styles.ink]}>{summary.count(plansThisWeek(filter).length)}</Text>
-          <Text style={[type.body, styles.muted]}>This week</Text>
-        </View>
-      </View>
-
-      <View style={styles.upcoming}>
-        <View style={styles.listHeading}>
-          <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>
-            Upcoming
-          </Text>
-          <Text style={[type.foot, styles.muted]}>Energy</Text>
-        </View>
-        <View>
-          {list.map((p, i) => (
-            <PlanRow
-              key={p.id}
-              plan={p}
-              last={i === list.length - 1}
-              onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
-            />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+          {PLAN_FILTERS.map((f) => (
+            <Chip key={f.key} label={f.label} pressed={filter === f.key} onPress={() => setFilter(f.key)} />
           ))}
+        </ScrollView>
+
+        <View style={styles.summaryWrap}>
+          <View style={[styles.summary, summaryStyle]}>
+            {summary.art}
+            <Text style={[type.statCard, styles.ink]}>{summary.count(plansThisWeek(filter).length)}</Text>
+            <Text style={[type.body, styles.muted]}>This week</Text>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.upcoming}>
+          <View style={styles.listHeading}>
+            <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>
+              Upcoming
+            </Text>
+            <Text style={[type.foot, styles.muted]}>Energy</Text>
+          </View>
+          <View>
+            {list.map((p, i) => (
+              <PlanRow
+                key={p.id}
+                plan={p}
+                last={i === list.length - 1}
+                onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
+              />
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+      <NavFade color={color.ground} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingBottom: 120 },
+  content: { paddingBottom: 200 },
   header: {
     paddingHorizontal: 20,
     flexDirection: 'row',

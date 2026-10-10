@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Avatar } from '@/components/Avatar';
+import { NavFade } from '@/components/NavFade';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
@@ -119,18 +119,7 @@ export function People() {
         </View>
       </ScrollView>
 
-      {/* Fade into the nav, as drawn (387:1608). */}
-      <View pointerEvents="none" style={styles.fade}>
-        <Svg width="100%" height="100%">
-          <Defs>
-            <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0.057" stopColor={color.paper} stopOpacity={0} />
-              <Stop offset="0.714" stopColor={color.paper} stopOpacity={1} />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#fade)" />
-        </Svg>
-      </View>
+      <NavFade color={color.paper} />
     </View>
   );
 }
@@ -165,5 +154,4 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, paddingVertical: 16, flexDirection: 'row', alignItems: 'center' },
   rowRule: { borderBottomWidth: 1, borderBottomColor: color.divider },
   rowLines: { flex: 1 },
-  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 238 },
 });
