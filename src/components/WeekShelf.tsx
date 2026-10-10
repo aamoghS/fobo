@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
@@ -13,6 +13,7 @@ import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../packages/core/src';
 
+import { Pressable } from './Pressable';
 import { Scrap } from './Scrap';
 
 // Face layers from the Your week shelf (438:3584); 46 wide, drawn from the top of a scrap.
@@ -50,12 +51,26 @@ type Props = {
   separate?: string;
   /** Hide the M T W row (the calendar draws its own column headings). */
   labels?: boolean;
+  /** Makes the days tappable; the selected pill slides over and the chosen stack hops. */
+  onSelectDay?: (date: string) => void;
 };
 
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true }: Props) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true, onSelectDay }: Props) {
+  const selectedIndex = Math.max(0, days.findIndex((d) => d.selected));
+  const [width, setWidth] = useState(0);
+  // The pill glides between days rather than jumping.
+  const pillX = useRef(new Animated.Value(selectedIndex)).current;
+  useEffect(() => {
+    Animated.spring(pillX, { toValue: selectedIndex, friction: 8, tension: 120, useNativeDriver: false }).start();
+  }, [selectedIndex, pillX]);
+  const step = days.length > 1 ? (width - STACK_W) / (days.length - 1) : 0;
   return (
-    <View style={[styles.shelf, !labels && styles.shelfBare, { marginTop: headroom }]} accessibilityRole="image" accessibilityLabel={describe(days)}>
+    <View
+      style={[styles.shelf, !labels && styles.shelfBare, { marginTop: headroom }]}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      accessibilityRole={onSelectDay ? undefined : 'image'}
+      accessibilityLabel={onSelectDay ? undefined : describe(days)}>
       {labels && (
         <Svg style={styles.fullLine} width="100%" height={2}>
           <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
@@ -67,30 +82,73 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
           <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
         ))}
       </View>
-      {labels && <View style={styles.labels}>
-        {days.map((day) => (
-          <View key={day.date} style={styles.labelCell}>
-            {day.selected ? (
-              <View style={styles.selectedPill}>
-                <Text style={styles.selectedLabel}>{day.label}</Text>
-              </View>
-            ) : (
-              <Text style={styles.label}>{day.label}</Text>
-            )}
-          </View>
-        ))}
-      </View>}
+      {labels && (
+        <View style={styles.labels}>
+          {width > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.selectedPill, { transform: [{ translateX: pillX.interpolate({ inputRange: [0, Math.max(1, days.length - 1)], outputRange: [0, step * Math.max(1, days.length - 1)] }) }] }]}
+            />
+          )}
+          {days.map((day, i) => (
+            <View key={day.date} style={styles.labelCell}>
+              {/* Turns white as the pill passes under it, so the label never fights the pill mid-slide. */}
+              <Animated.Text
+                style={[
+                  styles.label,
+                  day.selected && styles.selectedLabel,
+                  { color: pillX.interpolate({ inputRange: [i - 0.5, i, i + 0.5], outputRange: [color.ink2, color.selInk, color.ink2], extrapolate: 'clamp' }) },
+                ]}>
+                {day.label}
+              </Animated.Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {/* Tap targets: a full-height column per day, over the stack and its label. */}
+      {onSelectDay && (
+        <View style={styles.taps}>
+          {days.map((day) => (
+            <Pressable
+              key={day.date}
+              accessibilityRole="button"
+              accessibilityLabel={`${describeDay(day)}${day.selected ? ', selected' : ''}`}
+              onPress={() => onSelectDay(day.date)}
+              style={styles.tap}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
 function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming; separate?: string }) {
+  // A little hop when the day is picked.
+  const hop = useRef(new Animated.Value(0)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (!day.selected) return;
+    hop.setValue(0);
+    Animated.sequence([
+      Animated.timing(hop, { toValue: 1, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+      Animated.spring(hop, { toValue: 0, friction: 5, tension: 180, useNativeDriver: false }),
+    ]).start();
+  }, [day.selected, hop]);
   const rest = day.plans.filter((p) => p.kind === 'rest');
   const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'), separate);
   const Face = faces[day.mood];
   const faceH = FACE_H[day.mood];
   return (
-    <View style={styles.stack}>
+    <Animated.View
+      style={[
+        styles.stack,
+        { transform: [{ translateY: hop.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) }, { scaleY: hop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] },
+      ]}>
       {/* Bottom-up by plan: column-reverse puts the first plan on the baseline. */}
       {blocks.map((p, i) => {
         // An incoming block is the top already, so nothing below it changes when it lands.
@@ -118,7 +176,7 @@ function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming
           <Scrap cut="rest" width={STACK_W + 4} height={REST_H} seed={seedFrom(rest[0].id)} />
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -236,11 +294,8 @@ function FaceLayer({ Face, scale, height }: { Face: (typeof faces)['fine']; scal
   );
 }
 
-function describe(days: ShelfDay[]) {
-  return days
-    .map((d) => `${d.label}: ${d.plans.filter((p) => p.kind !== 'rest').length} plans, ${d.mood}`)
-    .join('. ');
-}
+const describeDay = (d: ShelfDay) => `${d.label}: ${d.plans.filter((p) => p.kind !== 'rest').length} plans, ${d.mood}`;
+const describe = (days: ShelfDay[]) => days.map(describeDay).join('. ');
 
 const styles = StyleSheet.create({
   shelf: {
@@ -278,7 +333,10 @@ const styles = StyleSheet.create({
     width: STACK_W,
     flexDirection: 'column-reverse',
     alignItems: 'center',
+    transformOrigin: 'bottom',
   },
+  taps: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-between' },
+  tap: { width: STACK_W, height: '100%' },
   lapsOver: {
     marginBottom: -(OVERLAP + GAP),
     zIndex: 1,
@@ -310,9 +368,13 @@ const styles = StyleSheet.create({
     color: color.ink2,
   },
   selectedPill: {
+    position: 'absolute',
+    top: -2,
+    left: 0,
+    width: STACK_W,
+    height: 22,
     backgroundColor: color.accent,
     borderRadius: radius.full,
-    paddingHorizontal: 12,
   },
   selectedLabel: {
     ...type.label,

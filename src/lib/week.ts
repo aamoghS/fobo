@@ -3,6 +3,8 @@ import { plans } from '@/data/plans';
 import { NOW, week } from '@/data/week';
 import type { Plan, PlanKind } from '@/features/plans/types';
 
+import { dayLoad } from '@/features/capacity/day-load';
+
 import { dayMood } from './energy';
 import { daysBetween, isoDay, weekdayInitial } from './format';
 
@@ -11,7 +13,10 @@ let today = isoDay(NOW);
 export const plansOn = (day: string) =>
   plans.filter((p) => isoDay(p.start) === day).sort((a, b) => a.start.localeCompare(b.start));
 
-export function shelfDays(): ShelfDay[] {
+/** Load on a day, out of DAY_ROOM. */
+export const dayLoadOn = (date: string) => Math.round(dayLoad(plansOn(date)));
+
+export function shelfDays(selected: string = today): ShelfDay[] {
   return daysBetween(week.start, week.end).map((date) => {
     const dayPlans = plansOn(date);
     const past = date < today;
@@ -21,7 +26,7 @@ export function shelfDays(): ShelfDay[] {
       plans: dayPlans,
       mood: dayMood(dayPlans, past),
       past,
-      selected: date === today,
+      selected: date === selected,
     };
   });
 }
