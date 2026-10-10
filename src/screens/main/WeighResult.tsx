@@ -83,6 +83,7 @@ export function WeighResult({ candidate, onBack, onClose }: { candidate: Candida
             days={previewWeek(candidate, landed)}
             headroom={64}
             limitLabel="Your limit"
+            separate={candidate.id}
             incoming={landed ? undefined : { date: candidate.start.slice(0, 10), plan: asPlan(candidate), onLanded: () => setLanded(true) }}
           />
 
@@ -104,16 +105,8 @@ export function WeighResult({ candidate, onBack, onClose }: { candidate: Candida
 
       {landed && (
         <Animated.View style={[styles.footer, rise]}>
-          <Text style={[type.foot, styles.muted, styles.center]}>Nothing added yet</Text>
-          {/* Adding to the week isn't wired yet. */}
-          {result === 'room' ? (
-            <Button label="Add to my week" trailingIcon="arrow" />
-          ) : (
-            <>
-              <Button label="Adjust plan" trailingIcon="arrow" />
-              <Button label="Add as planned" variant="text" />
-            </>
-          )}
+          {/* Adding to the week isn't wired yet. Over the limit, the shorter visit above is the way to adjust. */}
+          <Button label={result === 'room' ? 'Add to my week' : 'Add as planned'} trailingIcon="arrow" />
         </Animated.View>
       )}
     </View>

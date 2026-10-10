@@ -46,10 +46,12 @@ type Props = {
   headroom?: number;
   /** Names the dotted line ("Your limit"). */
   limitLabel?: string;
+  /** A plan that stays its own scrap rather than merging into a same-kind character below it. */
+  separate?: string;
 };
 
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days, incoming, headroom = 0, limitLabel }: Props) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate }: Props) {
   return (
     <View style={[styles.shelf, { marginTop: headroom }]} accessibilityRole="image" accessibilityLabel={describe(days)}>
       <Svg style={styles.fullLine} width="100%" height={2}>
@@ -58,7 +60,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel }: Props) {
       {limitLabel && <Text style={[type.foot, styles.limitLabel]}>{limitLabel}</Text>}
       <View style={styles.stacks}>
         {days.map((day) => (
-          <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} />
+          <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
         ))}
       </View>
       <View style={styles.labels}>
@@ -78,9 +80,9 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel }: Props) {
   );
 }
 
-function Stack({ day, incoming }: { day: ShelfDay; incoming?: Incoming }) {
+function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming; separate?: string }) {
   const rest = day.plans.filter((p) => p.kind === 'rest');
-  const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'));
+  const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'), separate);
   const Face = faces[day.mood];
   const faceH = FACE_H[day.mood];
   return (
@@ -114,15 +116,18 @@ function Stack({ day, incoming }: { day: ShelfDay; incoming?: Incoming }) {
 }
 
 const HOVER = 56;
+const FROM_SIDE = 190;
 
 /**
- * The new plan as a little scrap: it hangs above its day wobbling (with motion marks), drops onto
- * the stack, squashes as it lands and bounces back, then hands over to the stack (onLanded).
+ * The new plan as a little scrap. It sweeps in from the right on an arc, tilted and turning
+ * upright as it slows, hangs above its day for a beat with motion marks, then drops onto the
+ * stack, gives one soft squash and settles (onLanded hands it to the stack).
  */
 function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; onLanded: () => void }) {
-  const y = useRef(new Animated.Value(-HOVER)).current;
-  const wobble = useRef(new Animated.Value(0)).current;
-  const marks = useRef(new Animated.Value(1)).current;
+  // fly: 0 = off to the right, 1 = hanging above the day. drop: 0 = hanging, 1 = on the stack.
+  const fly = useRef(new Animated.Value(0)).current;
+  const drop = useRef(new Animated.Value(0)).current;
+  const marks = useRef(new Animated.Value(0)).current;
   const squash = useRef(new Animated.Value(1)).current;
   const landed = useRef(onLanded);
   landed.current = onLanded;
@@ -130,39 +135,38 @@ function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; on
   useEffect(() => {
     let cancelled = false;
     const finish = () => !cancelled && landed.current();
-    const swing = Animated.loop(
-      Animated.sequence([
-        Animated.timing(wobble, { toValue: 1, duration: 200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-        Animated.timing(wobble, { toValue: -1, duration: 200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-      ]),
-    );
-    let timer: ReturnType<typeof setTimeout>;
+    const t = (value: Animated.Value, toValue: number, duration: number, easing: (n: number) => number) =>
+      Animated.timing(value, { toValue, duration, easing, useNativeDriver: false });
     AccessibilityInfo.isReduceMotionEnabled?.()
       .catch(() => false)
       .then((reduce) => {
         if (cancelled) return;
         if (reduce) return finish();
-        swing.start();
-        timer = setTimeout(() => {
-          swing.stop();
+        Animated.sequence([
+          // Sweep in and ease to a stop (an expo-style ease-out reads as "thrown, then caught").
           Animated.parallel([
-            Animated.timing(wobble, { toValue: 0, duration: 160, useNativeDriver: false }),
-            Animated.timing(marks, { toValue: 0, duration: 160, useNativeDriver: false }),
-            Animated.timing(y, { toValue: 0, duration: 380, easing: Easing.in(Easing.quad), useNativeDriver: false }),
-          ]).start(() =>
-            Animated.sequence([
-              Animated.timing(squash, { toValue: 0.84, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-              Animated.spring(squash, { toValue: 1, friction: 4, tension: 200, useNativeDriver: false }),
-            ]).start(finish),
-          );
-        }, 1000);
+            t(fly, 1, 720, Easing.bezier(0.16, 1, 0.3, 1)),
+            Animated.sequence([Animated.delay(380), t(marks, 1, 200, Easing.out(Easing.quad))]),
+          ]),
+          Animated.delay(220),
+          // Let go: marks fade, it falls with gravity.
+          Animated.parallel([t(marks, 0, 140, Easing.in(Easing.quad)), t(drop, 1, 340, Easing.in(Easing.cubic))]),
+          // One soft squash, one gentle bounce back.
+          t(squash, 0.88, 90, Easing.out(Easing.quad)),
+          Animated.spring(squash, { toValue: 1, friction: 6, tension: 150, useNativeDriver: false }),
+        ]).start(finish);
       });
     return () => {
       cancelled = true;
-      clearTimeout(timer);
-      swing.stop();
     };
-  }, [y, wobble, marks, squash]);
+  }, [fly, drop, marks, squash]);
+
+  const translateX = fly.interpolate({ inputRange: [0, 1], outputRange: [FROM_SIDE, 0] });
+  // An arc: a little lift mid-flight, then settling at hover height; the drop adds the fall.
+  const flyY = fly.interpolate({ inputRange: [0, 0.45, 1], outputRange: [-HOVER - 10, -HOVER - 30, -HOVER] });
+  const translateY = Animated.add(flyY, drop.interpolate({ inputRange: [0, 1], outputRange: [0, HOVER] }));
+  // Leans into the flight, overshoots upright a touch, then straightens.
+  const rotate = fly.interpolate({ inputRange: [0, 0.7, 1], outputRange: ['22deg', '-5deg', '0deg'] });
 
   const visible = Math.max((plan.energyCost / DAY_ROOM) * FULL - GAP, 10);
   const scale = Math.min(1, (visible - 2) / FACE_H.spent);
@@ -173,10 +177,11 @@ function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; on
         zIndex: 2,
         transformOrigin: 'bottom',
         transform: [
-          { translateY: y },
-          { rotate: wobble.interpolate({ inputRange: [-1, 1], outputRange: ['-7deg', '7deg'] }) },
+          { translateX },
+          { translateY },
+          { rotate },
           { scaleY: squash },
-          { scaleX: squash.interpolate({ inputRange: [0.84, 1], outputRange: [1.12, 1] }) },
+          { scaleX: squash.interpolate({ inputRange: [0.88, 1], outputRange: [1.08, 1] }) },
         ],
       }}>
       <Scrap cut={plan.kind} past={past} width={STACK_W} height={visible} seed={seedFrom(plan.id)} />
@@ -199,9 +204,9 @@ function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; on
 }
 
 /** The day's character (top scrap) takes in the plans of its own kind right under it, as one tall scrap. */
-function withCharacter(blocks: Plan[]): Plan[] {
+function withCharacter(blocks: Plan[], separate?: string): Plan[] {
   const top = blocks[blocks.length - 1];
-  if (!top) return blocks;
+  if (!top || top.id === separate) return blocks;
   let i = blocks.length - 1;
   while (i > 0 && blocks[i - 1].kind === top.kind) i--;
   if (i === blocks.length - 1) return blocks;
