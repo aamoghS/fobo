@@ -1,10 +1,8 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import JunAvatar from '@/assets/people/jun-avatar.svg';
-import { FaceAvatar, personArt } from '@/components/Avatar';
+import { Avatar, CharacterFigure } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
@@ -17,8 +15,6 @@ import { shortDateRange } from '@/lib/format';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
-// Only Jun's profile is drawn (387:1613); its banner and large avatar are exports of that frame.
-const BANNERS: Record<string, number> = { jun: require('@/assets/people/jun-banner.png') };
 const BANNER_ART = 190;
 
 /** People detail (387:1613). */
@@ -27,7 +23,6 @@ export function PersonDetail({ id }: { id: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const person = getPerson(id);
-  const Art = personArt(id);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/people'));
 
   const together = plans
@@ -46,23 +41,15 @@ export function PersonDetail({ id }: { id: string }) {
         <>
           <View style={styles.cardWrap}>
             <View style={styles.card}>
-              <View style={[styles.banner, { backgroundColor: color[person.tint] }]}>
-                {BANNERS[id] ? (
-                  <Image source={BANNERS[id]} style={StyleSheet.absoluteFill} contentFit="cover" />
-                ) : (
-                  // No drawn banner yet: their character, zoomed in and cropped like Jun's.
-                  Art && <Art width={BANNER_ART} height={BANNER_ART} style={styles.bannerArt} />
-                )}
+              <View style={[styles.banner, { backgroundColor: color[person.tint] ?? color.tintSky }]}>
+                {/* Their character, zoomed in and cropped like Jun's drawn banner (387:1613). */}
+                {person.character && <CharacterFigure character={person.character} size={BANNER_ART} style={styles.bannerArt} />}
               </View>
               <View style={styles.avatarSpace}>
                 <View style={styles.avatar}>
-                  {id === 'jun' ? (
-                    <JunAvatar width={108} height={108} />
-                  ) : (
-                    <View style={styles.avatarRing}>
-                      <FaceAvatar person={person} size={98} />
-                    </View>
-                  )}
+                  <View style={styles.avatarRing}>
+                    <Avatar person={person} size={98} />
+                  </View>
                 </View>
               </View>
               <Text accessibilityRole="header" style={[type.display, styles.ink, styles.name]}>

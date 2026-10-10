@@ -11,33 +11,34 @@ import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
 import { getPerson, people } from '@/data/people';
-import { getPlan } from '@/data/plans';
+import { plans } from '@/data/plans';
+import { NOW } from '@/data/week';
 import { dayAndHour } from '@/lib/format';
 import { paperShadow } from '@/styles/shadow';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
-// The featured plan on People. Its card art is a flattened export of 387:1470.
-const FEATURED = 'comal';
-
-/** People (387:1456). */
+/** People (387:1456). The featured card is your next plan with people; its art is a flattened export of 387:1470. */
 export function People() {
-  useLiveScreen();
+  const version = useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [byName, setByName] = useState(false);
 
+  // The lists fill in place when data loads, so the live version is a dependency too.
   const circle = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = people.filter((p) => p.name.toLowerCase().includes(q));
     return byName ? [...list].sort((a, b) => a.name.localeCompare(b.name)) : list;
-  }, [query, byName]);
+  }, [query, byName, version]);
 
-  const featured = getPlan(FEATURED);
-  const host = featured?.with?.[0] ? getPerson(featured.with[0]) : undefined;
+  const featured = plans.filter((p) => p.with?.length && p.end > NOW).sort((a, b) => a.start.localeCompare(b.start))[0];
+  // People are friend ids on Fobo plans, and names or emails on Google invites.
+  const first = featured?.with?.[0];
+  const host = first ? (getPerson(first)?.name ?? first.split('@')[0]) : undefined;
   const others = (featured?.with?.length ?? 1) - 1;
-  const featuredWhen = featured && `${dayAndHour(featured.start)} · ${host?.name}${others ? ` + ${others}` : ''}`;
+  const featuredWhen = featured && `${dayAndHour(featured.start)} · ${host}${others ? ` + ${others}` : ''}`;
 
   return (
     <View style={styles.screen}>

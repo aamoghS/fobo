@@ -12,7 +12,7 @@ import { refreshToday } from '@/lib/week';
 
 import { inviteFrom, invites } from './invites';
 import { people, type Person } from './people';
-import { planDetails, plans, type PlanDetail } from './plans';
+import { planDetails, plans, tentative, type PlanDetail } from './plans';
 import { achievements, capacity, profile, widget, type Achievement } from './profile';
 import { NO_NEXT, localDay, localNow, mondayOf, resetWeek, setNow, week } from './week';
 
@@ -58,6 +58,7 @@ const blankWidget = structuredClone(widget);
 
 function clearLive() {
   replace(plans, []);
+  replace(tentative, []);
   replace(invites, []);
   for (const key of Object.keys(planDetails)) delete planDetails[key];
   replace(people, []);
@@ -148,10 +149,12 @@ export async function loadLive(): Promise<boolean> {
     // Your plans: not declined ones (turned down in Google Calendar, or deleted in Fobo), and not invites
     // you haven't answered, which wait on Weigh a plan instead.
     const shown = list.filter((p) => p.status !== 'declined' && p.status !== 'proposed');
+    const waiting = list.filter((p) => p.status === 'proposed' && p.end > localNow(now));
     replace(plans, shown);
-    replace(invites, list.filter((p) => p.status === 'proposed' && p.end > localNow(now)).map((p) => inviteFrom(p, people)));
+    replace(tentative, waiting);
+    replace(invites, waiting.map((p) => inviteFrom(p, people)));
     for (const key of Object.keys(planDetails)) delete planDetails[key];
-    for (const p of shown) if (p.detail && Object.keys(p.detail).length) planDetails[p.id] = p.detail;
+    for (const p of [...shown, ...waiting]) if (p.detail && Object.keys(p.detail).length) planDetails[p.id] = p.detail;
   }
   if (you) {
     Object.assign(profile, {

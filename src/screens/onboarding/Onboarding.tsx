@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState, type FC, type ReactNode } from 'react';
+import { useEffect, useState, type FC, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,10 +18,15 @@ import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
 import { loadLive } from '@/data/live';
+import { localDay, mondayOf } from '@/data/week';
+import type { Plan } from '@/features/plans/types';
 import { answers, chooseAnswer } from '@/features/profile/onboarding';
 import { api } from '@/lib/api';
+import { shortDateRange } from '@/lib/format';
 import { color, radius, shadow } from '@/styles/tokens';
 import { type } from '@/styles/type';
+import { DAY_ROOM } from '@fobo/core/constants';
+import { ONBOARDING } from '@fobo/core/options';
 
 import { QuietTrio } from './QuietTrio';
 import { SleepyBed } from './SleepyBed';
@@ -80,7 +85,7 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
             value={picked}
             onChange={pick}
             label="When did you start wanting to head home?"
-            options={['In the first hour', 'After 1 to 2 hours', 'After 2 to 3 hours', 'I stayed happily to the end']}
+            options={[...ONBOARDING['head-home']!]}
           />
         </Frame>
       );
@@ -93,7 +98,7 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
             value={picked}
             onChange={pick}
             label="After a big social day, when do you feel like yourself again"
-            options={['Same evening', 'Next morning', 'After a day', '2 to 3 days', 'Longer']}
+            options={[...ONBOARDING.yourself!]}
           />
         </Frame>
       );
@@ -228,18 +233,59 @@ function Radios({ value, onChange, label, options }: Answer & { label: string; o
   );
 }
 
-// Only the first pair is designed (446:4427); "Four quick taps" needs the other three.
-const PAIR = [
-  { id: 'lea-parents', title: 'Dinner with Lea’s parents', meta: 'Thu, Oct 8 - 2.5h', art: require('@/assets/illustrations/onboarding/compare-dinner.png'), badge: require('@/assets/illustrations/onboarding/badge-dinner.png') },
-  { id: 'offsite-drinks', title: 'Offsite drinks at a bar', meta: 'Fri, Oct 9 - 1.5h', art: require('@/assets/illustrations/onboarding/compare-drinks.png'), badge: require('@/assets/illustrations/onboarding/badge-drinks.png') },
+// The drawn pair's art (446:4427), one per side.
+const ART = [
+  { art: require('@/assets/illustrations/onboarding/compare-dinner.png'), badge: require('@/assets/illustrations/onboarding/badge-dinner.png') },
+  { art: require('@/assets/illustrations/onboarding/compare-drinks.png'), badge: require('@/assets/illustrations/onboarding/badge-drinks.png') },
 ];
+/** "Four quick taps". */
+const PAIRS = 4;
 
-/** Energy comparison (446:4427). */
+/** Last week's plans that took something, costliest first, two at a time. */
+function pairsFrom(list: Plan[]) {
+  const picked = list
+    .filter((p) => p.status === 'accepted' && p.kind !== 'rest' && p.energyCost > 0)
+    .sort((a, b) => b.energyCost - a.energyCost)
+    .slice(0, PAIRS * 2);
+  const pairs: [Plan, Plan][] = [];
+  for (let i = 0; i + 1 < picked.length; i += 2) pairs.push([picked[i], picked[i + 1]]);
+  return pairs;
+}
+
+/** "Thu, Oct 8 - 2.5h". */
+const meta = (p: Plan) =>
+  `${shortDateRange(p.start, p.end).split(' · ')[0]} - ${Math.round((Date.parse(p.end) - Date.parse(p.start)) / 18e5) / 2}h`;
+
+/** Energy comparison (446:4427), with pairs from the user's own last week. */
 function Compare({ onDone }: { onDone: () => void }) {
   const insets = useSafeAreaInsets();
-  const pick = (id: string) => {
-    chooseAnswer('compare', id);
-    onDone();
+  const [pairs, setPairs] = useState<[Plan, Plan][] | null>(null);
+  const [n, setN] = useState(0);
+
+  useEffect(() => {
+    const monday = mondayOf();
+    const last = new Date(monday);
+    last.setDate(monday.getDate() - 7);
+    void api<Plan[]>('GET', `/plans?from=${localDay(last)}T00:00&to=${localDay(monday)}T00:00`).then((list) => {
+      const found = pairsFrom(list ?? []);
+      // Nothing to compare yet (a new calendar): this step has nothing to ask.
+      if (!found.length) onDone();
+      else setPairs(found);
+    });
+  }, []);
+
+  const pair = pairs?.[n];
+  const pick = (choice: 0 | 1 | 'same' | 'unknown') => {
+    if (pair && typeof choice === 'number') {
+      const [more, less] = choice === 0 ? pair : [pair[1], pair[0]];
+      chooseAnswer('compare', more.id);
+      // It took more than the other, so it weighs more from now on.
+      if (more.energyCost <= less.energyCost) {
+        void api('PATCH', `/plans/${more.id}`, { energyCost: Math.min(DAY_ROOM, less.energyCost + 0.5) });
+      }
+    } else chooseAnswer('compare', String(choice));
+    if (pairs && n + 1 < pairs.length) setN(n + 1);
+    else onDone();
   };
   return (
     <ScrollView
@@ -255,17 +301,17 @@ function Compare({ onDone }: { onDone: () => void }) {
         <Text style={[type.sub, styles.muted]}>Think about how you felt afterward.</Text>
       </View>
       <View style={styles.activities}>
-        {PAIR.map((a) => (
-          <Pressable key={a.id} accessibilityRole="button" accessibilityLabel={`${a.title}, ${a.meta}`} onPress={() => pick(a.id)} style={styles.card}>
+        {pair?.map((a, i) => (
+          <Pressable key={a.id} accessibilityRole="button" accessibilityLabel={`${a.title}, ${meta(a)}`} onPress={() => pick(i as 0 | 1)} style={styles.card}>
             <View style={styles.cardArt}>
-              <Image source={a.art} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <Image source={ART[i].art} style={StyleSheet.absoluteFill} contentFit="cover" />
             </View>
             <View style={styles.badge}>
-              <Image source={a.badge} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <Image source={ART[i].badge} style={StyleSheet.absoluteFill} contentFit="cover" />
             </View>
             <View style={styles.cardText}>
               <Text style={[type.title, styles.strong]}>{a.title}</Text>
-              <Text style={[type.sub, styles.muted]}>{a.meta}</Text>
+              <Text style={[type.sub, styles.muted]}>{meta(a)}</Text>
             </View>
           </Pressable>
         ))}

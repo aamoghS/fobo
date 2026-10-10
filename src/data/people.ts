@@ -1,3 +1,4 @@
+import type { Character } from '@/features/profile/character';
 import type { color } from '@/styles/tokens';
 
 /** Your circle on People (387:1456): accepted friends, filled from the API by src/data/live.ts. */
@@ -8,6 +9,8 @@ export type Person = {
   tint: keyof typeof color;
   /** Next plan together ("Dinner · Saturday"). */
   nextLabel: string;
+  /** The character they made in Edit Character, drawn as their avatar. */
+  character?: Character;
   bio?: string;
   pastTogether?: number;
 };
