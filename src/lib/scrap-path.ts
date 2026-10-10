@@ -12,14 +12,15 @@ export function cutDepth(cut: ScrapCut, w: number) {
   const s = w / BASE_W;
   switch (cut) {
     case 'work':
+      return 11 * s;
     case 'past':
-      return 12.96 * s;
+      return 4 * s;
     case 'social':
-      return 14 * s;
+      return 12 * s;
     case 'obligation':
-      return 7 * s;
+      return 14 * s;
     case 'enjoy':
-      return 9.67 * s;
+      return 15 * s;
     case 'rest':
       return 0;
   }
@@ -50,8 +51,17 @@ export function scrapPath(cut: ScrapCut, w: number, h: number, seed = 1): string
   const leftBottom = wob(1);
   const rightBottom = R(w - wob(2.5));
   const bottomTilt = R(h - wob(0.6));
+  const depth = cutDepth(cut, w);
+  // The sides bow a hair, like paper cut by hand rather than a guillotine.
+  const leftBow = R(wob(1.6) - 0.6);
+  const rightBow = R(w - wob(1.6) + 0.6);
   const top = topCut(cut, w, s);
-  return `M${leftBottom} ${R(h)} L${top} L${rightBottom} ${bottomTilt} Z`;
+  return [
+    `M${leftBottom} ${R(h)}`,
+    `Q${leftBow} ${R((h + depth) / 2)} ${top}`,
+    `Q${rightBow} ${R((bottomTilt + depth) / 2)} ${rightBottom} ${bottomTilt}`,
+    'Z',
+  ].join(' ');
 }
 
 /** Points along the top edge, from the left side to the right side. */
@@ -59,23 +69,22 @@ function topCut(cut: ScrapCut, w: number, s: number): string {
   const x = (n: number) => R(n * s);
   switch (cut) {
     case 'work':
-    case 'past':
       // Snipped corner, top-right.
-      return `0.02 ${x(6.96)} L${x(0.5)} 0 L${x(50.83)} ${x(1.14)} L${R(w)} ${x(12.96)}`;
+      return `0 ${x(4)} L${x(1)} 0 L${x(50)} ${x(0.8)} L${R(w)} ${x(11)}`;
+    case 'past':
+      // Nearly flat, a soft bow across the top. Past plans lose their kind's cut as they drain.
+      return `0 ${x(4)} C${x(16)} ${x(0.5)} ${x(46)} 0 ${R(w)} ${x(3)}`;
     case 'social':
-      // Wavy.
-      return `0.02 ${x(14)} C${x(12.8)} 0 ${x(19.2)} ${x(16)} ${x(32)} ${x(8)} C${x(44.8)} 0 ${x(51.2)} 0 ${R(w)} ${x(10)}`;
-    case 'obligation': {
-      // Pinking shears: six teeth.
-      const pts = Array.from({ length: 13 }, (_, i) => `${R((w * i) / 12)} ${i % 2 ? 0 : x(7)}`);
-      return pts.join(' L');
-    }
+      // Two soft peaks, the left one taller, with a dip between.
+      return `0 ${x(10)} C${x(5)} ${x(1)} ${x(13)} 0 ${x(18)} ${x(1)} C${x(25)} ${x(5)} ${x(29)} ${x(9)} ${x(34)} ${x(8)} C${x(40)} ${x(6)} ${x(46)} ${x(2)} ${x(52)} ${x(1.5)} C${x(57)} ${x(1)} ${x(61)} ${x(4)} ${R(w)} ${x(9)}`;
+    case 'obligation':
+      // Crown: three points.
+      return `0 ${x(14)} L${x(11)} ${x(1)} L${x(22)} ${x(10)} L${x(32)} 0 L${x(42)} ${x(10)} L${x(53)} ${x(1)} L${R(w)} ${x(14)}`;
     case 'enjoy': {
-      // Three scallops.
-      const base = x(9.67);
-      const rx = R(w / 6);
-      const arcs = [1, 2, 3].map((i) => `A${rx} ${base} 0 0 1 ${R((w * i) / 3)} ${base}`);
-      return `0 ${base} ${arcs.join(' ')}`;
+      // Two round bumps.
+      const rx = R(w / 4);
+      const ry = x(15);
+      return `0 ${ry} A${rx} ${ry} 0 0 1 ${R(w / 2)} ${ry} A${rx} ${ry} 0 0 1 ${R(w)} ${ry}`;
     }
     case 'rest':
       return `0 0 L${R(w)} 0`;
