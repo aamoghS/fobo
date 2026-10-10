@@ -1,17 +1,17 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
-import { PaperSpirit } from '@/components/PaperSpirit';
-import { Pressable } from '@/components/Pressable';
+import { PlanLine } from '@/components/PlanLine';
 import { WeekShelf } from '@/components/WeekShelf';
 import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
-import { hours, weekdayLong, weekRange } from '@/lib/format';
-import { plansLeftToday, shelfDays, todayIso } from '@/lib/week';
+import { dayShort, hours, weekdayLong, weekRange } from '@/lib/format';
+import { dayLoadOn, plansLeftToday, plansOn, shelfDays, todayIso } from '@/lib/week';
+import { DAY_ROOM } from '../../../packages/core/src';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
@@ -21,6 +21,16 @@ export function YourWeek() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const left = plansLeftToday();
+  const [selected, setSelected] = useState(todayIso);
+  const dayPlans = plansOn(selected);
+  // The list fades in again for each day you pick.
+  const fade = useRef(new Animated.Value(1)).current;
+  const pick = (date: string) => {
+    if (date === selected) return;
+    setSelected(date);
+    fade.setValue(0);
+    Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  };
 
   return (
     <ScrollView
@@ -37,7 +47,7 @@ export function YourWeek() {
       </View>
 
       <View style={styles.overview}>
-        <WeekShelf days={shelfDays()} />
+        <WeekShelf days={shelfDays(selected)} onSelectDay={pick} />
 
         <View style={styles.summary}>
           <View style={styles.remaining}>
@@ -56,26 +66,21 @@ export function YourWeek() {
       </View>
 
       <View style={styles.upNext}>
-        <Text accessibilityRole="header" style={[type.title, styles.ink]}>
-          Up next
-        </Text>
-        <View style={styles.divider2} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${week.upNext.title}, ${week.upNext.when}`}
-          onPress={() => router.navigate('/plans')}
-          style={styles.nextRow}>
-          <View style={styles.avatar}>
-            <PaperSpirit mood="work" size={46} />
-          </View>
-          <View style={styles.nextText}>
-            <View style={styles.nextLines}>
-              <Text style={[type.bodyStrong, styles.ink]}>{week.upNext.title}</Text>
-              <Text style={[type.sub, styles.muted]}>{week.upNext.when}</Text>
-            </View>
-            <Icon name="chevron" size={19} color={color.ink2} />
-          </View>
-        </Pressable>
+        <View style={styles.listHead}>
+          <Text accessibilityRole="header" style={[type.title, styles.ink]}>
+            {selected === todayIso ? 'Today' : 'Upcoming'}
+          </Text>
+          <Text style={[type.sub, styles.muted]}>{`${dayShort(selected)} · ${dayLoadOn(selected)}/${DAY_ROOM}`}</Text>
+        </View>
+        {dayPlans.length === 0 ? (
+          <Text style={[type.sub, styles.muted, styles.empty]}>Nothing planned</Text>
+        ) : (
+          <Animated.View style={[styles.list, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
+            {dayPlans.map((p, i) => (
+              <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })} />
+            ))}
+          </Animated.View>
+        )}
       </View>
     </ScrollView>
   );
@@ -109,25 +114,8 @@ const styles = StyleSheet.create({
   divider: { width: 1, backgroundColor: color.rule },
   personal: { flex: 1, gap: space[4] },
   weigh: { alignSelf: 'stretch' },
-  upNext: { paddingTop: space[28], gap: space[16] },
-  divider2: { height: 1, backgroundColor: color.rule },
-  nextRow: { minHeight: 56, gap: space[16], flexDirection: 'row', alignItems: 'center' },
-  avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: radius.full,
-    backgroundColor: color.tintSky,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  nextText: {
-    flex: 1,
-    paddingVertical: space[16],
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: color.rule,
-  },
-  nextLines: { flex: 1 },
+  upNext: { paddingTop: space[28], gap: space[12] },
+  listHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  empty: { paddingTop: space[4] },
+  list: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
 });

@@ -81,6 +81,12 @@ export function shortDateRange(start: string, end: string) {
   return `${WEEKDAYS[a.getDay()].slice(0, 3)}, ${SHORT_MONTH(a)} ${a.getDate()} · ${range}`;
 }
 
+/** Your week list heading: "Sat 10". */
+export function dayShort(iso: string) {
+  const d = toDate(iso);
+  return `${WEEKDAYS[d.getDay()].slice(0, 3)} ${d.getDate()}`;
+}
+
 /** Weigh a plan day headings: "Saturday, Oct 10". */
 export function dayHeading(iso: string) {
   const d = toDate(iso);
