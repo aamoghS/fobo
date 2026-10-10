@@ -18,6 +18,8 @@ type Props = {
    */
   size?: 'default' | 'compact' | 'small';
   icon?: IconName;
+  /** Icon after the label ("Weigh this plan →"). */
+  trailingIcon?: IconName;
   /** Ink button with a paper circle and arrow on the right ("Weigh a plan" on Your week). */
   trailingArrow?: boolean;
   disabled?: boolean;
@@ -33,6 +35,7 @@ export function Button({
   variant = 'ink',
   size = 'default',
   icon,
+  trailingIcon,
   trailingArrow = false,
   disabled = false,
   dimmed = false,
@@ -66,6 +69,7 @@ export function Button({
       <Text style={[size === 'default' ? type.bodyStrong : type.subStrong, { color: text }]} numberOfLines={1}>
         {label}
       </Text>
+      {trailingIcon && <Icon name={trailingIcon} color={text} />}
       {trailingArrow && (
         <View style={styles.arrow}>
           <Icon name="arrow" size={20} />

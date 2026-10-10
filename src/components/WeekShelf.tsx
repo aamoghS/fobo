@@ -16,13 +16,15 @@ import { Scrap } from './Scrap';
 
 // Face layers from the Your week shelf (438:3584); 46 wide, drawn from the top of a scrap.
 const faces = { asleep: asleepFace, fine: fineFace, stretched: stretchedFace, spent: spentFace, bright: fineFace };
-const FACE_H = { asleep: 24, fine: 26, stretched: 28, spent: 34, bright: 26 };
+const FACE_H = { asleep: 24, fine: 30, stretched: 28, spent: 34, bright: 26 };
 
 const STACK_W = 46;
 /** Height of a full day (DAY_ROOM) between the baseline and the dotted line. */
 const FULL = 154;
 const GAP = 2;
 const REST_H = 16;
+/** How far the character (top scrap) laps over the scrap below it, like paper stuck on top. */
+const OVERLAP = 6;
 
 export type ShelfDay = {
   date: string;
@@ -38,7 +40,7 @@ export function WeekShelf({ days }: { days: ShelfDay[] }) {
   return (
     <View style={styles.shelf} accessibilityRole="image" accessibilityLabel={describe(days)}>
       <Svg style={styles.fullLine} width="100%" height={2}>
-        <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeWidth={2} strokeDasharray="6 5" />
+        <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
       </Svg>
       <View style={styles.stacks}>
         {days.map((day) => (
@@ -64,21 +66,24 @@ export function WeekShelf({ days }: { days: ShelfDay[] }) {
 
 function Stack({ day }: { day: ShelfDay }) {
   const rest = day.plans.filter((p) => p.kind === 'rest');
-  const blocks = day.plans.filter((p) => p.kind !== 'rest');
+  const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'));
   const Face = faces[day.mood];
   const faceH = FACE_H[day.mood];
   return (
     <View style={styles.stack}>
       {/* Bottom-up by plan: column-reverse puts the first plan on the baseline. */}
       {blocks.map((p, i) => {
-        const h = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
         const isTop = i === blocks.length - 1;
+        // The character grows by OVERLAP and its bottom is tucked over the scrap below, so the stack keeps its height.
+        const lapsOver = isTop && blocks.length > 1;
+        const visible = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
+        const h = visible + (lapsOver ? OVERLAP + GAP : 0);
         return (
-          <View key={p.id} style={{ marginTop: GAP }}>
+          <View key={p.id} style={[{ marginTop: GAP }, lapsOver && styles.lapsOver]}>
             <Scrap cut={p.kind} past={day.past} width={STACK_W} height={h} seed={seedFrom(p.id)} />
             {isTop && (
               // A short top scrap shrinks the face so it never crosses into the gap below.
-              <FaceLayer Face={Face} scale={Math.min(1, (h - 2) / faceH)} height={faceH} />
+              <FaceLayer Face={Face} scale={Math.min(1, (visible - 2) / faceH)} height={faceH} />
             )}
           </View>
         );
@@ -91,6 +96,18 @@ function Stack({ day }: { day: ShelfDay }) {
       )}
     </View>
   );
+}
+
+/** The day's character (top scrap) takes in the plans of its own kind right under it, as one tall scrap. */
+function withCharacter(blocks: Plan[]): Plan[] {
+  const top = blocks[blocks.length - 1];
+  if (!top) return blocks;
+  let i = blocks.length - 1;
+  while (i > 0 && blocks[i - 1].kind === top.kind) i--;
+  if (i === blocks.length - 1) return blocks;
+  const merged = blocks.slice(i);
+  const energyCost = merged.reduce((sum, p) => sum + p.energyCost, 0) + (merged.length - 1) * ((GAP / FULL) * DAY_ROOM);
+  return [...blocks.slice(0, i), { ...top, energyCost }];
 }
 
 function FaceLayer({ Face, scale, height }: { Face: (typeof faces)['fine']; scale: number; height: number }) {
@@ -110,7 +127,7 @@ function describe(days: ShelfDay[]) {
 
 const styles = StyleSheet.create({
   shelf: {
-    height: 190,
+    height: 193,
     width: '100%',
   },
   fullLine: {
@@ -133,6 +150,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column-reverse',
     alignItems: 'center',
   },
+  lapsOver: {
+    marginBottom: -(OVERLAP + GAP),
+    zIndex: 1,
+  },
   face: {
     position: 'absolute',
     top: 0,
@@ -145,7 +166,7 @@ const styles = StyleSheet.create({
   },
   labels: {
     position: 'absolute',
-    top: 165,
+    top: 171,
     left: 0,
     right: 0,
     flexDirection: 'row',

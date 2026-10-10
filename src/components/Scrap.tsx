@@ -20,15 +20,18 @@ type Props = {
   width: number;
   height: number;
   seed?: number;
+  /** Paints the scrap in another kind's colour, e.g. a work plan with a crown cut. */
+  fill?: string;
 };
 
 /** One scrap of paper = one plan. Carries --shadow-paper as an offset copy underneath. */
-export function Scrap({ cut, past = false, width, height, seed = 1 }: Props) {
+export function Scrap({ cut, past = false, width, height, seed = 1, fill: paint }: Props) {
   const d = scrapPath(cut, width, height, seed);
+  const fill = past && cut !== 'rest' ? color.scrapPast : (paint ?? scrapColor[cut]);
   return (
     <Svg width={width} height={height + paperShadow.y} viewBox={`0 0 ${width} ${height + paperShadow.y}`}>
       <Path d={d} fill={paperShadow.color} transform={`translate(${paperShadow.x} ${paperShadow.y})`} />
-      <Path d={d} fill={past && cut !== 'rest' ? color.scrapPast : scrapColor[cut]} />
+      <Path d={d} fill={fill} />
     </Svg>
   );
 }

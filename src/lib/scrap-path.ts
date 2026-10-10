@@ -2,9 +2,9 @@ import type { PlanKind } from '@/features/plans/types';
 
 export type ScrapCut = PlanKind | 'past';
 
-// Top cuts traced from the Scrap set (34:878). Coordinates are relative to a 63.83-wide scrap
-// whose highest point sits at y = 0. They scale with width; the body below stretches with height.
-const BASE_W = 63.83;
+// Shapes traced from the Your week shelf (391:12486). Coordinates are for a 46-wide scrap whose
+// highest point sits at y = 0; they scale with width, and the body below stretches with height.
+const BASE_W = 46;
 const R = (n: number) => Math.round(n * 100) / 100;
 
 /** Height of the top cut band at width w (the part above the flat-sided body). */
@@ -13,72 +13,59 @@ export function cutDepth(cut: ScrapCut, w: number) {
   switch (cut) {
     case 'work':
     case 'past':
-      return 12.96 * s;
+      return 10 * s;
     case 'social':
-      return 14 * s;
+      return 12.1 * s;
     case 'obligation':
-      return 7 * s;
+      return 9 * s;
     case 'enjoy':
-      return 9.67 * s;
+      return 12 * s;
     case 'rest':
       return 0;
   }
 }
 
 /**
- * SVG path for one scrap of paper. Height shows energy, so h is free; the sides get a small
- * hand-cut wobble that is stable for a given seed. Rest is a cushion that sits under a stack.
+ * SVG path for one scrap of paper. Height shows energy, so h is free. Work scraps come in the
+ * shelf's two snips, picked by seed so a plan always gets the same one. Rest is a cushion.
  */
 export function scrapPath(cut: ScrapCut, w: number, h: number, seed = 1): string {
   const s = w / BASE_W;
-  const rand = mulberry32(seed);
-  const wob = (max: number) => R(rand() * max);
-
-  if (cut === 'rest') {
-    // Cloud cushion, 63.83x21.6 in the source; scaled to fill w x h.
-    const x = (n: number) => R(n * s);
-    const y = (n: number) => R((n / 21.6) * h);
-    return [
-      `M${x(0)} ${y(21.6)}`,
-      `C${x(-4)} ${y(14.4)} ${x(6.4)} ${y(3.6)} ${x(16)} ${y(7.2)}`,
-      `C${x(22.4)} ${y(0)} ${x(41.6)} ${y(0)} ${x(44.8)} ${y(7.2)}`,
-      `C${x(57.43)} ${y(3.6)} ${x(67.83)} ${y(14.4)} ${x(63.83)} ${y(21.6)}`,
-      'Z',
-    ].join(' ');
-  }
-
-  const leftBottom = wob(1);
-  const rightBottom = R(w - wob(2.5));
-  const bottomTilt = R(h - wob(0.6));
-  const top = topCut(cut, w, s);
-  return `M${leftBottom} ${R(h)} L${top} L${rightBottom} ${bottomTilt} Z`;
-}
-
-/** Points along the top edge, from the left side to the right side. */
-function topCut(cut: ScrapCut, w: number, s: number): string {
   const x = (n: number) => R(n * s);
+  const H = R(h);
+
   switch (cut) {
     case 'work':
     case 'past':
-      // Snipped corner, top-right.
-      return `0.02 ${x(6.96)} L${x(0.5)} 0 L${x(50.83)} ${x(1.14)} L${R(w)} ${x(12.96)}`;
+      // Snipped top-right corner; the right edge tapers in a little.
+      return mulberry32(seed)() < 0.75
+        ? `M0 ${H} V${x(2)} L${x(40)} 0 L${R(w)} ${x(10)} L${x(43)} ${H} Z`
+        : `M${x(2)} ${H} L0 0 L${x(40)} ${x(2)} L${R(w)} ${x(8)} V${H} Z`;
     case 'social':
-      // Wavy.
-      return `0.02 ${x(14)} C${x(12.8)} 0 ${x(19.2)} ${x(16)} ${x(32)} ${x(8)} C${x(44.8)} 0 ${x(51.2)} 0 ${R(w)} ${x(10)}`;
+      // Flat on the left, rising to a rounded bump on the right.
+      return `M0 ${H} L${x(1)} ${x(12.1)} L${x(22)} ${x(8.1)} C${x(27.33)} ${x(2.1)} ${x(32.67)} ${x(-0.57)} ${x(38)} ${x(0.1)} C${x(42.67)} ${x(1.43)} ${x(45.33)} ${x(5.43)} ${R(w)} ${x(12.1)} V${H} Z`;
     case 'obligation': {
-      // Pinking shears: six teeth.
-      const pts = Array.from({ length: 13 }, (_, i) => `${R((w * i) / 12)} ${i % 2 ? 0 : x(7)}`);
-      return pts.join(' L');
+      // Pinking-shears crown: four teeth.
+      const pts = [[0, 9], [6, 1], [11, 8], [17, 0], [23, 8], [29, 0], [35, 8], [40, 1], [46, 9]];
+      return `M0 ${H} ${pts.map(([px, py]) => `L${x(px)} ${x(py)}`).join(' ')} V${H} Z`;
     }
-    case 'enjoy': {
-      // Three scallops.
-      const base = x(9.67);
-      const rx = R(w / 6);
-      const arcs = [1, 2, 3].map((i) => `A${rx} ${base} 0 0 1 ${R((w * i) / 3)} ${base}`);
-      return `0 ${base} ${arcs.join(' ')}`;
+    case 'enjoy':
+      // Two round bumps.
+      return `M0 ${H} V${x(10)} C${x(1.33)} ${x(3.33)} ${x(6)} 0 ${x(14)} 0 C${x(19.33)} 0 ${x(22.33)} ${x(2.67)} ${x(23)} ${x(8)} C${x(23.67)} ${x(2.67)} ${x(27)} 0 ${x(33)} 0 C${x(41.67)} 0 ${R(w)} ${x(4)} ${R(w)} ${x(12)} V${H} Z`;
+    case 'rest': {
+      // Cloud cushion, 50x18.67 in the source; scaled to fill w x h.
+      const cx = (n: number) => R((n / 50) * w);
+      const cy = (n: number) => R((n / 18.67) * h);
+      return [
+        `M0 ${cy(18.67)}`,
+        `C0 ${cy(12.67)} ${cx(2.67)} ${cy(9.67)} ${cx(8)} ${cy(9.67)}`,
+        `C${cx(10)} ${cy(5)} ${cx(13.67)} ${cy(3.33)} ${cx(19)} ${cy(4.67)}`,
+        `C${cx(22.33)} ${cy(0.67)} ${cx(26.33)} 0 ${cx(31)} ${cy(2.67)}`,
+        `C${cx(36.33)} ${cy(0.67)} ${cx(40)} ${cy(2)} ${cx(42)} ${cy(6.67)}`,
+        `C${cx(47.33)} ${cy(6.67)} ${R(w)} ${cy(10.67)} ${R(w)} ${cy(18.67)}`,
+        'Z',
+      ].join(' ');
     }
-    case 'rest':
-      return `0 0 L${R(w)} 0`;
   }
 }
 
