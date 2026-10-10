@@ -96,9 +96,9 @@ const styles = StyleSheet.create({
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   overview: {
-    paddingTop: 28,
+    paddingTop: 34,
     paddingBottom: 15,
-    paddingHorizontal: 13,
+    paddingHorizontal: 18,
     borderRadius: radius.row,
     backgroundColor: color.paper,
     boxShadow: shadow.soft,
