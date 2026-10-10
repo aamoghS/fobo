@@ -43,10 +43,6 @@ export function WeighPlan() {
           </Pressable>
         </View>
 
-        <Text accessibilityRole="header" style={[type.heroScreen, styles.ink, styles.title]}>
-          What’s the plan?
-        </Text>
-
         <View style={styles.tabs} accessibilityRole="tablist">
           <TabButton label="Tentative plans" active={tab === 'tentative'} onPress={() => setTab('tentative')} />
           <TabButton label="Write a plan" active={tab === 'write'} onPress={() => setTab('write')} />
@@ -106,7 +102,7 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={[styles.tab, active && styles.tabActive]}>
-      <Text style={[type.bodyStrong, active ? styles.ink : styles.faint]}>{label}</Text>
+      <Text style={[type.bodyStrong, active ? styles.selInk : styles.ink]}>{label}</Text>
     </Pressable>
   );
 }
@@ -160,13 +156,13 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingBottom: 24 },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
-  faint: { color: color.ink3 },
+  selInk: { color: color.selInk },
   topBar: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   barButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  title: { paddingTop: 28 },
-  tabs: { paddingTop: 22, flexDirection: 'row', gap: 24 },
-  tab: { flex: 1, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: color.ink },
+  // Segmented toggle: a fill track with the chosen side in ink.
+  tabs: { marginTop: 20, padding: 0, flexDirection: 'row', borderRadius: radius.md, backgroundColor: color.fill },
+  tab: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  tabActive: { backgroundColor: color.selBg },
   hint: { paddingTop: 22 },
   dayHeading: { paddingTop: 26, paddingBottom: 10 },
   row: {
