@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { Animated, Easing, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +8,8 @@ import { color, radius, shadow, space } from '@/styles/tokens';
 import { Pressable } from './Pressable';
 
 type Props = {
-  /** Gets `close`, which slides the sheet away and then goes back. */
-  children: (close: () => void) => ReactNode;
+  /** Gets `close`, which slides the sheet away, then goes back (or on to `to`). */
+  children: (close: (to?: Href) => void) => ReactNode;
   /** Share of the window the sheet covers. */
   height?: number;
 };
@@ -35,12 +35,14 @@ export function BottomSheet({ children, height = 0.92 }: Props) {
     Animated.timing(shown, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE }).start();
   }, [shown]);
 
-  const close = useCallback(() => {
+  const close = useCallback((to?: Href) => {
     if (closing.current) return;
     closing.current = true;
-    Animated.timing(shown, { toValue: 0, duration: DURATION - 80, easing: Easing.in(Easing.cubic), useNativeDriver: NATIVE }).start(() =>
-      router.canGoBack() ? router.back() : router.replace('/week'),
-    );
+    Animated.timing(shown, { toValue: 0, duration: DURATION - 80, easing: Easing.in(Easing.cubic), useNativeDriver: NATIVE }).start(() => {
+      if (to) router.dismissTo(to);
+      else if (router.canGoBack()) router.back();
+      else router.replace('/week');
+    });
   }, [router, shown]);
 
   const translateY = shown.interpolate({ inputRange: [0, 1], outputRange: [sheetH, 0] });
@@ -48,7 +50,7 @@ export function BottomSheet({ children, height = 0.92 }: Props) {
   return (
     <View style={styles.root}>
       <Animated.View style={[styles.backdrop, { opacity: Animated.multiply(shown, 0.4) }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} style={StyleSheet.absoluteFill} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => close()} style={StyleSheet.absoluteFill} />
       </Animated.View>
       <Animated.View style={[styles.sheet, { height: sheetH, paddingBottom: insets.bottom, transform: [{ translateY }] }]}>
         <View style={styles.grabber} />

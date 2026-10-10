@@ -9,7 +9,8 @@ import { invites, type Invite } from '@/data/invites';
 import { people } from '@/data/people';
 import { NOW } from '@/data/week';
 import { readPlan } from '@/lib/read-plan';
-import type { Candidate } from '@/lib/weigh';
+import { addPlan } from '@/data/live';
+import { asPlan, type Candidate } from '@/lib/weigh';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -20,7 +21,7 @@ import { WritePlanCard } from './WritePlanCard';
 type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
-export function WeighPlan({ onClose }: { onClose: () => void }) {
+export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [tab, setTab] = useState<Tab>('tentative');
   // Nothing chosen until you pick one; the button waits for it.
   const [selected, setSelected] = useState<string>();
@@ -36,7 +37,16 @@ export function WeighPlan({ onClose }: { onClose: () => void }) {
     }
   };
 
-  if (weighing) return <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} />;
+  if (weighing) {
+    const add = () => {
+      addPlan(asPlan(weighing), weighing.replaces);
+      // Once it's on the week it isn't tentative any more.
+      const at = invites.findIndex((i) => i.id === weighing.id);
+      if (at >= 0) invites.splice(at, 1);
+      onAdded();
+    };
+    return <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} onAdd={add} />;
+  }
 
   const days = [...new Set(invites.map((i) => isoDay(i.start)))];
 
