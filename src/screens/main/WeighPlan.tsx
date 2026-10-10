@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import asleepFace from '@/assets/faces/asleep.svg';
@@ -16,6 +16,8 @@ import { seedFrom } from '@/lib/scrap-path';
 import { withAlpha } from '@/styles/alpha';
 import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
+
+import { WritePlanCard } from './WritePlanCard';
 
 type Tab = 'tentative' | 'write';
 
@@ -70,14 +72,7 @@ export function WeighPlan() {
         ) : (
           <>
             <Text style={[type.sub, styles.muted, styles.hint]}>Something you’re thinking about saying yes to.</Text>
-            <TextInput
-              value={written}
-              onChangeText={setWritten}
-              placeholder="Drinks with Lea on Friday"
-              placeholderTextColor={color.ink3}
-              accessibilityLabel="The plan"
-              style={[type.body, styles.ink, styles.input]}
-            />
+            <WritePlanCard text={written} onChangeText={setWritten} />
           </>
         )}
       </ScrollView>
@@ -203,15 +198,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioOn: { backgroundColor: color.ink, borderColor: color.ink },
-  input: {
-    marginTop: 14,
-    minHeight: 54,
-    paddingHorizontal: 16,
-    borderRadius: radius.md,
-    backgroundColor: color.paper,
-    borderWidth: 1,
-    borderColor: color.rule,
-  },
   footer: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
   footnote: { textAlign: 'center' },
 });
