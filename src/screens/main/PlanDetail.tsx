@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Icon, type IconName } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
+import { MiniScrap } from '@/components/MiniScrap';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
@@ -47,8 +48,8 @@ export function PlanDetail({ id }: { id: string }) {
         </View>
 
         <View style={styles.header}>
-          {/* Figma only has a header character for work (Kind6). Other kinds need art. */}
-          {plan.kind === 'work' && <PaperSpirit mood="work" />}
+          {/* Figma draws a header character for work (Kind6); other kinds wear their own scrap. */}
+          {plan.kind === 'work' ? <PaperSpirit mood="work" /> : <View style={styles.spirit}><MiniScrap kind={plan.kind} id={plan.id} size={60} /></View>}
           <View style={styles.headerText}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
               {plan.title}
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerText: { flex: 1 },
+  spirit: { width: 72, alignItems: 'center' },
   when: { paddingTop: space[4] },
   rows: { paddingTop: space[8], paddingHorizontal: space.margin },
   row: { paddingVertical: space[16], gap: space[16], flexDirection: 'row', alignItems: 'flex-start' },
