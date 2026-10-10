@@ -53,10 +53,14 @@ const matches = (filter: PlanFilter) => (p: Plan) => {
   return !kinds || (kinds as readonly PlanKind[]).includes(p.kind);
 };
 
-export const plansThisWeek = (filter: PlanFilter) => plans.filter(matches(filter));
+const inWeek = (p: Plan) => isoDay(p.start) >= week.start && isoDay(p.start) <= week.end;
 
+export const plansThisWeek = (filter: PlanFilter) => plans.filter(inWeek).filter(matches(filter));
+
+/** The rest of this week; the Plans screen is scoped to the week in its header. */
 export const upcoming = (filter: PlanFilter) =>
   plans
+    .filter(inWeek)
     .filter(matches(filter))
     .filter((p) => p.start >= NOW)
     .sort((a, b) => a.start.localeCompare(b.start));

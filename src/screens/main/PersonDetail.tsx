@@ -83,7 +83,7 @@ export function PersonDetail({ id }: { id: string }) {
                 accessibilityLabel={`${p.title}, ${shortDateRange(p.start, p.end)}`}
                 onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
                 style={[styles.planRow, styles.rule]}>
-                <Icon name="box" color={color.ink2} />
+                <Icon name={p.icon ?? 'box'} color={color.ink2} />
                 <View style={styles.planText}>
                   <Text style={[type.bodyStrong, styles.ink]}>{p.title}</Text>
                   <Text style={[type.foot, styles.muted]}>{shortDateRange(p.start, p.end)}</Text>
