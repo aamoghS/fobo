@@ -5,9 +5,10 @@ import http from 'node:http';
 import type pg from 'pg';
 import { createHandler } from './app.ts';
 import { createPool } from './db.ts';
+import type { Ask } from './planner.ts';
 
-export function createServer(pool: pg.Pool = createPool()) {
-  const handle = createHandler(pool);
+export function createServer(pool: pg.Pool = createPool(), ask?: Ask) {
+  const handle = createHandler(pool, ask);
   return http.createServer(async (req, res) => {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk);
