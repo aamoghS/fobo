@@ -5,7 +5,6 @@ import asleepFace from '@/assets/faces/asleep.svg';
 import fineEyes from '@/assets/faces/fine-eyes.svg';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
-import { IconButton } from '@/components/IconButton';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { Scrap, scrapColor } from '@/components/Scrap';
@@ -23,13 +22,12 @@ import { WritePlanCard } from './WritePlanCard';
 type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
-export function WeighPlan({ onClose }: { onClose: () => void }) {
+export function WeighPlan() {
   const [tab, setTab] = useState<Tab>('tentative');
   const [picked, setSelected] = useState<string>();
   // The first invite until one is picked (invites arrive with the live data).
   const selected = invites.some((i) => i.id === picked) ? picked : invites[0]?.id;
   const [written, setWritten] = useState('');
-  const close = onClose;
 
   const weigh = async () => {
     setWeighing(true);
@@ -45,12 +43,6 @@ export function WeighPlan({ onClose }: { onClose: () => void }) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topBar}>
-          <IconButton icon="back" label="Back" onPress={close} />
-          <Text style={[type.bodyStrong, styles.ink]}>Weigh a plan</Text>
-          <IconButton icon="close" label="Close" onPress={close} />
-        </View>
-
         <View style={styles.tabs} accessibilityRole="tablist">
           <TabButton label="Tentative plans" active={tab === 'tentative'} onPress={() => setTab('tentative')} />
           <TabButton label="Write a plan" active={tab === 'write'} onPress={() => setTab('write')} />
@@ -157,9 +149,8 @@ const styles = StyleSheet.create({
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   selInk: { color: color.selInk },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // Segmented toggle: chips in a fill capsule, the chosen side goes black.
-  tabs: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  tabs: { marginTop: space[12], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   tabActive: { backgroundColor: color.selBg },
   hint: { paddingTop: space[16] },
