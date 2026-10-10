@@ -7,8 +7,8 @@ export interface GoogleEvent {
   id: string;
   status: string;
   summary?: string;
-  start?: { dateTime?: string; date?: string };
-  end?: { dateTime?: string; date?: string };
+  start?: { dateTime?: string; date?: string; timeZone?: string };
+  end?: { dateTime?: string; date?: string; timeZone?: string };
   attendees?: { email: string; self?: boolean; responseStatus?: string; displayName?: string }[];
   transparency?: string;
 }

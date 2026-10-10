@@ -1,5 +1,5 @@
 // Public pages Google requires before the sign-in can leave Testing: home, privacy policy, terms.
-const CONTACT = 'aamoghsawantt@gmail.com';
+const CONTACT = process.env.CONTACT_EMAIL ?? '';
 const UPDATED = '10 October 2026';
 
 function page(title: string, body: string) {

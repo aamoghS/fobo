@@ -1,10 +1,11 @@
 // "Fix my week": asks Gemini for the smallest set of changes that fits every day in DAY_ROOM.
 // The server checks every change and computes scores itself; nothing applies until apply-fix.
+import { PLAN_KINDS } from '@fobo/core/options';
 import { DAY_ROOM, dayLoads } from './time.ts';
 
-// Override with GEMINI_MODEL.
-export const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
-const CATEGORIES = ['work', 'social', 'obligation', 'rest', 'enjoy'];
+// The Gemini model, from GEMINI_MODEL.
+export const MODEL = process.env.GEMINI_MODEL ?? '';
+const CATEGORIES: readonly string[] = PLAN_KINDS;
 const OPS = ['move', 'shorten', 'decline', 'add_rest', 'protect'];
 
 export const SYSTEM = `You are the planner inside Fobo, an app that treats a person's energy as a budget.

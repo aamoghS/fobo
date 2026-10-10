@@ -42,7 +42,7 @@ export async function syncConnection(db: Db, connectionId: string) {
     for (const g of changes.items) {
       if (g.status === 'cancelled') {
         removed += (await db.delete(events)
-          .where(and(eq(events.connectionId, conn.id), eq(events.externalId, g.id)))
+          .where(and(eq(events.connectionId, conn.id), eq(events.calendarId, calendar), eq(events.externalId, g.id)))
           .returning({ id: events.id })).length;
         continue;
       }
@@ -65,7 +65,11 @@ export async function syncConnection(db: Db, connectionId: string) {
       const cost = allDay ? 0 : Math.min(5, Math.max(0.5, Math.round(hours) / 2));
       await db.insert(events)
         .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', cost, ...fromGoogle })
-        .onConflictDoUpdate({ target: [events.connectionId, events.externalId], set: fromGoogle });
+        // Google declining wins; otherwise Fobo's own status (deleted, moved) stays.
+        .onConflictDoUpdate({
+          target: [events.connectionId, events.calendarId, events.externalId],
+          set: { ...fromGoogle, status: sql`case when excluded.status = 'declined' then 'declined' else ${events.status} end` },
+        });
       upserted++;
     }
     await db.insert(calendarSync).values({ connectionId: conn.id, calendarId: calendar, syncToken: changes.nextSyncToken })

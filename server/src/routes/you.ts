@@ -1,3 +1,8 @@
+import { ACHIEVEMENTS, MERRIER_PEOPLE } from '@fobo/core/achievements';
+import { EVENING, STREAK_DAYS } from '@fobo/core/constants';
+import {
+  CAPACITY_LABELS, RECHARGE_VALUES, RECOVERY_VALUES, SOCIAL_ENERGY_VALUES, STREAK, TITLES, WIDGET, aloneTime, busyDays,
+} from '@fobo/core/copy';
 import { eq, sql } from 'drizzle-orm';
 import { withUser, type Db } from '../db.ts';
 import { route } from '../http.ts';
@@ -5,34 +10,7 @@ import { achievements, profiles } from '../schema.ts';
 import { DAY_ROOM, clock } from '../time.ts';
 
 // The You tab, in the shape of src/data/profile.ts: { profile, achievements, widget, capacity }.
-// Copy follows the Figma frames where they have it; the rest is marked in server/README.md for design.
-
-// The achievement catalog, as the app draws it (src/data/profile.ts achievements).
-const CATALOG = [
-  { id: 'irish-goodbye', title: 'The Irish Goodbye', icon: 'home', badge: 'red' },
-  { id: 'slow-steady', title: 'Slow and Steady', icon: 'snail', badge: 'pink' },
-  { id: 'merrier', title: 'More the Merrier', icon: 'paper-airplane', badge: 'green' },
-  { id: 'first-week', title: 'The First Week', icon: 'calendar', badge: 'blue' },
-] as const;
-
-// Onboarding answers (src/screens/onboarding/Onboarding.tsx) as Capacity Profile values.
-const RECHARGE: Record<string, string> = {
-  alone: 'Recharges alone', people: 'Recharges with people', depends: 'Recharges both ways',
-};
-const SOCIAL_ENERGY: Record<string, string> = {
-  'In the first hour': 'Fades after ~1 hr',
-  'After 1 to 2 hours': 'Fades after ~2 hrs',
-  'After 2 to 3 hours': 'Fades after ~3 hrs',
-  'I stayed happily to the end': 'Lasts all night',
-};
-const RECOVERY: Record<string, string> = {
-  'Same evening': 'Recovers the same evening',
-  'Next morning': '1 night recovery needed',
-  'After a day': '1 day recovery needed',
-  '2 to 3 days': '3 days recovery needed',
-  Longer: 'More than 3 days recovery needed',
-};
-const TITLES: Record<string, string> = { people: 'Social Butterfly', depends: 'Social Butterfly', alone: 'Homebody' };
+// The catalog and wording come from @fobo/core, shared with the app.
 
 const sentence = (items: string[]) =>
   items.length ? items.map((s, i) => (i ? s.toLowerCase() : s[0].toUpperCase() + s.slice(1))).join(', ') : null;
@@ -40,13 +18,13 @@ const sentence = (items: string[]) =>
 // Days in a row, ending today and counted from the day the user joined, whose load stayed within the day's room.
 async function streak(db: Db, userId: string, today: string, joined: string) {
   const { rows } = await db.execute<{ load: number }>(sql`
-    select load from day_scores(${userId}, greatest(${today}::date - 6, ${joined}::date), ${today}::date) order by day desc`);
+    select load from day_scores(${userId}, greatest(${today}::date - ${STREAK_DAYS - 1}::int, ${joined}::date), ${today}::date) order by day desc`);
   let days = 0;
   for (const r of rows) {
     if (r.load > DAY_ROOM) break;
     days++;
   }
-  return { days, of: 7, title: `${days} day streak!`, detail: 'Maintained balanced energy!' };
+  return { days, of: STREAK_DAYS, title: STREAK.title(days), detail: STREAK.detail };
 }
 
 // "Today" widget: how the day looks, the next plan today, and a nudge when the evening is free.
@@ -57,7 +35,7 @@ async function widget(db: Db, userId: string, today: string) {
            n.title as next_title,
            to_char(lower(n.time) at time zone me.tz, 'YYYY-MM-DD"T"HH24:MI') as next_start,
            (select count(*)::int from events e where not e.declined
-              and e.time && tstzrange((${today}::date + time '18:00') at time zone me.tz,
+              and e.time && tstzrange((${today}::date + ${EVENING}::time) at time zone me.tz,
                                       (${today}::date + 1)::timestamp at time zone me.tz)) as evening
     from me
     left join lateral (
@@ -69,10 +47,10 @@ async function widget(db: Db, userId: string, today: string) {
   const r = rows[0];
   const load = r?.load ?? 0;
   return {
-    label: 'Today',
-    headline: load <= DAY_ROOM / 2 ? 'Still fuel left in your tank.' : load <= DAY_ROOM ? 'A full day.' : 'Over the line today.',
-    next: r?.next_title && r.next_start ? `${clock(r.next_start)} ${r.next_title}` : 'Nothing else today',
-    nudge: r && r.evening === 0 ? 'Free tonight. Rest?' : null,
+    label: WIDGET.label,
+    headline: load <= DAY_ROOM / 2 ? WIDGET.roomy : load <= DAY_ROOM ? WIDGET.full : WIDGET.over,
+    next: r?.next_title && r.next_start ? `${clock(r.next_start)} ${r.next_title}` : WIDGET.nothingNext,
+    nudge: r && r.evening === 0 ? WIDGET.freeTonight : null,
   };
 }
 
@@ -91,13 +69,13 @@ export const youRoutes = [
       // week since joining (The First Week). Once earned, they stay.
       const done = (await db.execute<{ exit: boolean; merrier: boolean }>(sql`
         select exists(select 1 from events where leave_by is not null and not declined and upper(time) <= now()) as exit,
-               exists(select 1 from events where cardinality(with_people) >= 3 and not declined) as merrier`)).rows[0];
+               exists(select 1 from events where cardinality(with_people) >= ${MERRIER_PEOPLE}::int and not declined) as merrier`)).rows[0];
       const strk = await streak(db, claims.sub, today, joined);
       const reached = [
         done.exit && 'irish-goodbye',
         strk.days >= strk.of && 'slow-steady',
         done.merrier && 'merrier',
-        Date.now() - new Date(me.createdAt).getTime() >= 7 * 864e5 && 'first-week',
+        Date.now() - new Date(me.createdAt).getTime() >= STREAK_DAYS * 864e5 && 'first-week',
       ].filter((a): a is string => Boolean(a));
       if (reached.length) {
         await db.insert(achievements).values(reached.map((achievementId) => ({ userId: claims.sub, achievementId })))
@@ -109,12 +87,12 @@ export const youRoutes = [
       const answers = (me.onboarding ?? {}) as Record<string, string>;
       const hours = typeof me.protectedHours === 'number' ? me.protectedHours : null;
       const capacity = [
-        { label: 'How you recharge', value: RECHARGE[answers.recharge], step: 'recharge' },
-        { label: 'Social energy', value: SOCIAL_ENERGY[answers['head-home']], step: 'head-home' },
-        { label: 'Alone time', value: hours ? `${hours} hours needed` : undefined },
-        { label: 'Busy days', value: me.busyStreak ? `${me.busyStreak} busy days in a row is fine` : undefined },
-        { label: 'Recovery', value: RECOVERY[answers.yourself], step: 'yourself' },
-        { label: 'Stress-relief', value: sentence(me.stressRelief) ?? undefined },
+        { label: CAPACITY_LABELS.recharge, value: RECHARGE_VALUES[answers.recharge], step: 'recharge' },
+        { label: CAPACITY_LABELS.socialEnergy, value: SOCIAL_ENERGY_VALUES[answers['head-home']], step: 'head-home' },
+        { label: CAPACITY_LABELS.alone, value: hours ? aloneTime(hours) : undefined },
+        { label: CAPACITY_LABELS.busy, value: me.busyStreak ? busyDays(me.busyStreak) : undefined },
+        { label: CAPACITY_LABELS.recovery, value: RECOVERY_VALUES[answers.yourself], step: 'yourself' },
+        { label: CAPACITY_LABELS.stressRelief, value: sentence(me.stressRelief) ?? undefined },
       ].filter((row) => row.value).map(({ step, ...row }) => (step ? { ...row, step } : row));
 
       return {
@@ -124,7 +102,7 @@ export const youRoutes = [
           email,
           streak: strk,
         },
-        achievements: CATALOG.filter((a) => earned.has(a.id)),
+        achievements: ACHIEVEMENTS.filter((a) => earned.has(a.id)),
         widget: await widget(db, claims.sub, today),
         capacity,
       };

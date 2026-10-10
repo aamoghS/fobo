@@ -1,3 +1,4 @@
+import { PLAN_KINDS, UNSORTED_KIND } from '@fobo/core/options';
 import { asc, eq, sql } from 'drizzle-orm';
 import { withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
@@ -13,7 +14,7 @@ const local = (instant: unknown) => sql<string>`to_char(${instant} at time zone 
 export const planColumns = {
   id: events.id,
   title: events.title,
-  kind: sql<string>`coalesce(${events.category}, 'work')`,
+  kind: sql<string>`coalesce(${events.category}, ${UNSORTED_KIND})`,
   start: local(sql`lower(${events.time})`),
   end: local(sql`upper(${events.time})`),
   energyCost: events.cost,
@@ -48,8 +49,13 @@ export function instant(value: unknown, userId: string) {
 export const range = (start: unknown, end: unknown, userId: string) =>
   sql`tstzrange(${instant(start, userId)}, ${instant(end, userId)})`;
 
+const KINDS: readonly string[] = PLAN_KINDS;
+
 // "shared" is the app's on/off switch; on means busy (block and colour, no title).
 function normalize(body: Record<string, unknown>) {
+  if (body.kind !== undefined && body.kind !== null && !KINDS.includes(String(body.kind))) {
+    throw new HttpError(400, `kind is one of ${PLAN_KINDS.join(', ')}`);
+  }
   const out = { ...body };
   if (typeof out.shared === 'boolean' && out.visibility === undefined) {
     out.visibility = out.shared ? 'busy' : 'private';

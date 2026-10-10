@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
-import { calendarConnections, calendarSync } from '../schema.ts';
+import { calendarConnections, calendarSync, events } from '../schema.ts';
 import { googleAccount, syncConnection } from '../sync.ts';
 
 const connection = {
@@ -51,8 +51,10 @@ export const googleRoutes = [
         .where(eq(calendarConnections.id, params.id));
     })),
 
+  // Disconnecting removes that account's synced plans too; linking it again syncs them afresh.
   route('DELETE', '/connections/:id', ({ pool, claims, params }) =>
     withUser(pool, claims, async (db) => {
+      await db.delete(events).where(eq(events.connectionId, params.id));
       await db.delete(calendarConnections).where(eq(calendarConnections.id, params.id));
     })),
 ];

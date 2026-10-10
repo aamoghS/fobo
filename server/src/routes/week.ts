@@ -1,3 +1,4 @@
+import { UNSORTED_KIND } from '@fobo/core/options';
 import { sql } from 'drizzle-orm';
 import { withUser } from '../db.ts';
 import { HttpError, route } from '../http.ts';
@@ -25,7 +26,7 @@ export const weekRoutes = [
                coalesce((select round(sum(extract(epoch from upper(e.time) - lower(e.time))) / 3600, 1)
                          from events e where not e.declined and e.category in ('enjoy', 'rest')
                            and e.time && tstzrange(span.lo, span.hi)), 0) as personal_hours,
-               n.id as next_id, n.title as next_title, coalesce(n.category, 'work') as next_kind,
+               n.id as next_id, n.title as next_title, coalesce(n.category, ${UNSORTED_KIND}) as next_kind,
                to_char(lower(n.time) at time zone span.tz, 'YYYY-MM-DD"T"HH24:MI') as next_start
         from span
         left join lateral (

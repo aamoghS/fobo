@@ -1,3 +1,6 @@
+import { MAX_FRIEND_DAYS } from '@fobo/core/constants';
+import { NO_UPCOMING } from '@fobo/core/copy';
+import { DEFAULT_TINT } from '@fobo/core/options';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
@@ -11,20 +14,36 @@ const person = {
   bio: profilePublic.bio, tint: profilePublic.tint,
 };
 
-// What People shows for someone (src/data/people.ts): the caller's next plan with them, and how many
-// past plans they shared. Plans name people by id in `with`.
-async function together(db: Db, me: string, otherId: string) {
-  const { rows } = await db.execute<{ title: string | null; start: string | null; past: number }>(sql`  
-    select (select title from events where user_id = ${me} and ${otherId} = any(with_people)
-              and not declined and lower(time) > now() order by lower(time) limit 1) as title,
-           (select to_char(lower(time) at time zone p.timezone, 'YYYY-MM-DD"T"HH24:MI') from events
-              where user_id = ${me} and ${otherId} = any(with_people)
-              and not declined and lower(time) > now() order by lower(time) limit 1) as start,
-           (select count(*)::int from events where user_id = ${me} and ${otherId} = any(with_people)
-              and not declined and upper(time) <= now()) as past
-    from profiles p where p.id = ${me}`);
-  const r = rows[0];
-  return { nextPlan: r?.title ? { title: r.title, start: r.start } : null, pastTogether: r?.past ?? 0 };
+type Together = { nextPlan: { title: string; start: string } | null; pastTogether: number };
+
+// What People shows for each person (src/data/people.ts): the caller's next plan with them, and how many
+// past plans they shared. Plans name people by id in `with`. One query for everyone.
+async function togetherAll(db: Db, me: string, ids: string[]): Promise<Map<string, Together>> {
+  if (!ids.length) return new Map();
+  const { rows } = await db.execute<{ id: string; title: string | null; start: string | null; past: number }>(sql`
+    select o.id, n.title, to_char(lower(n.time) at time zone p.timezone, 'YYYY-MM-DD"T"HH24:MI') as start,
+           (select count(*)::int from events e where e.user_id = ${me} and o.id = any(e.with_people)
+              and not e.declined and upper(e.time) <= now()) as past
+    from unnest(array[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}]::text[]) as o(id)
+    join profiles p on p.id = ${me}
+    left join lateral (
+      select title, time from events e where e.user_id = ${me} and o.id = any(e.with_people)
+        and not e.declined and lower(e.time) > now() order by lower(e.time) limit 1
+    ) n on true`);
+  return new Map(rows.map((r) => [r.id, {
+    nextPlan: r.title && r.start ? { title: r.title, start: r.start } : null,
+    pastTogether: r.past,
+  }]));
+}
+
+const together = async (db: Db, me: string, otherId: string): Promise<Together> =>
+  (await togetherAll(db, me, [otherId])).get(otherId) ?? { nextPlan: null, pastTogether: 0 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+function checkDates(...dates: (string | null)[]) {
+  if (dates.some((d) => d !== null && (!DATE.test(d) || Number.isNaN(Date.parse(d))))) {
+    throw new HttpError(400, 'dates are YYYY-MM-DD');
+  }
 }
 
 // Friends never read events: blocks and scores come from these two database functions, which
@@ -56,20 +75,19 @@ async function circle(db: Db, me: string) {
     .innerJoin(profilePublic, eq(profilePublic.id, sql`case when ${friendships.requesterId} = ${me}
       then ${friendships.addresseeId} else ${friendships.requesterId} end`))
     .where(eq(friendships.status, 'accepted'));
-  const people = [];
-  for (const p of rows) {
-    const t = await together(db, me, p.id);
-    people.push({
+  const all = await togetherAll(db, me, rows.map((p) => p.id));
+  return rows.map((p) => {
+    const t = all.get(p.id);
+    return {
       id: p.id,
       name: p.name ?? p.handle,
-      tint: p.tint ?? 'tintSky',
+      tint: p.tint ?? DEFAULT_TINT,
       ...(p.character ? { character: p.character } : {}),
-      nextLabel: t.nextPlan?.start ? `${t.nextPlan.title} · ${weekday(t.nextPlan.start)}` : 'No upcoming plans',
+      nextLabel: t?.nextPlan ? `${t.nextPlan.title} · ${weekday(t.nextPlan.start)}` : NO_UPCOMING,
       ...(p.bio ? { bio: p.bio } : {}),
-      ...(t.pastTogether ? { pastTogether: t.pastTogether } : {}),
-    });
-  }
-  return people;
+      ...(t?.pastTogether ? { pastTogether: t.pastTogether } : {}),
+    };
+  });
 }
 
 export const friendRoutes = [
@@ -85,8 +103,9 @@ export const friendRoutes = [
           then ${friendships.addresseeId} else ${friendships.requesterId} end`));
       const list = (test: (r: (typeof rows)[number]) => boolean) =>
         rows.filter(test).map(({ requesterId: _, status: __, ...p }) => p);
-      const friends = [];
-      for (const p of list((r) => r.status === 'accepted')) friends.push({ ...p, ...(await together(db, claims.sub, p.id)) });
+      const accepted = list((r) => r.status === 'accepted');
+      const all = await togetherAll(db, claims.sub, accepted.map((p) => p.id));
+      const friends = accepted.map((p) => ({ ...p, ...(all.get(p.id) ?? { nextPlan: null, pastTogether: 0 }) }));
       return {
         friends,
         incoming: list((r) => r.status === 'pending' && r.requesterId !== claims.sub),
@@ -134,16 +153,19 @@ export const friendRoutes = [
     })),
 
   // ?date=YYYY-MM-DD in the friend's timezone.
-  route('GET', '/friends/:id/blocks', ({ pool, claims, params, query }) =>
-    withUser(pool, claims, (db) => friendBlocks(db, params.id, query.get('date')))),
+  route('GET', '/friends/:id/blocks', ({ pool, claims, params, query }) => {
+    checkDates(query.get('date'));
+    return withUser(pool, claims, (db) => friendBlocks(db, params.id, query.get('date')));
+  }),
 
-  // The app's FriendDay (src/features/friends/types.ts) for each day in from..to, at most 14 days.
+  // The app's FriendDay (src/features/friends/types.ts) for each day in from..to, at most MAX_FRIEND_DAYS.
   // Empty when the friend shares neither blocks nor scores.
   route('GET', '/friends/:id/days', ({ pool, claims, params, query }) =>
     withUser(pool, claims, async (db) => {
       const from = query.get('from');
-      const last = from ? new Date(Date.parse(from) + 13 * 864e5).toISOString().slice(0, 10) : null;
       const to = query.get('to');
+      checkDates(from, to);
+      const last = from ? new Date(Date.parse(from) + (MAX_FRIEND_DAYS - 1) * 864e5).toISOString().slice(0, 10) : null;
       // One query: each day's score with that day's blocks, instead of one query per day.
       const { rows } = await db.execute<{ day: string; load: number; blocks: number; titles: string[] }>(sql`  
         select to_char(s.day, 'YYYY-MM-DD') as day, s.load, count(b.*)::int as blocks,
@@ -161,6 +183,8 @@ export const friendRoutes = [
     })),
 
   // Works for an accepted friend who shares scores, or for the caller's own id.
-  route('GET', '/scores/:id', ({ pool, claims, params, query }) =>
-    withUser(pool, claims, (db) => dayScores(db, params.id, query.get('from'), query.get('to')))),
+  route('GET', '/scores/:id', ({ pool, claims, params, query }) => {
+    checkDates(query.get('from'), query.get('to'));
+    return withUser(pool, claims, (db) => dayScores(db, params.id, query.get('from'), query.get('to')));
+  }),
 ];
