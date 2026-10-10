@@ -48,22 +48,26 @@ type Props = {
   limitLabel?: string;
   /** A plan that stays its own scrap rather than merging into a same-kind character below it. */
   separate?: string;
+  /** Hide the M T W row (the calendar draws its own column headings). */
+  labels?: boolean;
 };
 
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate }: Props) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true }: Props) {
   return (
-    <View style={[styles.shelf, { marginTop: headroom }]} accessibilityRole="image" accessibilityLabel={describe(days)}>
-      <Svg style={styles.fullLine} width="100%" height={2}>
-        <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
-      </Svg>
+    <View style={[styles.shelf, !labels && styles.shelfBare, { marginTop: headroom }]} accessibilityRole="image" accessibilityLabel={describe(days)}>
+      {labels && (
+        <Svg style={styles.fullLine} width="100%" height={2}>
+          <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
+        </Svg>
+      )}
       {limitLabel && <Text style={[type.foot, styles.limitLabel]}>{limitLabel}</Text>}
       <View style={styles.stacks}>
         {days.map((day) => (
           <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
         ))}
       </View>
-      <View style={styles.labels}>
+      {labels && <View style={styles.labels}>
         {days.map((day) => (
           <View key={day.date} style={styles.labelCell}>
             {day.selected ? (
@@ -75,7 +79,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate }
             )}
           </View>
         ))}
-      </View>
+      </View>}
     </View>
   );
 }
@@ -243,6 +247,7 @@ const styles = StyleSheet.create({
     height: 193,
     width: '100%',
   },
+  shelfBare: { height: FULL + 4 },
   fullLine: {
     position: 'absolute',
     top: 0,
