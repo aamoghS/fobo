@@ -1,5 +1,3 @@
-import { Placeholder } from '@/screens/Placeholder';
+import { Login } from '@/screens/auth/Screens';
 
-export default function Route() {
-  return <Placeholder name="Login" node="368:8126" />;
-}
+export default Login;

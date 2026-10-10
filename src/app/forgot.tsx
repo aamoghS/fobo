@@ -1,5 +1,3 @@
-import { Placeholder } from '@/screens/Placeholder';
+import { ForgotPassword } from '@/screens/auth/Screens';
 
-export default function Route() {
-  return <Placeholder name="Forgot password" node="368:8206" />;
-}
+export default ForgotPassword;
