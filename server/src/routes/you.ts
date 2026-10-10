@@ -34,13 +34,13 @@ async function widget(db: Db, userId: string, today: string) {
     select (select load from day_scores(${userId}, ${today}::date, ${today}::date)) as load,
            n.title as next_title,
            to_char(lower(n.time) at time zone me.tz, 'YYYY-MM-DD"T"HH24:MI') as next_start,
-           (select count(*)::int from events e where not e.declined
+           (select count(*)::int from events e where e.status not in ('declined', 'proposed')
               and e.time && tstzrange((${today}::date + ${EVENING}::time) at time zone me.tz,
                                       (${today}::date + 1)::timestamp at time zone me.tz)) as evening
     from me
     left join lateral (
       select title, time from events
-      where not declined and lower(time) > now()
+      where status not in ('declined', 'proposed') and lower(time) > now()
         and lower(time) < (${today}::date + 1)::timestamp at time zone me.tz
       order by lower(time) limit 1
     ) n on true`);
@@ -68,8 +68,8 @@ export const youRoutes = [
       // week within room (Slow and Steady), a plan with three or more people (More the Merrier), and a
       // week since joining (The First Week). Once earned, they stay.
       const done = (await db.execute<{ exit: boolean; merrier: boolean }>(sql`
-        select exists(select 1 from events where leave_by is not null and not declined and upper(time) <= now()) as exit,
-               exists(select 1 from events where cardinality(with_people) >= ${MERRIER_PEOPLE}::int and not declined) as merrier`)).rows[0];
+        select exists(select 1 from events where leave_by is not null and status not in ('declined', 'proposed') and upper(time) <= now()) as exit,
+               exists(select 1 from events where cardinality(with_people) >= ${MERRIER_PEOPLE}::int and status not in ('declined', 'proposed')) as merrier`)).rows[0];
       const strk = await streak(db, claims.sub, today, joined);
       const reached = [
         done.exit && 'irish-goodbye',

@@ -52,12 +52,16 @@ export async function syncConnection(db: Db, connectionId: string) {
         ? sql`tstzrange(${g.start!.date}::date::timestamp at time zone ${tz}, ${g.end!.date}::date::timestamp at time zone ${tz})`
         : sql`tstzrange(${g.start!.dateTime}::timestamptz, ${g.end!.dateTime}::timestamptz)`;
       const people = (g.attendees ?? []).filter((a) => !a.self).map((a) => a.displayName ?? a.email);
-      const declined = (g.attendees ?? []).some((a) => a.self && a.responseStatus === 'declined');
+      // The user's answer to the invite: declined, not answered or maybe (a tentative plan), or going.
+      const answer = (g.attendees ?? []).find((a) => a.self)?.responseStatus;
+      const status = answer === 'declined' ? 'declined'
+        : answer === 'needsAction' || answer === 'tentative' ? 'proposed'
+        : 'accepted';
       const fromGoogle = {
         title: g.summary ?? '(no title)',
         time: time as unknown as string,
         withPeople: people,
-        status: declined ? 'declined' : 'accepted',
+        status,
         calendarId: calendar,
       };
       // A starting cost from the length (half a point an hour, 0.5 to 5); the person or the planner refines it.
@@ -65,10 +69,16 @@ export async function syncConnection(db: Db, connectionId: string) {
       const cost = allDay ? 0 : Math.min(5, Math.max(0.5, Math.round(hours) / 2));
       await db.insert(events)
         .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', cost, ...fromGoogle })
-        // Google declining wins; otherwise Fobo's own status (deleted, moved) stays.
+        // Google declining wins; a plan deleted or moved in Fobo stays so; otherwise Google's answer
+        // (tentative or going) follows the invite.
         .onConflictDoUpdate({
           target: [events.connectionId, events.calendarId, events.externalId],
-          set: { ...fromGoogle, status: sql`case when excluded.status = 'declined' then 'declined' else ${events.status} end` },
+          set: {
+            ...fromGoogle,
+            status: sql`case when excluded.status = 'declined' then 'declined'
+                             when ${events.status} in ('declined', 'moved') then ${events.status}
+                             else excluded.status end`,
+          },
         });
       upserted++;
     }

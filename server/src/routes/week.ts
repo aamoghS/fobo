@@ -24,14 +24,14 @@ export const weekRoutes = [
         select to_char(${start}::date + 6, 'YYYY-MM-DD') as end,
                to_char(now() at time zone span.tz, 'YYYY-MM-DD') as today,
                coalesce((select round(sum(extract(epoch from upper(e.time) - lower(e.time))) / 3600, 1)
-                         from events e where not e.declined and e.category in ('enjoy', 'rest')
+                         from events e where e.status not in ('declined', 'proposed') and e.category in ('enjoy', 'rest')
                            and e.time && tstzrange(span.lo, span.hi)), 0) as personal_hours,
                n.id as next_id, n.title as next_title, coalesce(n.category, ${UNSORTED_KIND}) as next_kind,
                to_char(lower(n.time) at time zone span.tz, 'YYYY-MM-DD"T"HH24:MI') as next_start
         from span
         left join lateral (
           select id, title, category, time from events
-          where not declined and lower(time) > now() order by lower(time) limit 1
+          where status not in ('declined', 'proposed') and lower(time) > now() order by lower(time) limit 1
         ) n on true`);
       const days = await db.execute<{ day: string; load: number; room: number; over: boolean }>(sql`
         select to_char(day, 'YYYY-MM-DD') as day, load, room, load > room as over
