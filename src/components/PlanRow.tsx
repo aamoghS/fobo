@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Plan } from '@/features/plans/types';
 import { energyDrops } from '@/lib/energy';
 import { dateTile, timeRange } from '@/lib/format';
-import { color, radius } from '@/styles/tokens';
+import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { EnergyDrops } from './EnergyDrops';
@@ -30,7 +30,7 @@ export function PlanRow({ plan, last = false, onPress }: Props) {
         <Text style={[type.title, styles.day]}>{tile.day}</Text>
       </View>
       <View style={styles.details}>
-        <Text style={[type.itemTitle, styles.title]}>{plan.title}</Text>
+        <Text style={[type.bodyStrong, styles.title]}>{plan.title}</Text>
         <Text style={[type.sub, styles.time]} numberOfLines={1}>
           {time}
         </Text>
@@ -42,9 +42,9 @@ export function PlanRow({ plan, last = false, onPress }: Props) {
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 89,
-    paddingVertical: 8,
-    gap: 18,
+    minHeight: 84,
+    paddingVertical: space[12],
+    gap: space[16],
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -58,12 +58,12 @@ const styles = StyleSheet.create({
     gap: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.chip,
     backgroundColor: color.fill,
   },
   weekday: { color: color.ink2 },
   day: { color: color.ink },
-  details: { flex: 1, gap: 5 },
+  details: { flex: 1, gap: space[4] },
   title: { color: color.ink },
   time: { color: color.ink2 },
 });

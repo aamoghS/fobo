@@ -12,7 +12,7 @@ import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
 import { hours, weekdayLong, weekRange } from '@/lib/format';
 import { plansLeftToday, shelfDays, todayIso } from '@/lib/week';
-import { color, radius, shadow } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 /** Your week (439:2323). */
@@ -25,15 +25,15 @@ export function YourWeek() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 58) }]}>
+      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
       <View style={styles.header}>
         <View style={styles.heading}>
-          <Text accessibilityRole="header" style={[type.heroScreen, styles.strong]}>
+          <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             Your week
           </Text>
-          <Text style={[type.body, styles.muted]}>{weekRange(week.start, week.end)}</Text>
+          <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
         </View>
-        <IconButton icon="calendar" label="Calendar" size={47} iconSize={24} />
+        <IconButton icon="calendar" label="Calendar" />
       </View>
 
       <View style={styles.overview}>
@@ -42,12 +42,12 @@ export function YourWeek() {
         <View style={styles.summary}>
           <View style={styles.remaining}>
             <Text style={[type.sub, styles.muted]}>{weekdayLong(todayIso)}</Text>
-            <Text style={[type.stat, styles.strong]} numberOfLines={1}>{`${left} ${left === 1 ? 'plan' : 'plans'} left`}</Text>
+            <Text style={[type.title, styles.ink]} numberOfLines={1}>{`${left} ${left === 1 ? 'plan' : 'plans'} left`}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.personal}>
             <Text style={[type.sub, styles.muted]}>Time for you</Text>
-            <Text style={[type.stat, styles.strong]}>{hours(week.personalHours)}</Text>
+            <Text style={[type.title, styles.ink]}>{hours(week.personalHours)}</Text>
           </View>
         </View>
 
@@ -56,7 +56,7 @@ export function YourWeek() {
       </View>
 
       <View style={styles.upNext}>
-        <Text accessibilityRole="header" style={[type.title, styles.strong]}>
+        <Text accessibilityRole="header" style={[type.title, styles.ink]}>
           Up next
         </Text>
         <View style={styles.divider2} />
@@ -81,43 +81,37 @@ export function YourWeek() {
   );
 }
 
+// Design system (1:6): 20 side margin, 8 / 16 / 28 rhythm, r-row cards with the soft shadow.
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.groundAlt },
-  content: { paddingHorizontal: 15, paddingBottom: 120 },
-  header: {
-    height: 96,
-    paddingHorizontal: 6,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  heading: { flex: 1, paddingTop: 3 },
-  strong: { color: color.inkStrong },
+  screen: { flex: 1, backgroundColor: color.ground },
+  content: { paddingHorizontal: space.margin, paddingBottom: 120 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  heading: { flex: 1, gap: space[4] },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   overview: {
-    paddingTop: 34,
-    paddingBottom: 15,
-    paddingHorizontal: 18,
+    marginTop: space[28],
+    paddingTop: space[28],
+    paddingBottom: space[16],
+    paddingHorizontal: space[16],
     borderRadius: radius.row,
     backgroundColor: color.paper,
     boxShadow: shadow.soft,
   },
   summary: {
-    paddingTop: 14,
-    paddingBottom: 26,
-    paddingHorizontal: 2,
-    gap: 26,
+    paddingTop: space[16],
+    paddingBottom: space[20],
+    gap: space[20],
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
-  remaining: { minWidth: 150, gap: 1 },
-  divider: { width: 1, height: 43, backgroundColor: color.divider },
-  personal: { flex: 1, gap: 1 },
+  remaining: { minWidth: 150, gap: space[4] },
+  divider: { width: 1, backgroundColor: color.rule },
+  personal: { flex: 1, gap: space[4] },
   weigh: { alignSelf: 'stretch' },
-  upNext: { paddingTop: 27, paddingHorizontal: 6, gap: 16 },
-  divider2: { height: 1, backgroundColor: color.divider },
-  nextRow: { minHeight: 56, gap: 20, flexDirection: 'row', alignItems: 'center' },
+  upNext: { paddingTop: space[28], gap: space[16] },
+  divider2: { height: 1, backgroundColor: color.rule },
+  nextRow: { minHeight: 56, gap: space[16], flexDirection: 'row', alignItems: 'center' },
   avatar: {
     width: 58,
     height: 58,
@@ -129,11 +123,11 @@ const styles = StyleSheet.create({
   },
   nextText: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: space[16],
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: color.divider,
+    borderBottomColor: color.rule,
   },
   nextLines: { flex: 1 },
 });

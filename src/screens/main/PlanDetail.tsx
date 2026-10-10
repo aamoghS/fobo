@@ -11,7 +11,7 @@ import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
 import { getPlan, planDetails } from '@/data/plans';
 import { eventDateLine } from '@/lib/format';
-import { color, radius } from '@/styles/tokens';
+import { color, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
@@ -27,9 +27,9 @@ export function PlanDetail({ id }: { id: string }) {
 
   if (!plan) {
     return (
-      <View style={[styles.screen, { paddingTop: Math.max(insets.top, 40) }]}>
+      <View style={[styles.screen, { paddingTop: Math.max(insets.top, space[48]) }]}>
         <View style={styles.topBar}>
-          <IconButton icon="close" label="Close" iconSize={20} onPress={close} />
+          <IconButton icon="close" label="Close" onPress={close} />
         </View>
       </View>
     );
@@ -37,16 +37,12 @@ export function PlanDetail({ id }: { id: string }) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingTop: Math.max(insets.top, 40) }}>
+      <ScrollView contentContainerStyle={{ paddingTop: Math.max(insets.top, space[48]) }}>
         <View style={styles.topBar}>
-          <IconButton icon="close" label="Close" iconSize={20} onPress={close} />
+          <IconButton icon="close" label="Close" onPress={close} />
           <View style={styles.actions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Edit plan" hitSlop={13} style={styles.action}>
-              <Icon name="pencil" size={17} />
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={12} style={styles.action}>
-              <Icon name="more" size={20} />
-            </Pressable>
+            <IconButton icon="pencil" label="Edit plan" />
+            <IconButton icon="more" label="More" />
           </View>
         </View>
 
@@ -78,8 +74,8 @@ export function PlanDetail({ id }: { id: string }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        <Button label="Move it" variant="quiet" size="compact" style={styles.footerButton} />
-        <Button label="Plan my exit" variant="ink" size="compact" style={styles.footerButton} />
+        <Button label="Move it" variant="quiet" style={styles.footerButton} />
+        <Button label="Plan my exit" variant="ink" style={styles.footerButton} />
       </View>
     </View>
   );
@@ -118,40 +114,31 @@ function Row({ icon, title, detail, trailing, last, onPress }: RowProps) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.groundAlt },
+  screen: { flex: 1, backgroundColor: color.ground },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   topBar: {
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  actions: {
-    height: 44,
-    paddingHorizontal: 20,
-    gap: 24,
+    paddingHorizontal: space.margin,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.full,
-    backgroundColor: color.fill,
+    justifyContent: 'space-between',
   },
-  action: { alignItems: 'center', justifyContent: 'center' },
+  actions: { gap: space[8], flexDirection: 'row' },
   header: {
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    gap: 9,
+    paddingTop: space[16],
+    paddingHorizontal: space.margin,
+    gap: space[12],
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: { flex: 1 },
-  when: { paddingTop: 4 },
-  rows: { paddingHorizontal: 16 },
-  row: { paddingVertical: 16, gap: 20, flexDirection: 'row', alignItems: 'flex-start' },
+  when: { paddingTop: space[4] },
+  rows: { paddingTop: space[8], paddingHorizontal: space.margin },
+  row: { paddingVertical: space[16], gap: space[16], flexDirection: 'row', alignItems: 'flex-start' },
   rowRule: { borderBottomWidth: 1, borderBottomColor: color.rule },
-  rowIcon: { width: 34, paddingTop: 2, alignItems: 'center' },
+  rowIcon: { width: 24, paddingTop: 2, alignItems: 'center' },
   rowText: { flex: 1 },
-  rowDetail: { paddingTop: 2 },
-  footer: { paddingTop: 12, paddingHorizontal: 16, gap: 10, flexDirection: 'row' },
+  rowDetail: { paddingTop: space[4] },
+  footer: { paddingTop: space[12], paddingHorizontal: space.margin, gap: space[12], flexDirection: 'row' },
   footerButton: { flex: 1 },
 });

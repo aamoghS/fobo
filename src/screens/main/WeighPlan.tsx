@@ -7,14 +7,14 @@ import asleepFace from '@/assets/faces/asleep.svg';
 import fineEyes from '@/assets/faces/fine-eyes.svg';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
+import { IconButton } from '@/components/IconButton';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { Scrap, scrapColor } from '@/components/Scrap';
 import { invites, type Invite } from '@/data/invites';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { seedFrom } from '@/lib/scrap-path';
-import { withAlpha } from '@/styles/alpha';
-import { color, radius } from '@/styles/tokens';
+import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { WritePlanCard } from './WritePlanCard';
@@ -34,15 +34,11 @@ export function WeighPlan() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 20) }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
         <View style={styles.topBar}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={close} hitSlop={10} style={styles.barButton}>
-            <Icon name="back" size={24} />
-          </Pressable>
+          <IconButton icon="back" label="Back" onPress={close} />
           <Text style={[type.bodyStrong, styles.ink]}>Weigh a plan</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} hitSlop={10} style={styles.barButton}>
-            <Icon name="close" size={24} />
-          </Pressable>
+          <IconButton icon="close" label="Close" onPress={close} />
         </View>
 
         <View style={styles.tabs} accessibilityRole="tablist">
@@ -110,22 +106,11 @@ function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: bo
       accessibilityState={{ checked: selected }}
       accessibilityLabel={`${invite.title}, ${startTime(invite.start)}, ${invite.with}`}
       onPress={onPress}
-      style={[
-        styles.row,
-        selected
-          ? {
-              backgroundColor: withAlpha(kindColor, 0.08),
-              borderColor: withAlpha(kindColor, 0.25),
-              borderLeftColor: kindColor,
-              borderLeftWidth: 5,
-            }
-          : styles.rowRule,
-      ]}>
-      {/* Selected, the kind colour is the card's edge; otherwise it's a free-standing bar. */}
-      {!selected && <View style={[styles.kindBar, { backgroundColor: kindColor }]} />}
-      {/* Less inset when selected so titles line up with the 5px card edge. */}
-      <View style={[styles.rowText, selected && { paddingLeft: 21 }]}>
-        <Text style={[type.itemTitle, styles.ink]}>{invite.title}</Text>
+      // Selection goes grey with a black check (design system); the bar keeps the plan's kind.
+      style={[styles.row, selected ? styles.rowSelected : styles.rowRule]}>
+      <View style={[styles.kindBar, { backgroundColor: kindColor }]} />
+      <View style={styles.rowText}>
+        <Text style={[type.bodyStrong, styles.ink]}>{invite.title}</Text>
         <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
       </View>
       <Character invite={invite} kindColor={kindColor} />
@@ -156,48 +141,44 @@ function Character({ invite, kindColor }: { invite: Invite; kindColor: string })
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.groundAlt },
-  content: { paddingHorizontal: 20, paddingBottom: 24 },
+  screen: { flex: 1, backgroundColor: color.ground },
+  content: { paddingHorizontal: space.margin, paddingBottom: space[28] },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   selInk: { color: color.selInk },
-  topBar: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  barButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  // Segmented toggle: a fill track with the chosen side in ink.
-  tabs: { marginTop: 20, padding: 0, flexDirection: 'row', borderRadius: radius.md, backgroundColor: color.fill },
-  tab: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Segmented toggle: chips in a fill capsule, the chosen side goes black.
+  tabs: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   tabActive: { backgroundColor: color.selBg },
-  hint: { paddingTop: 22 },
-  dayHeading: { paddingTop: 30, paddingBottom: 12 },
+  hint: { paddingTop: space[16] },
+  dayHeading: { paddingTop: space[28], paddingBottom: space[8] },
   row: {
-    minHeight: 86,
-    paddingVertical: 16,
-    paddingLeft: 0,
-    paddingRight: 16,
-    gap: 16,
+    minHeight: 84,
+    paddingVertical: space[16],
+    paddingRight: space[16],
+    gap: space[16],
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderRadius: radius.row,
     overflow: 'hidden',
   },
-  rowRule: { borderRadius: 0, borderBottomColor: color.rule },
-  kindBar: { position: 'absolute', left: 0, top: 10, bottom: 18, width: 4, borderRadius: radius.full },
-  rowText: { flex: 1, paddingLeft: 26, gap: 4 },
+  rowSelected: { backgroundColor: color.fill },
+  rowRule: { borderRadius: 0, borderBottomWidth: 1, borderBottomColor: color.rule },
+  kindBar: { position: 'absolute', left: 0, top: space[12], bottom: space[12], width: 4, borderRadius: radius.full },
+  rowText: { flex: 1, paddingLeft: space[20], gap: space[4] },
   character: { width: CHAR_W, height: CHAR_W + 2, alignItems: 'center', justifyContent: 'center' },
   face: { position: 'absolute', top: 0, left: 0 },
   radio: {
     width: 28,
     height: 28,
-    marginLeft: 8,
     borderRadius: radius.full,
     borderWidth: 1.5,
     borderColor: color.ink2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioOn: { backgroundColor: color.ink, borderColor: color.ink },
-  footer: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
+  radioOn: { backgroundColor: color.selBg, borderColor: color.selBg },
+  footer: { paddingTop: space[12], paddingHorizontal: space.margin, gap: space[12] },
   footnote: { textAlign: 'center' },
 });

@@ -9,7 +9,7 @@ import { Scrap } from '@/components/Scrap';
 import { people as circle } from '@/data/people';
 import { dayAndTime } from '@/lib/format';
 import { readPlan } from '@/lib/read-plan';
-import { color, radius, shadow } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 /** Write a plan card from Tory's mockup: the plan as typed, then who and when read out of it. */
@@ -30,7 +30,7 @@ export function WritePlanCard({ text, onChangeText }: { text: string; onChangeTe
     <View style={styles.card}>
       <Characters />
 
-      <Text style={[type.sub, styles.muted, styles.label]}>Your plan</Text>
+      <Text style={[type.sub, styles.muted]}>Your plan</Text>
       <TextInput
         value={text}
         onChangeText={onChangeText}
@@ -92,10 +92,10 @@ const AsleepFace = () => <AsleepFaceArt width={44} height={(24 * 44) / 46} color
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 18,
+    marginTop: space[16],
     paddingTop: 68,
-    paddingHorizontal: 12,
-    paddingBottom: 4,
+    paddingHorizontal: space[20],
+    paddingBottom: space[4],
     borderRadius: radius.row,
     backgroundColor: color.paper,
     boxShadow: shadow.soft,
@@ -104,10 +104,9 @@ const styles = StyleSheet.create({
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   faint: { color: color.ink3 },
-  label: { paddingHorizontal: 8 },
-  input: { minHeight: 84, paddingHorizontal: 8, paddingTop: 6, textAlignVertical: 'top' },
-  paste: { alignSelf: 'flex-start', marginTop: 10, marginBottom: 14, paddingHorizontal: 8, paddingVertical: 8, gap: 10, flexDirection: 'row', alignItems: 'center' },
-  row: { minHeight: 68, paddingHorizontal: 8, gap: 14, flexDirection: 'row', alignItems: 'center' },
+  input: { minHeight: 84, paddingTop: space[8], textAlignVertical: 'top' },
+  paste: { alignSelf: 'flex-start', marginTop: space[8], marginBottom: space[12], paddingVertical: space[8], gap: space[8], flexDirection: 'row', alignItems: 'center' },
+  row: { minHeight: 64, gap: space[12], flexDirection: 'row', alignItems: 'center' },
   rule: { borderTopWidth: 1, borderTopColor: color.rule },
   withLabel: { width: 44 },
   blankAvatar: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: color.fill, alignItems: 'center', justifyContent: 'center' },
