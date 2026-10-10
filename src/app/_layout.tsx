@@ -9,10 +9,10 @@ import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { loadLive } from '@/data/live';
+import { loadLive, refreshLive } from '@/data/live';
 import { color } from '@/styles/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +30,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadLive().catch(() => false).finally(() => setData(true));
+    // Coming back to the app refreshes its data.
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && void refreshLive());
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

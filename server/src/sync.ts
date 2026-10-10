@@ -45,8 +45,12 @@ export async function syncConnection(db: Db, connectionId: string) {
       withPeople: people,
       status: declined ? 'declined' : 'accepted',
     };
+    // A starting cost from the event's length (half a point an hour, 0.5 to 5); the person or the
+    // planner refines it.
+    const hours = (Date.parse(g.end.dateTime) - Date.parse(g.start.dateTime)) / 36e5;
+    const cost = Math.min(5, Math.max(0.5, Math.round(hours) / 2));
     await db.insert(events)
-      .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', ...fromGoogle })
+      .values({ userId: conn.userId, connectionId: conn.id, externalId: g.id, source: 'google', cost, ...fromGoogle })
       .onConflictDoUpdate({ target: [events.connectionId, events.externalId], set: fromGoogle });
     upserted++;
   }

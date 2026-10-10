@@ -11,6 +11,7 @@ import Squiggle from '@/assets/profile/squiggle.svg';
 import WidgetScraps from '@/assets/profile/widget-scraps.svg';
 import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
+import { useLiveScreen } from '@/data/live';
 import { achievements, profile, widget } from '@/data/profile';
 import { useCharacter } from '@/features/profile/character';
 import { color, radius } from '@/styles/tokens';
@@ -26,6 +27,7 @@ const badges = { red: BadgeRed, pink: BadgePink, green: BadgeGreen, blue: BadgeB
  */
 export function Profile() {
   const router = useRouter();
+  useLiveScreen();
   const insets = useSafeAreaInsets();
   const character = useCharacter();
 

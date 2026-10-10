@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '@/components/Chip';
 import { IconButton } from '@/components/IconButton';
 import { PlanRow } from '@/components/PlanRow';
+import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
 import { weekRange } from '@/lib/format';
 import { PLAN_FILTERS, plansThisWeek, upcoming, type PlanFilter } from '@/lib/week';
@@ -15,6 +16,7 @@ import { type } from '@/styles/type';
 
 /** Plans (442:2461 shows the Social filter). */
 export function Plans() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<PlanFilter>('social');

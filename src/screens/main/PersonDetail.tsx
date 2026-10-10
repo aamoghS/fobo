@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
+import { useLiveScreen } from '@/data/live';
 import { getPerson } from '@/data/people';
 import { plans } from '@/data/plans';
 import { NOW } from '@/data/week';
@@ -20,6 +21,7 @@ const BANNERS: Record<string, number> = { jun: require('@/assets/people/jun-bann
 
 /** People detail (387:1613). */
 export function PersonDetail({ id }: { id: string }) {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const person = getPerson(id);

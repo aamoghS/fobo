@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
+import { signOut, useLiveScreen } from '@/data/live';
 import { profile, settingsRows } from '@/data/profile';
 import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 /** Settings (443:3555). The rows have no screens behind them yet. */
 export function Settings() {
+  useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
@@ -30,7 +32,10 @@ export function Settings() {
         <Text style={[type.subStrong, styles.ink, styles.center]}>Logged in as</Text>
         <Text style={[type.foot, styles.ink, styles.center]}>{profile.email}</Text>
         {/* Figma draws this in Google blue (#1a73e8); it stays ink, since colour isn't for chrome. */}
-        <Button label="Log out" size="compact" style={styles.logout} onPress={() => router.replace('/welcome')} />
+        <Button label="Log out" size="compact" style={styles.logout} onPress={() => {
+            signOut();
+            router.replace('/welcome');
+          }} />
       </View>
     </ScrollView>
   );
