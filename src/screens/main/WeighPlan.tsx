@@ -1,62 +1,62 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import asleepFace from '@/assets/faces/asleep.svg';
-import fineEyes from '@/assets/faces/fine-eyes.svg';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
-import { IconButton } from '@/components/IconButton';
-import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
-import { Scrap, scrapColor } from '@/components/Scrap';
-import { invites, type Invite } from '@/data/invites';
+import { scrapColor } from '@/components/Scrap';
+import { inviteFrom, invites, type Invite } from '@/data/invites';
 import { loadLive, useLiveScreen } from '@/data/live';
+import { people } from '@/data/people';
+import type { Plan } from '@/features/plans/types';
 import { api } from '@/lib/api';
-import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { notify } from '@/lib/notify';
-import { seedFrom } from '@/lib/scrap-path';
+import type { Candidate } from '@/lib/weigh';
+import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
+import { WeighResult } from './WeighResult';
 import { WritePlanCard } from './WritePlanCard';
 
 type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
-export function WeighPlan() {
+export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   useLiveScreen();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('tentative');
-  const [picked, setSelected] = useState<string>();
-  // The first invite until one is picked (invites arrive with the live data).
-  const selected = invites.some((i) => i.id === picked) ? picked : invites[0]?.id;
+  // Nothing chosen until you pick one; the button waits for it.
+  const [selected, setSelected] = useState<string>();
   const [written, setWritten] = useState('');
-  const [weighing, setWeighing] = useState(false);
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/week'));
+  const [weighing, setWeighing] = useState<Candidate>();
+  const [busy, setBusy] = useState(false);
 
+  // Gemini weighs it (POST /weigh), and a written plan is saved as tentative. The result tries it on its day.
   const weigh = async () => {
-    setWeighing(true);
-    const weighed = await api<{ id: string }>('POST', '/weigh', tab === 'tentative' ? { planId: selected } : { text: written });
+    setBusy(true);
+    const weighed = await api<Plan>('POST', '/weigh', tab === 'tentative' ? { planId: selected } : { text: written });
     if (weighed) await loadLive();
-    setWeighing(false);
+    setBusy(false);
     if (!weighed) return notify("Couldn't weigh that plan. Try again in a moment.");
-    router.push({ pathname: '/plans/[id]', params: { id: weighed.id } });
+    setWeighing(inviteFrom(weighed, people));
   };
+
+  if (weighing) {
+    // Saying yes: the plan stops being tentative.
+    const add = async () => {
+      const accepted = await api('PATCH', `/plans/${weighing.id}`, { status: 'accepted' });
+      if (!accepted) return notify("Couldn't add that plan. Try again in a moment.");
+      await loadLive();
+      onAdded();
+    };
+    return <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} onAdd={add} />;
+  }
 
   const days = [...new Set(invites.map((i) => isoDay(i.start)))];
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
-        <View style={styles.topBar}>
-          <IconButton icon="back" label="Back" onPress={close} />
-          <Text style={[type.bodyStrong, styles.ink]}>Weigh a plan</Text>
-          <IconButton icon="close" label="Close" onPress={close} />
-        </View>
-
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.tabs} accessibilityRole="tablist">
           <TabButton label="Tentative plans" active={tab === 'tentative'} onPress={() => setTab('tentative')} />
           <TabButton label="Write a plan" active={tab === 'write'} onPress={() => setTab('write')} />
@@ -64,7 +64,6 @@ export function WeighPlan() {
 
         {tab === 'tentative' ? (
           <>
-            <Text style={[type.sub, styles.muted, styles.hint]}>Invites you haven’t accepted yet.</Text>
             {days.map((day) => (
               <View key={day}>
                 <Text style={[type.body, styles.muted, styles.dayHeading]}>{dayHeading(day)}</Text>
@@ -83,19 +82,17 @@ export function WeighPlan() {
           </>
         ) : (
           <>
-            <Text style={[type.sub, styles.muted, styles.hint]}>Something you’re thinking about saying yes to.</Text>
             <WritePlanCard text={written} onChangeText={setWritten} />
           </>
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+      <View style={styles.footer}>
         {tab === 'tentative' && <Text style={[type.sub, styles.muted, styles.footnote]}>This won’t accept the invite.</Text>}
-        {/* Gemini weighs it (POST /weigh); the result opens on Event detail: the cost, why, and a leave-by time. */}
         <Button
-          label={weighing ? 'Weighing…' : 'Weigh this plan'}
+          label={busy ? 'Weighing…' : 'Weigh this plan'}
           trailingIcon="arrow"
-          disabled={weighing || (tab === 'tentative' ? !selected : !written.trim())}
+          disabled={busy || (tab === 'tentative' ? !selected : !written.trim())}
           onPress={weigh}
         />
       </View>
@@ -115,60 +112,106 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
   );
 }
 
+// Respect the system's reduce-motion setting: selection then just switches.
+let reduceMotion = false;
+AccessibilityInfo.isReduceMotionEnabled?.().then((on) => (reduceMotion = on)).catch(() => {});
+
+/**
+ * One tentative invite. Picking it is a small moment: the row squishes and bounces back, the grey
+ * card settles in, the kind bar grows to full height (so the card's rounded corners curve it), and
+ * the check pops in with a little overshoot. Deselecting plays it back quietly.
+ */
 function InviteRow({ invite, selected, onPress }: { invite: Invite; selected: boolean; onPress: () => void }) {
   const kindColor = scrapColor[invite.kind];
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={`${invite.title}, ${startTime(invite.start)}, ${invite.with}`}
-      onPress={onPress}
-      // Selection goes grey with a black check (design system); the bar keeps the plan's kind.
-      style={[styles.row, selected ? styles.rowSelected : styles.rowRule]}>
-      <View style={[styles.kindBar, { backgroundColor: kindColor }]} />
-      <View style={styles.rowText}>
-        <Text style={[type.bodyStrong, styles.ink]}>{invite.title}</Text>
-        <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
-      </View>
-      <Character invite={invite} kindColor={kindColor} />
-      <View style={[styles.radio, selected && styles.radioOn]}>
-        {selected && <Icon name="check" size={18} color={color.paper} />}
-      </View>
-    </Pressable>
-  );
-}
+  const on = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const pop = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const squish = useRef(new Animated.Value(1)).current;
 
-const CHAR_W = 42;
+  useEffect(() => {
+    if (reduceMotion) {
+      on.setValue(selected ? 1 : 0);
+      pop.setValue(selected ? 1 : 0);
+      return;
+    }
+    if (selected) {
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(squish, { toValue: 0.97, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+          Animated.spring(squish, { toValue: 1, friction: 4, tension: 160, useNativeDriver: false }),
+        ]),
+        Animated.timing(on, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        Animated.sequence([
+          Animated.delay(60),
+          // One soft overshoot (~10%), then settle: a fixed curve, so it's the same every time.
+          Animated.timing(pop, { toValue: 1, duration: 280, easing: Easing.out(Easing.back(1.7)), useNativeDriver: false }),
+        ]),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(on, { toValue: 0, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+        Animated.timing(pop, { toValue: 0, duration: 140, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+      ]).start();
+    }
+  }, [selected, on, pop, squish]);
 
-function Character({ invite, kindColor }: { invite: Invite; kindColor: string }) {
-  const c = invite.character;
-  if (c === 'sun') return <PaperSpirit mood="bright" size={56} />;
-  // Googly eyes run a size up and sit lower than on the shelf, like the mockup.
-  const Face = c.face === 'fine' ? fineEyes : asleepFace;
-  const faceW = c.face === 'fine' ? 64 : 50;
-  const scale = faceW / 46;
+  const inset = on.interpolate({ inputRange: [0, 1], outputRange: [space[12], 0] });
+
   return (
-    <View style={styles.character}>
-      <Scrap cut={c.cut} fill={kindColor} width={CHAR_W} height={CHAR_W} seed={seedFrom(invite.id)} />
-      <View style={[styles.face, { top: c.face === 'fine' ? -5 : 3, left: (CHAR_W - faceW) / 2 }]}>
-        <Face width={faceW} height={(c.face === 'fine' ? 30 : 24) * scale} color={color.creatureInk} />
-      </View>
-    </View>
+    <Animated.View style={{ transform: [{ scale: squish }] }}>
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected }}
+        accessibilityLabel={`${invite.title}, ${startTime(invite.start)}, ${invite.with}`}
+        onPress={onPress}
+        style={styles.row}>
+        {/* The card: grey fill and kind bar, clipped to the row's rounded corners. */}
+        <View pointerEvents="none" style={styles.card}>
+          <Animated.View
+            style={[styles.fill, { opacity: on, transform: [{ scale: on.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}
+          />
+          <Animated.View
+            style={[
+              styles.kindBar,
+              {
+                backgroundColor: kindColor,
+                top: inset,
+                bottom: inset,
+                width: on.interpolate({ inputRange: [0, 1], outputRange: [4, 5] }),
+                borderRadius: on.interpolate({ inputRange: [0, 1], outputRange: [radius.full, 0] }),
+              },
+            ]}
+          />
+        </View>
+        <Animated.View pointerEvents="none" style={[styles.rule, { opacity: Animated.subtract(1, on) }]} />
+
+        <View style={styles.rowText}>
+          <Text style={[type.bodyStrong, styles.ink]}>{invite.title}</Text>
+          <Text style={[type.sub, styles.muted]}>{`${startTime(invite.start)} · ${invite.with}`}</Text>
+        </View>
+        <View style={styles.radio}>
+          <Animated.View
+            style={[styles.radioFill, { opacity: pop.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ scale: pop }] }]}>
+            <Animated.View
+              style={{ transform: [{ rotate: pop.interpolate({ inputRange: [0, 1], outputRange: ['-30deg', '0deg'] }) }] }}>
+              <Icon name="check" size={18} color={color.selInk} />
+            </Animated.View>
+          </Animated.View>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingHorizontal: space.margin, paddingBottom: space[28] },
+  content: { paddingTop: space[8], paddingHorizontal: space.margin, paddingBottom: space[28] },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   selInk: { color: color.selInk },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // Segmented toggle: chips in a fill capsule, the chosen side goes black.
-  tabs: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  tabs: { marginTop: space[12], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   tabActive: { backgroundColor: color.selBg },
-  hint: { paddingTop: space[16] },
   dayHeading: { paddingTop: space[28], paddingBottom: space[8] },
   row: {
     minHeight: 84,
@@ -177,15 +220,12 @@ const styles = StyleSheet.create({
     gap: space[16],
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.row,
-    overflow: 'hidden',
   },
-  rowSelected: { backgroundColor: color.fill },
-  rowRule: { borderRadius: 0, borderBottomWidth: 1, borderBottomColor: color.rule },
-  kindBar: { position: 'absolute', left: 0, top: space[12], bottom: space[12], width: 4, borderRadius: radius.full },
+  card: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: radius.row, overflow: 'hidden' },
+  fill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: radius.row, backgroundColor: color.fill },
+  kindBar: { position: 'absolute', left: 0 },
+  rule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: color.rule },
   rowText: { flex: 1, paddingLeft: space[20], gap: space[4] },
-  character: { width: CHAR_W, height: CHAR_W + 2, alignItems: 'center', justifyContent: 'center' },
-  face: { position: 'absolute', top: 0, left: 0 },
   radio: {
     width: 28,
     height: 28,
@@ -195,7 +235,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioOn: { backgroundColor: color.selBg, borderColor: color.selBg },
-  footer: { paddingTop: space[12], paddingHorizontal: space.margin, gap: space[12] },
+  // Covers the outline ring as it pops in.
+  radioFill: {
+    position: 'absolute',
+    top: -1.5,
+    left: -1.5,
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: color.selBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footer: { paddingTop: space[12], paddingHorizontal: space.margin, paddingBottom: space[16], gap: space[12] },
   footnote: { textAlign: 'center' },
 });

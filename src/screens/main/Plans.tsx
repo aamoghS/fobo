@@ -1,76 +1,36 @@
 import { useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Chip } from '@/components/Chip';
 import { IconButton } from '@/components/IconButton';
 import { NavFade } from '@/components/NavFade';
-import { PlanRow } from '@/components/PlanRow';
+import { PlanLine } from '@/components/PlanLine';
+import { Pressable } from '@/components/Pressable';
+import { scrapColor } from '@/components/Scrap';
 import { useLiveScreen } from '@/data/live';
-import { week } from '@/data/week';
-import { weekRange } from '@/lib/format';
-import { PLAN_FILTERS, plansThisWeek, upcoming, type PlanFilter } from '@/lib/week';
-import AllArt from '@/assets/illustrations/all-summary.svg';
-import ObligationArt from '@/assets/illustrations/obligation-summary.svg';
-import PersonalArt from '@/assets/illustrations/personal-summary.svg';
-import SocialArt from '@/assets/illustrations/social-summary.svg';
-import WorkArt from '@/assets/illustrations/work-summary.svg';
-import { withAlpha } from '@/styles/alpha';
-import { color, radius, space } from '@/styles/tokens';
+import { NOW, week } from '@/data/week';
+import type { Plan } from '@/features/plans/types';
+import { dateTile, daysBetween, timeRange, weekRange } from '@/lib/format';
+import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
+import { DAY_ROOM } from '../../../packages/core/src';
 
-type Summary = {
-  count: (n: number) => string;
-  /** Figma fills each card with a scrap colour at 15%. */
-  tint: string;
-  art: ReactNode;
-};
+type View_ = 'agenda' | 'calendar';
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** One summary card per filter, tinted as the Final frames draw them: Plans · All (482:1824), Work (468:1125), Social (442:2461), Obligations (479:1692), Personal (478:1267). */
-const SUMMARIES: Record<PlanFilter, Summary> = {
-  all: {
-    count: (n) => plural(n, 'plan overall', 'plans overall'),
-    tint: withAlpha(color.scrapWork, 0.15),
-    art: <AllArt width={150} height={140} style={{ position: 'absolute', top: 0, right: 5 }} />,
-  },
-  work: {
-    count: (n) => plural(n, 'work plan', 'work plans'),
-    tint: withAlpha(color.scrapObligation, 0.15),
-    art: <WorkArt width={79} height={93} style={{ position: 'absolute', top: 31, right: 35 }} />,
-  },
-  social: {
-    count: (n) => plural(n, 'social plan', 'social plans'),
-    tint: color.tintPeach,
-    art: <SocialArt width={147} height={124} style={{ position: 'absolute', top: 0, right: 0 }} />,
-  },
-  obligation: {
-    count: (n) => plural(n, 'obligation', 'obligations'),
-    // Figma uses a sage (#76AB93) with no token; the enjoy green is the nearest one.
-    tint: withAlpha(color.scrapEnjoy, 0.15),
-    art: <ObligationArt width={160} height={124} style={{ position: 'absolute', top: 0, right: 0 }} />,
-  },
-  personal: {
-    count: (n) => plural(n, 'personal plan', 'personal plans'),
-    tint: withAlpha(color.scrapRest, 0.15),
-    art: <PersonalArt width={150} height={140} style={{ position: 'absolute', top: 4, right: -9 }} />,
-  },
-};
-
-/** Plans, with a summary card for the selected filter. */
+/** Plans: the rest of the week as an agenda, or three days as a calendar. Simplified from Tory's references. */
 export function Plans() {
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<PlanFilter>('social');
-  const list = upcoming(filter);
-  const summary = SUMMARIES[filter];
+  const [view, setView] = useState<View_>('calendar');
+  const days = daysBetween(todayIso, week.end);
+  const open = (p: Plan) => router.push({ pathname: '/plans/[id]', params: { id: p.id } });
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
@@ -81,66 +41,165 @@ export function Plans() {
           <IconButton icon="plus" label="Add plan" onPress={() => router.push('/plans/new')} />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {PLAN_FILTERS.map((f) => (
-            <Chip key={f.key} label={f.label} pressed={filter === f.key} onPress={() => setFilter(f.key)} />
-          ))}
-        </ScrollView>
-
-        <View style={styles.summaryWrap}>
-          <View style={[styles.summary, { backgroundColor: summary.tint }]}>
-            {summary.art}
-            <Text style={[type.title, styles.ink]}>{summary.count(plansThisWeek(filter).length)}</Text>
-            <Text style={[type.sub, styles.muted]}>This week</Text>
-          </View>
+        <View style={styles.toggle} accessibilityRole="tablist">
+          <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
+          <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
         </View>
 
-        <View style={styles.upcoming}>
-          <View style={styles.listHeading}>
-            <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>
-              Upcoming
-            </Text>
-            <Text style={[type.foot, styles.muted]}>Energy</Text>
-          </View>
-          <View>
-            {list.map((p, i) => (
-              <PlanRow
-                key={p.id}
-                plan={p}
-                last={i === list.length - 1}
-                onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
-              />
-            ))}
-          </View>
-        </View>
+        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : <Calendar onOpen={open} />}
       </ScrollView>
       <NavFade color={color.ground} />
     </View>
   );
 }
 
+function Segment({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={[styles.segment, active && styles.segmentOn]}>
+      <Text style={[type.subStrong, active ? styles.selInk : styles.ink]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A day heading: "WED 7" with its load out of DAY_ROOM. */
+function DayHead({ date }: { date: string }) {
+  const tile = dateTile(date);
+  return (
+    <View style={styles.dayHead}>
+      <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>{`${tile.weekday} ${tile.day}`}</Text>
+      <Text style={[type.foot, styles.muted]}>{`Day load ${dayLoadOn(date)}/${DAY_ROOM}`}</Text>
+    </View>
+  );
+}
+
+function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void }) {
+  return (
+    <>
+      {days.map((date) => {
+        const list = plansOn(date);
+        return (
+          <View key={date}>
+            <DayHead date={date} />
+            {list.length === 0 ? (
+              <Text style={[type.sub, styles.muted, styles.empty]}>Nothing planned</Text>
+            ) : (
+              <View style={styles.card}>
+                {list.map((p, i) => (
+                  <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => onOpen(p)} />
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+const HOUR_H = 40;
+const GUTTER = 44;
+const minutes = (iso: string) => {
+  const d = new Date(iso);
+  return d.getHours() * 60 + d.getMinutes();
+};
+const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
+
+/**
+ * Three days from today on one time grid (Figma 206:3859, without the characters, for room):
+ * each day's date and load, solid scraps of colour for plans, and a line for now.
+ */
+function Calendar({ onOpen }: { onOpen: (p: Plan) => void }) {
+  const days = shelfDays().filter((d) => d.date >= todayIso).slice(0, 3);
+  const all = days.flatMap((d) => d.plans);
+  const first = Math.min(7, ...all.map((p) => Math.floor(minutes(p.start) / 60)));
+  const last = Math.max(21, ...all.map((p) => Math.ceil(minutes(p.end) / 60)));
+  const hours = Array.from({ length: last - first }, (_, i) => first + i);
+  const gridH = hours.length * HOUR_H;
+  const nowY = ((minutes(NOW) - first * 60) / 60) * HOUR_H;
+
+  return (
+    <View style={styles.calendar}>
+      <View style={styles.calHead}>
+        <View style={styles.gutter} />
+        {days.map((d) => {
+          const tile = dateTile(d.date);
+          return (
+            <View key={d.date} style={styles.calDay}>
+              <Text style={[type.foot, styles.muted]}>{d.label}</Text>
+              <Text style={[type.bodyStrong, styles.ink]}>{tile.day}</Text>
+              <Text style={[type.foot, styles.muted]}>{`${dayLoadOn(d.date)}/${DAY_ROOM}`}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={[styles.calBody, { height: gridH }]}>
+        {hours.map((h) => (
+          <View key={h} style={[styles.hourRow, { top: (h - first) * HOUR_H }]}>
+            <Text style={[styles.hour, styles.muted]}>{hourLabel(h)}</Text>
+            <View style={styles.hourLine} />
+          </View>
+        ))}
+        <View style={styles.columns}>
+          {days.map((d) => (
+            <View key={d.date} style={styles.calCol}>
+              {d.plans.map((p) => {
+                const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
+                const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
+                return (
+                  <Pressable
+                    key={p.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
+                    onPress={() => onOpen(p)}
+                    style={[styles.event, { top, height, backgroundColor: scrapColor[p.kind] }]}>
+                    <Text style={styles.eventText} numberOfLines={Math.max(1, Math.floor((height - 4) / 13))}>
+                      {p.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {d.selected && nowY >= 0 && nowY <= gridH && (
+                <View pointerEvents="none" style={[styles.now, { top: nowY }]}>
+                  <View style={styles.nowDot} />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingBottom: 200 },
-  header: {
-    paddingHorizontal: space.margin,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  heading: { gap: space[4] },
+  content: { paddingHorizontal: space.margin, paddingBottom: 200 },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
-  filters: { paddingHorizontal: space.margin, paddingTop: space[20], paddingBottom: space[16], gap: space[8] },
-  summaryWrap: { paddingHorizontal: space.margin },
-  summary: {
-    height: 124,
-    paddingLeft: space[20],
-    paddingTop: space[28],
-    gap: space[4],
-    borderRadius: radius.row,
-    overflow: 'hidden',
-  },
-  upcoming: { paddingTop: space[28], paddingHorizontal: space.margin, gap: space[12] },
-  listHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selInk: { color: color.selInk },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  heading: { gap: space[4] },
+  // Same segmented toggle as Weigh a plan.
+  toggle: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  segmentOn: { backgroundColor: color.selBg },
+  dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  empty: { paddingBottom: space[4] },
+  card: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
+  calendar: { marginTop: space[16], marginHorizontal: -space.margin },
+  calHead: { flexDirection: 'row', paddingTop: space[8], paddingBottom: space[12] },
+  calDay: { flex: 1, alignItems: 'center' },
+  calBody: { borderTopWidth: 1, borderTopColor: color.rule },
+  gutter: { width: GUTTER },
+  hourRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
+  // Figma sets these at 11; the ramp's smallest is 13, too wide for the gutter.
+  hour: { width: GUTTER, paddingRight: space[8], textAlign: 'right', fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 14, marginTop: -14 },
+  hourLine: { flex: 1, height: 1, backgroundColor: color.rule },
+  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, flexDirection: 'row' },
+  calCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: color.rule },
+  event: { position: 'absolute', left: 2, right: 2, paddingHorizontal: space[4], paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
+  eventText: { color: color.selInk, fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 13 },
+  now: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: color.ink },
+  nowDot: { position: 'absolute', left: -4, top: -3.5, width: 8, height: 8, borderRadius: radius.full, backgroundColor: color.ink },
 });

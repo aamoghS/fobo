@@ -10,8 +10,10 @@ export type Invite = {
   start: string;
   /** Who it's with, as the row words it ("Dani + 2", "Work"). */
   with: string;
-  /** The little character on the row. */
-  character: { cut: 'social' | 'obligation'; face: 'fine' | 'asleep' } | 'sun';
+  /** Estimated cost out of DAY_ROOM, for weighing. */
+  energyCost: number;
+  /** A plan already on the week that this invite is (so weighing doesn't count it twice). */
+  replaces?: string;
 };
 
 export const invites: Invite[] = [];
@@ -24,7 +26,7 @@ const KIND_LABEL: Record<PlanKind, string> = {
   rest: 'Rest',
 };
 
-/** A plan you haven't answered, as Weigh a plan's row shows it (characters as in Tory's mockup). */
+/** A plan you haven't answered, as Weigh a plan's row shows it. */
 export function inviteFrom(plan: Plan, circle: Person[]): Invite {
   // People are friend ids for Fobo plans, and names or emails for Google invites.
   const names = (plan.with ?? []).map((w) => circle.find((p) => p.id === w)?.name ?? w.split('@')[0]);
@@ -34,11 +36,8 @@ export function inviteFrom(plan: Plan, circle: Person[]): Invite {
     kind: plan.kind,
     start: plan.start,
     with: names.length ? (names.length > 1 ? `${names[0]} + ${names.length - 1}` : names[0]) : KIND_LABEL[plan.kind],
-    character:
-      plan.kind === 'social'
-        ? { cut: 'social', face: 'fine' }
-        : plan.kind === 'enjoy' || plan.kind === 'rest'
-          ? 'sun'
-          : { cut: 'obligation', face: 'asleep' },
+    energyCost: plan.energyCost,
+    // The invite is that plan on the week, so weighing doesn't count it twice.
+    replaces: plan.id,
   };
 }

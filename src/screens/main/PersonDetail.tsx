@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
   },
   banner: { height: 138, borderRadius: radius.chip, overflow: 'hidden' },
   bannerArt: { position: 'absolute', right: 14, top: -22, transform: [{ rotate: '-8deg' }] },
+  // Stands on the banner's bottom edge, a touch cut off, like Jun's cushion.
   avatarSpace: { height: 42 },
   avatar: { position: 'absolute', left: space[8], top: -66, width: 108, height: 108 },
   avatarRing: { padding: 5, borderRadius: radius.full, backgroundColor: color.paper },

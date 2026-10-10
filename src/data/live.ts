@@ -86,6 +86,17 @@ function clearLive() {
   bump();
 }
 
+/**
+ * Adds a plan to the week (Weigh a plan's "Add as planned"), taking the place of the plan it stands
+ * in for, and redraws. Sample data only for now: nothing is sent to the API yet.
+ */
+export function addPlan(plan: Plan, replaces?: string) {
+  const at = replaces ? plans.findIndex((p) => p.id === replaces) : -1;
+  if (at >= 0) plans.splice(at, 1);
+  plans.push(plan);
+  bump();
+}
+
 export function signOut() {
   signedIn = false;
   setSession(null);
