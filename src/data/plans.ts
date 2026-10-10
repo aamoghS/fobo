@@ -31,6 +31,8 @@ export const plans: Plan[] = [
   // Sun 11
   plan('sun-rest', 'Rest', 'rest', '2026-10-11T10:00', '2026-10-11T12:00', 0),
   plan('sun-obligation', 'Obligation', 'obligation', '2026-10-11T15:00', '2026-10-11T16:00', 2),
+  // Next week. Jun's "Coffee · Sunday" (People 387:1456), the cup row on People detail (387:1613).
+  { ...plan('jun-coffee', 'Coffee with Jun', 'social', '2026-10-18T10:00', '2026-10-18T11:00', 1), with: ['jun'], icon: 'cup' },
 ];
 
 /** Extra copy for the Event detail screen (368:9064). Only the hackathon has it in Figma. */
