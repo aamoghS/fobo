@@ -3,7 +3,7 @@ import { withService, type Db } from '../db.ts';
 import { accessToken, deleteEvent, getEvent, insertEvent, patchEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
 import {
-  allowedChanges, askGemini, PlannerError, scoreDays, type Change, type PlanRow,
+  allowedChanges, askGemini, PlannerError, plannerReady, scoreDays, type Change, type PlanRow,
 } from '../planner.ts';
 import { calendarConnections, calendarFixes, events, memories, profiles } from '../schema.ts';
 import { googleAccount } from '../sync.ts';
@@ -18,7 +18,7 @@ const fixColumns = {
 export const fixRoutes = [
     // { days: 1..14 }: asks the planner and saves its answer as a proposed fix.
     route('POST', '/fix-calendar', ({ pool, claims, body }) => {
-      if (!process.env.GEMINI_API_KEY || !process.env.GEMINI_MODEL) {
+      if (!plannerReady()) {
         throw new HttpError(503, "The planner isn't set up yet");
       }
       const days = Math.min(14, Math.max(1, Number(body.days) || 7));

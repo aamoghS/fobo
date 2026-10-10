@@ -56,3 +56,10 @@ export const NO_UPCOMING = 'No upcoming plans';
 
 /** Your week: "Up next" when there is no plan coming up. */
 export const NOTHING_PLANNED = 'Nothing planned';
+
+/** Weigh a plan: what saying yes does to that day, after Gemini's reason. */
+export const WEIGH = {
+  day: (weekday: string, before: number, after: number, room: number) =>
+    `${weekday} goes from ${before} to ${after} of ${room}.`,
+  over: 'That’s over the line.',
+};

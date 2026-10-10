@@ -66,6 +66,15 @@ timezone at sign-up and whenever it differs from the profile's (`PATCH /me`, che
 timezone list). A change makes the next Google sync read every calendar in full, since all-day events are
 placed in the timezone.
 
+## Weigh a plan
+
+`POST /weigh` takes a tentative plan from the calendar (`planId`) or a plan or invite as written (`text`).
+Gemini (`src/weigh.ts`) reads the profile, check-in memories and the next two weeks, and answers the plan's
+title, kind, times and people (read out of the text), its cost to this person, why, and a leave-by time when the
+profile says they'd fade or the day would go over. The server checks the answer, works out the day's load before
+and after itself, and saves the cost and why (with that day line, wording in `@fobo/core`) on the plan, so Event
+detail shows it. About 4 s per weigh; no transaction stays open during the call.
+
 ## Performance
 
 - GET answers carry a weak ETag (`Cache-Control: private, no-cache`). The app sends `If-None-Match` and
@@ -108,6 +117,7 @@ offset are read in the profile's timezone; times with `Z` or an offset are taken
 | GET, PATCH, DELETE | `/connections[/:id]` | Connected Apps & Devices; per-account `writeBack`; disconnecting removes that account's synced plans |
 | POST | `/fix-calendar` | `{ days }` (1 to 14): asks the planner, saves a proposed fix |
 | POST | `/apply-fix` | `{ fixId, only? }`: applies the picked changes once |
+| POST | `/weigh` | `{ planId }` or `{ text }`: Gemini weighs one plan; answers the plan (a written one is saved as tentative) with `detail` and `day { date, before, after, room, over }` |
 
 Friends never read `events`: blocks and scores come from `friend_blocks` and `day_scores`, which hide
 titles by visibility (`private` grey block, `busy` block and colour, `open` with title).
@@ -121,7 +131,9 @@ plans are left out, and tentative ones fill `invites` (Weigh a plan). In the for
 30 s, when a screen opens, and when it comes back from the background (Google Calendar sync at most once
 a minute); screens redraw after each load. Choices save as they are made: each onboarding or Capacity
 Profile answer, and each character change (0.4 s after the last one), write to `/me` and reload, so the
-You tab updates at once. Log out empties the modules. Email sign-up and log-in call `/auth/email/*`.
+You tab updates at once. Log out empties the modules. Email sign-up and log-in call `/auth/email/*`. The onboarding
+energy comparison pairs plans from the user's own last week (up to four pairs); picking one raises its cost
+past the other's. Friends' avatars and banners draw the character they made.
 
 Google sync reads every calendar shown in the person's Google Calendar (fetched in parallel), including
 all-day events, which cover their days and cost nothing. Timed events start at half a point an hour
@@ -175,11 +187,8 @@ The API is deployed as the `api` Neon Function. After API changes, from the repo
   The streak counts days in a row within the day's room, from the day the user joined.
 - Achievements, checked on each `/profile`: The Irish Goodbye (a plan with a leave-by time has ended), Slow and
   Steady (a 7-day streak), More the Merrier (a plan with 3 or more people), The First Week (a week after joining).
-- Screens still holding their own copies or sample content (frontend, not changed here): the onboarding answer
-  lists in `Onboarding.tsx` (the API's are in `@fobo/core`), the energy comparison pair, the featured People
-  card (`comal`), Jun's avatar and banner, and avatar art keyed to the sample people.
-- Buttons with no API call yet: Weigh a plan, add plan, add person, Check availability, Edit, Move it, Plan my
-  exit, Invite via link, Forgot password.
+- Buttons with no API call yet: add plan, add person, Check availability, Edit, Move it, Plan my exit, Invite
+  via link, Forgot password.
 - A Google invite declined and later accepted stays declined in Fobo.
 - Email log-in has no rate limit, and there is no password reset.
 - `/google-sync` and `/fix-calendar` hold a database transaction open while they call Google and Gemini.

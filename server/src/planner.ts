@@ -97,16 +97,24 @@ export class PlannerError extends Error {}
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export async function askGemini(input: unknown): Promise<Answer> {
+  return checkAnswer(await generate(SYSTEM, SCHEMA, input));
+}
+
+/** True when the planner can run: the key and the model are set. */
+export const plannerReady = () => !!process.env.GEMINI_API_KEY && !!MODEL;
+
+/** One structured Gemini answer: the system prompt, the response schema, and the input as JSON. */
+export async function generate(system: string, schema: unknown, input: unknown): Promise<any> {
   const key = process.env.GEMINI_API_KEY!;
   const res = await fetch(`${API}/${MODEL}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify(input) }] }],
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: SCHEMA,
+        responseSchema: schema,
         maxOutputTokens: 16000,
         thinkingConfig: { thinkingLevel: 'low' },
       },
@@ -124,8 +132,8 @@ export async function askGemini(input: unknown): Promise<Answer> {
   if (c?.finishReason === 'MAX_TOKENS') throw new PlannerError('the planner answer was cut off');
   const text = c?.content?.parts?.map((p) => p.text ?? '').join('');
   if (!text) throw new PlannerError('the planner returned no answer');
-  return checkAnswer(JSON.parse(text));
-};
+  return JSON.parse(text);
+}
 
 // Structured output already follows SCHEMA; this guards the shape before anything trusts it.
 export function checkAnswer(a: any): Answer {
