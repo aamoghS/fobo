@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Line } from 'react-native-svg';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import Svg, { Line, Path } from 'react-native-svg';
 
 import asleepFace from '@/assets/faces/asleep.svg';
 import fineFace from '@/assets/faces/fine.svg';
@@ -35,16 +36,29 @@ export type ShelfDay = {
   selected: boolean;
 };
 
+/** A plan being weighed: drawn on top of its day's stack, flying in before it lands. */
+export type Incoming = { date: string; plan: Plan; onLanded: () => void };
+
+type Props = {
+  days: ShelfDay[];
+  incoming?: Incoming;
+  /** Room above the dotted line for a stack that goes over, or a block flying in. */
+  headroom?: number;
+  /** Names the dotted line ("Your limit"). */
+  limitLabel?: string;
+};
+
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days }: { days: ShelfDay[] }) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel }: Props) {
   return (
-    <View style={styles.shelf} accessibilityRole="image" accessibilityLabel={describe(days)}>
+    <View style={[styles.shelf, { marginTop: headroom }]} accessibilityRole="image" accessibilityLabel={describe(days)}>
       <Svg style={styles.fullLine} width="100%" height={2}>
         <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
       </Svg>
+      {limitLabel && <Text style={[type.foot, styles.limitLabel]}>{limitLabel}</Text>}
       <View style={styles.stacks}>
         {days.map((day) => (
-          <Stack key={day.date} day={day} />
+          <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} />
         ))}
       </View>
       <View style={styles.labels}>
@@ -64,7 +78,7 @@ export function WeekShelf({ days }: { days: ShelfDay[] }) {
   );
 }
 
-function Stack({ day }: { day: ShelfDay }) {
+function Stack({ day, incoming }: { day: ShelfDay; incoming?: Incoming }) {
   const rest = day.plans.filter((p) => p.kind === 'rest');
   const blocks = withCharacter(day.plans.filter((p) => p.kind !== 'rest'));
   const Face = faces[day.mood];
@@ -88,6 +102,7 @@ function Stack({ day }: { day: ShelfDay }) {
           </View>
         );
       })}
+      {incoming && <IncomingBlock plan={incoming.plan} past={day.past} onLanded={incoming.onLanded} />}
       {/* Rest is a cushion drawn in front of the stack's base. */}
       {rest.length > 0 && (
         <View style={styles.cushion}>
@@ -95,6 +110,91 @@ function Stack({ day }: { day: ShelfDay }) {
         </View>
       )}
     </View>
+  );
+}
+
+const HOVER = 56;
+
+/**
+ * The new plan as a little scrap: it hangs above its day wobbling (with motion marks), drops onto
+ * the stack, squashes as it lands and bounces back, then hands over to the stack (onLanded).
+ */
+function IncomingBlock({ plan, past, onLanded }: { plan: Plan; past: boolean; onLanded: () => void }) {
+  const y = useRef(new Animated.Value(-HOVER)).current;
+  const wobble = useRef(new Animated.Value(0)).current;
+  const marks = useRef(new Animated.Value(1)).current;
+  const squash = useRef(new Animated.Value(1)).current;
+  const landed = useRef(onLanded);
+  landed.current = onLanded;
+
+  useEffect(() => {
+    let cancelled = false;
+    const finish = () => !cancelled && landed.current();
+    const swing = Animated.loop(
+      Animated.sequence([
+        Animated.timing(wobble, { toValue: 1, duration: 200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+        Animated.timing(wobble, { toValue: -1, duration: 200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      ]),
+    );
+    let timer: ReturnType<typeof setTimeout>;
+    AccessibilityInfo.isReduceMotionEnabled?.()
+      .catch(() => false)
+      .then((reduce) => {
+        if (cancelled) return;
+        if (reduce) return finish();
+        swing.start();
+        timer = setTimeout(() => {
+          swing.stop();
+          Animated.parallel([
+            Animated.timing(wobble, { toValue: 0, duration: 160, useNativeDriver: false }),
+            Animated.timing(marks, { toValue: 0, duration: 160, useNativeDriver: false }),
+            Animated.timing(y, { toValue: 0, duration: 380, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+          ]).start(() =>
+            Animated.sequence([
+              Animated.timing(squash, { toValue: 0.84, duration: 80, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+              Animated.spring(squash, { toValue: 1, friction: 4, tension: 200, useNativeDriver: false }),
+            ]).start(finish),
+          );
+        }, 1000);
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      swing.stop();
+    };
+  }, [y, wobble, marks, squash]);
+
+  const visible = Math.max((plan.energyCost / DAY_ROOM) * FULL - GAP, 10);
+  const scale = Math.min(1, (visible - 2) / FACE_H.spent);
+  return (
+    <Animated.View
+      style={{
+        marginTop: GAP,
+        zIndex: 2,
+        transformOrigin: 'bottom',
+        transform: [
+          { translateY: y },
+          { rotate: wobble.interpolate({ inputRange: [-1, 1], outputRange: ['-7deg', '7deg'] }) },
+          { scaleY: squash },
+          { scaleX: squash.interpolate({ inputRange: [0.84, 1], outputRange: [1.12, 1] }) },
+        ],
+      }}>
+      <Scrap cut={plan.kind} past={past} width={STACK_W} height={visible} seed={seedFrom(plan.id)} />
+      <FaceLayer Face={faces.spent} scale={scale} height={FACE_H.spent} />
+      {/* Motion marks, either side, while it hangs there. */}
+      <Animated.View pointerEvents="none" style={[styles.marks, { opacity: marks }]}>
+        <Svg width={STACK_W + 28} height={24}>
+          <Path d="M8 2 Q2 12 8 22 M14 5 Q10 12 14 19" stroke={color.creatureInk} strokeWidth={1.6} strokeLinecap="round" fill="none" />
+          <Path
+            d={`M${STACK_W + 20} 2 Q${STACK_W + 26} 12 ${STACK_W + 20} 22 M${STACK_W + 14} 5 Q${STACK_W + 18} 12 ${STACK_W + 14} 19`}
+            stroke={color.creatureInk}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -134,6 +234,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  limitLabel: {
+    position: 'absolute',
+    top: -22,
+    left: 0,
+    color: color.ink2,
+  },
+  marks: {
+    position: 'absolute',
+    top: 4,
+    left: -14,
   },
   stacks: {
     position: 'absolute',
