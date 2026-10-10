@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo/ui": "~57.0.22",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.27",
@@ -26,21 +27,25 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@neon/config": "^1.8.6",
     "@types/react": "~19.2.2",
+    "react-native-svg-transformer": "^1.5.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "dev": "expo start --web",
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
+    "web": "expo start --web",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "tokens": "node scripts/gen-tokens.mts",
+    "typecheck": "tsc --noEmit"
   },
   "private": true
 }

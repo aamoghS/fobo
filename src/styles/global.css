@@ -1,0 +1,9 @@
+/* Web only. Native screens take their tokens from tokens.ts. */
+/* Loaded after tokens.css (see app/_layout.tsx). */
+html,
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+  font-variation-settings: var(--opsz);
+}
