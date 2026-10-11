@@ -60,6 +60,14 @@ export const meRoutes = [
       return me(db, claims.sub);
     })),
 
+  // Deletes the account for good: the profile, and with it (on delete cascade) its plans, calendar
+  // connections, friendships, memories, achievements and sign-in links. Signing in again starts fresh.
+  route('DELETE', '/me', ({ pool, claims }) =>
+    withUser(pool, claims, async (db) => {
+      await db.delete(profiles).where(eq(profiles.id, claims.sub));
+      return { deleted: true };
+    })),
+
   route('PATCH', '/me', ({ pool, claims, body }) => {
     const patch = pick(body, EDITABLE);
     if ('character' in patch) checkCharacter(patch.character);
