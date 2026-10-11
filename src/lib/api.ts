@@ -1,6 +1,7 @@
 import { apiToken } from './session';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
+// The deployed API (as in eas.json) unless .env.local says otherwise, so a fresh clone runs as is.
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://br-dawn-shadow-b59k4l6b-api.compute.c-7.us-east-2.aws.neon.tech';
 
 // Last answer per GET path with its ETag: unchanged data comes back as an empty 304 and is reused.
 const cache = new Map<string, { etag: string; body: unknown }>();

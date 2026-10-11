@@ -162,7 +162,12 @@ npm run dev:all             # Expo over a tunnel: scan the QR code in Expo Go fr
 npm run dev:all -- --web    # also the browser build
 npm run dev:all -- --lan    # same Wi-Fi only, no tunnel
 npm run dev:all -- --local  # also runs the API here on :8787 (Google sign-in needs the deployed one)
+npm run allow-expo-go -- <host>  # let Google sign-in return to a teammate's dev server (needs .env.local)
 ```
+
+Without `.env.local` the app still uses the deployed API and email sign-in works. `npm start` (same as
+`dev:all`) registers its dev server for Google sign-in when `.env.local` has `DATABASE_URL`; otherwise it prints
+the host for a teammate to allow with `allow-expo-go`.
 
 In Expo Go, sign in with the same Expo account (project `aamoghss-team/fobo`). `npm start` also uses the
 tunnel; `npm run start:lan` does not.
