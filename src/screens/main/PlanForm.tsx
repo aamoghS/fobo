@@ -115,22 +115,7 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
           focusTime={focus === 'time'}
           titleNote={plan?.source === 'google' && <Text style={[type.foot, styles.muted]}>Changes to the name and time go to Google Calendar too.</Text>}
         />
-
-        {/* A new plan's cost starts as a guess; it's corrected here, once it's on the week. */}
-        {plan && (
-          <>
-            <Section label={`Energy it takes: ${cost} of ${DAY_ROOM}`} scroll>
-              {COSTS.map((c) => (
-                <Chip key={c} label={String(c)} pressed={cost === c} onPress={() => setCost(c)} />
-              ))}
-            </Section>
-            <Text style={[type.sub, after > DAY_ROOM ? styles.over : styles.muted]}>
-              {`${dayLabel(day)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
-            </Text>
-          </>
-        )}
-
-        {people.length > 0 && plan?.source !== 'google' && (
+{people.length > 0 && plan?.source !== 'google' && (
           <Section label="With" scroll>
             {people.map((p) => {
               const on = withIds.includes(p.id);
@@ -145,6 +130,22 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
             })}
           </Section>
         )}
+        {/* A new plan's cost starts as a guess; it's corrected here, once it's on the week. */}
+        {plan && (
+          <>
+            <Section label={`Energy it takes: ${cost} of ${DAY_ROOM}`} scroll>
+              {COSTS.map((c) => (
+                <Chip key={c} label={String(c)} pressed={cost === c} onPress={() => setCost(c)} />
+              ))}
+            </Section>
+            <Text style={[type.sub, after > DAY_ROOM ? styles.over : styles.muted]}>
+              {`${dayLabel(day)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
+            </Text>
+            
+          </>
+        )}
+
+        
 
         {plan && (
           <TextField
