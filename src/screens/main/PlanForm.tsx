@@ -86,6 +86,7 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
   const [cost, setCost] = useState(plan?.energyCost ?? 3);
   const [withIds, setWithIds] = useState<string[]>(plan?.with?.filter((w) => people.some((p) => p.id === w)) ?? []);
   const [leaveBy, setLeaveBy] = useState(plan?.leaveBy ?? '');
+  const [notes, setNotes] = useState(plan?.notes ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState<'day' | 'kind' | null>(null);
@@ -115,6 +116,7 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
       // Google invites keep their own guest list.
       ...(plan?.source === 'google' ? {} : { with: withIds }),
       leaveBy: exit ? clock(exit) : null,
+      notes: notes.trim() || null,
     });
     setSaving(false);
     if ('error' in result) return setError(result.error);
@@ -166,6 +168,14 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
             <TextField label="Ends" placeholder="9pm" value={ends} onChangeText={setEnds} autoCapitalize="none" />
           </View>
         </View>
+
+        <TextField
+          label="Additional details (optional)"
+          placeholder="Address, what to bring, anything to remember"
+          value={notes}
+          onChangeText={setNotes}
+          rows={3}
+        />
 
         {/* A new plan's cost starts as a guess; it's corrected here, once it's on the week. */}
         {plan && (

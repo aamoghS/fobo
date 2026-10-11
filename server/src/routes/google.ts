@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
 import { calendarConnections, calendarSync, events } from '../schema.ts';
@@ -27,6 +27,17 @@ export async function connect(db: Db, userId: string) {
 }
 
 export const googleRoutes = [
+  // Bring in your week: is the caller signed in with Google, and did they allow Calendar?
+  route('GET', '/google-status', ({ pool, claims }) =>
+    withService(pool, async (db) => {
+      const { rows } = await db.execute<{ email: string }>(sql`select email from google_accounts where user_id = ${claims.sub}`);
+      return { signedIn: !!rows[0], email: rows[0]?.email || null, calendar: !!(await googleAccount(db, claims.sub)) };
+    })),
+
+  // Links Google Calendar for a Google account that allowed it but isn't linked yet (sign-in links it
+  // too, so this is for when that didn't happen).
+  route('POST', '/google-connect', ({ pool, claims }) => withService(pool, (db) => connect(db, claims.sub))),
+
   // Re-pulls every Google account the caller has connected.
   route('POST', '/google-sync', ({ pool, claims }) =>
     withService(pool, async (db) => {

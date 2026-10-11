@@ -14,12 +14,9 @@ export type Candidate = {
   title: string;
   kind: PlanKind;
   start: string;
-  end: string;
   /** "Dani + 2", "Work". */
   with?: string;
   energyCost: number;
-  /** "Leave by" time from weighing, e.g. "8:30". */
-  leaveBy?: string;
   /** A plan already on the week that this is, so it isn't counted twice. */
   replaces?: string;
 };
@@ -40,12 +37,14 @@ function weekOf(day: string) {
 }
 
 export function asPlan(c: Candidate): Plan {
+  const end = new Date(c.start);
+  end.setHours(end.getHours() + 2);
   return {
     id: c.id,
     title: c.title,
     kind: c.kind,
     start: c.start,
-    end: c.end,
+    end: `${ymd(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}`,
     energyCost: c.energyCost,
     // Weighing asks "what if you said yes", so it counts like an accepted plan.
     status: 'accepted',

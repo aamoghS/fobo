@@ -65,6 +65,7 @@ export const events = pgTable('events', {
   costNote: text('cost_note'),
   exitNote: text('exit_note'),
   reminder: text('reminder'),
+  notes: text('notes'),
 });
 
 export const memories = pgTable('memories', {

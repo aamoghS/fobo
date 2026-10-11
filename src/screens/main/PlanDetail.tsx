@@ -92,6 +92,7 @@ export function PlanDetail({ id }: { id: string }) {
               trailing={<Button label="Edit" variant="quiet" size="small" onPress={() => edit('exit')} />}
             />
           )}
+          {plan.notes && <Row icon="file" title="Details" detail={plan.notes} />}
           {detail.reminder && <Row icon="bell" title={detail.reminder} />}
           {detail.people && <Row icon="people" title={detail.people.names} detail={detail.people.insight} />}
           <Row icon="arrow" title="Invite via link" last onPress={invite} />

@@ -43,4 +43,6 @@ export const ONBOARDING: Record<string, readonly string[] | null> = {
   'head-home': ['In the first hour', 'After 1 to 2 hours', 'After 2 to 3 hours', 'I stayed happily to the end'],
   yourself: ['Same day', 'Next day', '2 to 3 days', 'Longer'],
   compare: null,
+  // Set when onboarding is finished or skipped through, so sign-in knows to go straight to the week.
+  done: ['yes'],
 };

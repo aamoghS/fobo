@@ -19,6 +19,8 @@ export type Plan = {
   with?: string[];
   /** Line icon on People detail rows; box when unset. */
   icon?: 'box' | 'cup';
+  /** Additional details the person wrote on the plan form. */
+  notes?: string | null;
   /** Where it came from: Google Calendar, or made in Fobo. */
   source?: 'google' | 'capacity';
 };

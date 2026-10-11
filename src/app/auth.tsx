@@ -1,7 +1,7 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { loadLive } from '@/data/live';
+import { homeAfterSignIn, loadLive } from '@/data/live';
 import { takeSignInNonce } from '@/lib/google-auth';
 import { setSession } from '@/lib/session';
 
@@ -18,7 +18,10 @@ export default function AuthReturn() {
     if (session && takeSignInNonce(nonce)) setSession(session);
     loadLive()
       .catch(() => false)
-      .then((signedIn) => setTo(signedIn ? (inApp(next) ? next : '/onboarding/start') : '/welcome'));
+      // Back to where sign-in started (like the calendar step), unless onboarding comes first.
+      .then((signedIn) =>
+        setTo(!signedIn ? '/welcome' : inApp(next) && (next.startsWith('/onboarding') || homeAfterSignIn() === '/week') ? next : homeAfterSignIn()),
+      );
   }, [session, nonce, next]);
 
   if (!to) return null;

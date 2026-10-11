@@ -82,6 +82,7 @@ function clearLive() {
   resetWeek();
   refreshToday();
   for (const key of Object.keys(answers)) delete answers[key as keyof typeof answers];
+  onboarded = false;
   saveCharacter(DEFAULT_CHARACTER, { remote: false });
   bump();
 }
@@ -137,6 +138,14 @@ export function useLiveScreen() {
 let signedIn = false;
 /** True after the user's data loaded with a working session. */
 export const isSignedIn = () => signedIn;
+
+let onboarded = false;
+/** Where a signed-in user starts: the week once they've been through onboarding, onboarding before. */
+export const homeAfterSignIn = () => (onboarded ? '/week' : '/onboarding/start') as '/week';
+/** Onboarding's last step (or Skip through it) marks it done. */
+export function markOnboarded() {
+  onboarded = true;
+}
 
 /** True when signed in and the user's data loaded. */
 export async function loadLive(): Promise<boolean> {
@@ -199,7 +208,10 @@ export async function loadLive(): Promise<boolean> {
   }
   saveCharacter(me.character ?? DEFAULT_CHARACTER, { remote: false });
   for (const key of Object.keys(answers)) delete answers[key as keyof typeof answers];
-  Object.assign(answers, me.onboarding ?? {});
+  const { done, ...picked } = me.onboarding ?? {};
+  Object.assign(answers, picked);
+  // Finished, or (for profiles from before the done mark) answered something.
+  onboarded = !!done || Object.keys(picked).length > 0;
   lastLoad = Date.now();
   bump();
   return true;
