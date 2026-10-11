@@ -93,12 +93,21 @@ export async function getEvent(access: string, calendar: string, id: string): Pr
   return res.json() as Promise<GoogleEvent>;
 }
 
+// A Calendar API call Google answered with an error; `status` is its HTTP status.
+export class GoogleError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export async function patchEvent(access: string, calendar: string, id: string, body: Partial<GoogleEvent>) {
   const res = await call(access, `${events(calendar)}/${encodeURIComponent(id)}?sendUpdates=all`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`google patch failed: ${res.status}`);
+  if (!res.ok) throw new GoogleError(res.status, `google patch failed: ${res.status}`);
 }
 
 // notify: Google emails the guests (the invite, or that it's cancelled).

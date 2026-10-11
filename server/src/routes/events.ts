@@ -2,7 +2,7 @@ import { PLAN_KINDS, UNSORTED_KIND } from '@fobo/core/options';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type pg from 'pg';
 import { withService, withUser, type Db } from '../db.ts';
-import { accessToken, deleteEvent, getEvent, insertEvent, patchEvent, type GoogleEvent } from '../google.ts';
+import { accessToken, deleteEvent, getEvent, GoogleError, insertEvent, patchEvent, type GoogleEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
 import { calendarConnections, events, profiles } from '../schema.ts';
 import { googleAccount } from '../sync.ts';
@@ -69,10 +69,9 @@ function normalize(body: Record<string, unknown>) {
 
 type GoogleRef = { externalId: string | null; calendarId: string | null; connectionId: string | null };
 
-// Renames or moves the event in Google Calendar, when its account allows write-back. Local times are sent
-// with the user's timezone.
-async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body: Record<string, unknown>) {
-  const { account, writeBack, tz } = await withService(pool, async (db) => {
+// The Google account to write with, whether the event's connection allows write-back, and the user's timezone.
+function googleWriter(pool: pg.Pool, userId: string, ev: GoogleRef) {
+  return withService(pool, async (db) => {
     const conn = ev.connectionId
       ? (await db.select({ writeBack: calendarConnections.writeBack }).from(calendarConnections)
         .where(eq(calendarConnections.id, ev.connectionId)))[0]
@@ -80,6 +79,12 @@ async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body:
     const me = (await db.select({ tz: profiles.timezone }).from(profiles).where(eq(profiles.id, userId)))[0];
     return { account: await googleAccount(db, userId), writeBack: !!conn?.writeBack, tz: me?.tz };
   });
+}
+
+// Renames or moves the event in Google Calendar, when its account allows write-back. Local times are sent
+// with the user's timezone.
+async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body: Record<string, unknown>) {
+  const { account, writeBack, tz } = await googleWriter(pool, userId, ev);
   if (!account || !writeBack || !ev.externalId) {
     throw new HttpError(400, 'This plan comes from Google Calendar. Change its name or time there.');
   }
@@ -94,9 +99,33 @@ async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body:
       ...(timed ? { start: at(body.start), end: at(body.end) } : {}),
     });
   } catch (e) {
-    // Usually an invite someone else organises: only they can rename or move it.
+    // An invite someone else organises (403: only they can rename or move it), or an event gone from
+    // Google (404, 410): the change stays in Fobo only.
+    if (e instanceof GoogleError && [403, 404, 410].includes(e.status)) {
+      console.warn('google calendar edit skipped', ev.externalId, e.status);
+      return;
+    }
     console.warn('google calendar edit refused', ev.externalId, e);
     throw new HttpError(400, "Google Calendar didn't take that change. If someone else made this event, only they can rename or move it.");
+  }
+}
+
+// Saying yes in Fobo to an invite from Google Calendar answers Yes there too, so the plan shows as going on
+// the person's calendar and the organiser hears back. Best effort: the plan is accepted in Fobo either way.
+async function acceptOnGoogle(pool: pg.Pool, userId: string, ev: GoogleRef) {
+  if (!ev.externalId) return;
+  try {
+    const { account, writeBack } = await googleWriter(pool, userId, ev);
+    if (!account || !writeBack) return;
+    const access = await accessToken(account.refresh_token);
+    const cal = ev.calendarId ?? 'primary';
+    const attendees = (await getEvent(access, cal, ev.externalId)).attendees ?? [];
+    if (!attendees.some((a) => a.self)) return;
+    await patchEvent(access, cal, ev.externalId, {
+      attendees: attendees.map((a) => (a.self ? { ...a, responseStatus: 'accepted' } : a)),
+    });
+  } catch (e) {
+    console.warn('google calendar accept failed', ev.externalId, e);
   }
 }
 
@@ -137,7 +166,7 @@ const mirrored = { ...planColumns, externalId: events.externalId, calendarId: ev
 
 // After a Fobo plan is made or changed: put it on Google Calendar once it's going, or bring the Google
 // event in line with what changed (`body`, the app's fields).
-async function toGoogle(pool: pg.Pool, userId: string, id: string, body: Record<string, unknown> = {}) {
+export async function toGoogle(pool: pg.Pool, userId: string, id: string, body: Record<string, unknown> = {}) {
   const ready = await withService(pool, async (db) => {
     const plan = (await db.select(mirrored).from(events).where(and(eq(events.id, id), eq(events.userId, userId))))[0];
     if (!plan || plan.source !== 'capacity') return null;
@@ -252,7 +281,7 @@ export const eventRoutes = [
     const body = normalize(raw);
     const current = (await withUser(pool, claims, (db) => db.select({
       source: events.source, externalId: events.externalId, calendarId: events.calendarId, connectionId: events.connectionId,
-      title: events.title, start: planColumns.start, end: planColumns.end,
+      title: events.title, start: planColumns.start, end: planColumns.end, status: events.status,
     }).from(events).where(eq(events.id, params.id))))[0];
     if (!current) throw new HttpError(404, 'not found');
     if (current.source === 'google') {
@@ -274,6 +303,9 @@ export const eventRoutes = [
       await db.update(events).set(set).where(eq(events.id, params.id));
     });
     if (current.source === 'capacity') await toGoogle(pool, claims.sub, params.id, body);
+    if (current.source === 'google' && body.status === 'accepted' && current.status !== 'accepted') {
+      await acceptOnGoogle(pool, claims.sub, current);
+    }
     return withUser(pool, claims, (db) => planDetail(db, params.id));
   }),
 
