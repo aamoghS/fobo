@@ -20,6 +20,7 @@ import { type } from '@/styles/type';
 
 /** People (387:1456). The featured card is your next plan with people; its art is a flattened export of 387:1470. */
 export function People() {
+  'use no memo'; // Reads the in-memory data, which changes without new props; see live.ts.
   const version = useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();

@@ -23,6 +23,7 @@ const BANNER_ART = 190;
 
 /** People detail (387:1613). */
 export function PersonDetail({ id }: { id: string }) {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();

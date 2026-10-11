@@ -13,7 +13,7 @@ import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { dateTile, daysBetween, timeRange, weekRange } from '@/lib/format';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
-import { color, radius, shadow, space } from '@/styles/tokens';
+import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
@@ -21,6 +21,7 @@ type View_ = 'agenda' | 'calendar';
 
 /** Plans: the rest of the week as an agenda, or three days as a calendar. Simplified from Tory's references. */
 export function Plans() {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -61,29 +62,25 @@ function Segment({ label, active, onPress }: { label: string; active: boolean; o
   );
 }
 
-/** A day heading: "WED 7" with its load out of DAY_ROOM. */
-function DayHead({ date }: { date: string }) {
-  const tile = dateTile(date);
-  return (
-    <View style={styles.dayHead}>
-      <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>{`${tile.weekday} ${tile.day}`}</Text>
-      <Text style={[type.foot, styles.muted]}>{`Day load ${dayLoadOn(date)}/${DAY_ROOM}`}</Text>
-    </View>
-  );
-}
-
+/** The rest of the week, a section per day: "WED 7" with its load, then a card of plans. */
 function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void }) {
   return (
     <>
       {days.map((date) => {
         const list = plansOn(date);
+        const tile = dateTile(date);
         return (
           <View key={date}>
-            <DayHead date={date} />
+            <View style={styles.dayHead}>
+              <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>{`${tile.weekday} ${tile.day}`}</Text>
+              <Text style={[type.foot, styles.muted]}>
+                Day load <Text style={[type.label, styles.ink]}>{`${dayLoadOn(date)}/${DAY_ROOM}`}</Text>
+              </Text>
+            </View>
             {list.length === 0 ? (
-              <Text style={[type.sub, styles.muted, styles.empty]}>Nothing planned</Text>
+              <Text style={[type.sub, styles.muted]}>Nothing planned</Text>
             ) : (
-              <View style={styles.card}>
+              <View>
                 {list.map((p, i) => (
                   <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => onOpen(p)} />
                 ))}
@@ -152,10 +149,15 @@ function Calendar({ onOpen }: { onOpen: (p: Plan) => void }) {
                     accessibilityRole="button"
                     accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
                     onPress={() => onOpen(p)}
-                    style={[styles.event, { top, height, backgroundColor: scrapColor[p.kind] }]}>
-                    <Text style={styles.eventText} numberOfLines={Math.max(1, Math.floor((height - 4) / 13))}>
+                    style={[styles.event, height < 32 && styles.eventShort, { top, height, backgroundColor: scrapColor[p.kind] }]}>
+                    <Text style={[type.label, styles.eventText]} numberOfLines={height >= 56 ? 2 : 1}>
                       {p.title}
                     </Text>
+                    {height >= 52 && (
+                      <Text style={[type.foot, styles.eventTime]} numberOfLines={1}>
+                        {timeRange(p.start, p.end)}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -185,8 +187,6 @@ const styles = StyleSheet.create({
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  empty: { paddingBottom: space[4] },
-  card: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
   calendar: { marginTop: space[16], marginHorizontal: -space.margin },
   calHead: { flexDirection: 'row', paddingTop: space[8], paddingBottom: space[12] },
   calDay: { flex: 1, alignItems: 'center' },
@@ -198,8 +198,11 @@ const styles = StyleSheet.create({
   hourLine: { flex: 1, height: 1, backgroundColor: color.rule },
   columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, flexDirection: 'row' },
   calCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: color.rule },
-  event: { position: 'absolute', left: 2, right: 2, paddingHorizontal: space[4], paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
-  eventText: { color: color.selInk, fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 13 },
+  event: { position: 'absolute', left: 3, right: 3, paddingHorizontal: space[8], paddingVertical: 6, gap: 2, borderRadius: radius.sm, overflow: 'hidden' },
+  // Half-hour blocks: just the title, centred, so it isn't clipped.
+  eventShort: { paddingVertical: 0, justifyContent: 'center' },
+  eventText: { color: color.selInk },
+  eventTime: { color: color.selInk, opacity: 0.8 },
   now: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: color.ink },
   nowDot: { position: 'absolute', left: -4, top: -3.5, width: 8, height: 8, borderRadius: radius.full, backgroundColor: color.ink },
 });
