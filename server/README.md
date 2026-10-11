@@ -30,7 +30,7 @@ Read from `../.env.local` (never committed). `neon.ts` deploys the ones that are
 | `AUTH_SECRET` | signs app sessions and encrypts Google refresh tokens | set |
 | `PUBLIC_API_URL` | the API's public address, for Google's callback | set |
 | `CONTACT_EMAIL` | contact on the home, privacy and terms pages | set |
-| `EXPO_GO_USERS` | Expo accounts whose tunnels (and private network addresses) sign-in may return to, for Expo Go; empty turns development returns off | set (`aamoghs`) |
+| `EXPO_GO_USERS` | No longer read: Expo Go returns come from `dev_returns` (see below) | set (`aamoghs`) |
 | `WEB_APP_ORIGINS` | hosted web app origins sign-in may return to, comma separated | empty (no hosted web app) |
 | `PORT` | local server port, default 8787 | optional |
 
@@ -42,8 +42,10 @@ refresh token encrypted in `google_accounts` (migration 014), links and syncs th
 the browser back to the app with a session token (HS256, `AUTH_SECRET`, 60 days). The API also accepts
 Neon Auth tokens. Neon Auth cannot sign in from an ID token, so it cannot serve the phone apps.
 
-The session goes back only to the app build (`fobo://`), a hosted web origin in `WEB_APP_ORIGINS`, or, while
-`EXPO_GO_USERS` is set, Expo Go on those Expo accounts' tunnels and local network addresses. The app adds a
+The session goes back only to the app build (`fobo://`), a hosted web origin in `WEB_APP_ORIGINS`, web pages on
+`localhost`, or an Expo Go dev server registered by exact host in `dev_returns` within the last 7 days.
+`npm run dev:all` registers the one it starts (it needs `DATABASE_URL`). Matching tunnels by Expo username let
+anyone name a tunnel after a teammate and receive sessions, so it was dropped. The app adds a
 one-time nonce to its return address and keeps the session only when it comes back with that nonce. Only an
 email Google verified is stored.
 

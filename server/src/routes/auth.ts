@@ -17,27 +17,26 @@ const SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.ev
   + ' https://www.googleapis.com/auth/calendar.calendarlist.readonly';
 
 // Where the browser may be sent back to with a session: the app build (fobo://), the hosted web app
-// (WEB_APP_ORIGINS), and for development, Expo Go on the tunnels of the Expo accounts in EXPO_GO_USERS or on
-// a private network address, and local web pages. Anywhere else could be someone else's page or project.
-const PRIVATE_HOST = /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
+// (WEB_APP_ORIGINS), web pages on this computer, and Expo Go dev servers the team registered by exact host
+// (dev_returns, added by npm run dev:all). Anywhere else could be a page someone else reads.
 const list = (name: string) => (process.env[name] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
-function allowedReturn(returnTo: string) {
+async function allowedReturn(pool: pg.Pool, returnTo: string) {
   let url: URL;
   try {
     url = new URL(returnTo);
   } catch {
     return false;
   }
+  if (url.username || url.password) return false;
   if (url.protocol === 'fobo:') return true;
   if (url.protocol === 'https:') return list('WEB_APP_ORIGINS').includes(url.origin);
-  const devUsers = list('EXPO_GO_USERS');
-  if (!devUsers.length) return false;
-  if (url.protocol === 'http:') return PRIVATE_HOST.test(url.hostname);
+  if (url.protocol === 'http:') return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   if (url.protocol !== 'exp:' && url.protocol !== 'exps:') return false;
-  // Expo tunnels are <id>-<expo user>-<port>.exp.direct.
-  const tunnelUser = url.hostname.match(/^[^.]+-([a-z0-9_-]+)-\d+\.exp\.direct$/i)?.[1]?.toLowerCase();
-  return PRIVATE_HOST.test(url.hostname) || (!!tunnelUser && devUsers.map((u) => u.toLowerCase()).includes(tunnelUser));
+  const host = url.host.toLowerCase();
+  const { rows } = await withService(pool, (db) => db.execute(sql`
+    select 1 from dev_returns where host = ${host} and added_at > now() - interval '7 days'`));
+  return rows.length > 0;
 }
 
 const env = (name: string) => {
@@ -86,7 +85,8 @@ function sealTicket(payload: object) {
 function openTicket(ticket: string): Record<string, unknown> {
   try {
     const raw = Buffer.from(ticket, 'base64url');
-    const decipher = createDecipheriv('aes-256-gcm', ticketKey(), raw.subarray(0, 12));
+    if (raw.length < 29) throw new Error('short');
+    const decipher = createDecipheriv('aes-256-gcm', ticketKey(), raw.subarray(0, 12), { authTagLength: 16 });
     decipher.setAuthTag(raw.subarray(12, 28));
     const data = JSON.parse(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString());
     if (Date.now() - data.t > 10 * 60_000) throw new Error('expired');
@@ -115,27 +115,48 @@ function googleSignIn(req: Request, state: string) {
   return `${GOOGLE_AUTH}?${q}`;
 }
 
-async function start(req: Request) {
+async function start(req: Request, pool: pg.Pool) {
   const url = new URL(req.url);
   const returnTo = url.searchParams.get('return') ?? '';
-  if (!allowedReturn(returnTo)) throw new HttpError(400, 'return must be the app');
+  if (!(await allowedReturn(pool, returnTo))) throw new HttpError(400, 'return must be the app');
   return new Response(null, { status: 302, headers: { Location: googleSignIn(req, packState(returnTo)) } });
 }
 
 // Connect Google Calendar to the account already signed in (an email sign-up): answers { url, key }:
 // Google's sign-in for the app to open, and the key the app keeps. Back from Google, the app gets
 // `link` (a ticket) or `error`, and sends the ticket with its key to /auth/google/link/finish.
-async function link(req: Request) {
+async function link(req: Request, pool: pg.Pool) {
   const claims = await verify(req.headers.get('authorization') ?? undefined);
   if (!claims) return json(401, { error: 'not signed in' });
   const returnTo = String((await readJson(req)).returnTo ?? '');
-  if (!allowedReturn(returnTo)) throw new HttpError(400, 'return must be the app');
+  if (!(await allowedReturn(pool, returnTo))) throw new HttpError(400, 'return must be the app');
   const key = randomBytes(24).toString('base64url');
   return json(200, { url: googleSignIn(req, packState(returnTo, claims.sub, hash(key))), key });
 }
 
 type GoogleTokens = { refresh_token?: string; scope?: string };
 type GoogleId = { sub: string; email?: string; email_verified?: boolean; name?: string };
+
+// Trades the code Google sent back for the account's tokens and who it is; null when Google says no.
+// A code works once and only for a few minutes.
+async function exchange(req: Request, code: string) {
+  const tokenRes = await fetch(GOOGLE_TOKEN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: env('GOOGLE_WEB_CLIENT_ID'),
+      client_secret: env('GOOGLE_WEB_CLIENT_SECRET'),
+      redirect_uri: `${publicUrl(req)}/auth/google/callback`,
+      grant_type: 'authorization_code',
+    }),
+  });
+  const google = (await tokenRes.json()) as GoogleTokens & { id_token?: string };
+  if (!tokenRes.ok || !google.id_token) return null;
+  // The ID token came straight from Google over TLS with our client secret, so its claims are trusted.
+  const claims = JSON.parse(Buffer.from(google.id_token.split('.')[1], 'base64url').toString()) as GoogleId;
+  return { tokens: { refresh_token: google.refresh_token, scope: google.scope } as GoogleTokens, claims };
+}
 
 // Keeps the Google account (and its Calendar token, encrypted) on a Fobo account: the one being linked,
 // else the one this Google account already opens, else a new one. Null when linking a Google account
@@ -176,7 +197,9 @@ async function finishLink(req: Request, pool: pg.Pool) {
   if (ticket.u !== claims.sub || a.length !== b.length || !timingSafeEqual(a, b)) {
     throw new HttpError(403, 'That Google sign-in was started by someone else.');
   }
-  const userId = await saveGoogle(pool, claims.sub, ticket.g as GoogleTokens, ticket.id as GoogleId);
+  const google = await exchange(req, String(ticket.code ?? ''));
+  if (!google) throw new HttpError(400, 'Linking Google took too long. Try again.');
+  const userId = await saveGoogle(pool, claims.sub, google.tokens, google.claims);
   if (!userId) return json(409, { error: 'google-taken' });
   return json(200, { linked: true });
 }
@@ -186,30 +209,12 @@ async function callback(req: Request, pool: pg.Pool) {
   const { r: returnTo, u: linkTo, c: challenge } = unpackState(url.searchParams.get('state'));
   const code = url.searchParams.get('code');
   if (!code) return back(returnTo, { error: url.searchParams.get('error') ?? 'cancelled' });
-  if (linkTo && !challenge) return back(returnTo, { error: 'link' });
+  // Linking seals Google's code, not the account's tokens: finishLink trades it once the app proves it asked.
+  if (linkTo) return challenge ? back(returnTo, { link: sealTicket({ u: linkTo, c: challenge, code }) }) : back(returnTo, { error: 'link' });
 
-  const tokenRes = await fetch(GOOGLE_TOKEN, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: env('GOOGLE_WEB_CLIENT_ID'),
-      client_secret: env('GOOGLE_WEB_CLIENT_SECRET'),
-      redirect_uri: `${publicUrl(req)}/auth/google/callback`,
-      grant_type: 'authorization_code',
-    }),
-  });
-  const google = (await tokenRes.json()) as GoogleTokens & { id_token?: string };
-  if (!tokenRes.ok || !google.id_token) return back(returnTo, { error: 'google' });
-
-  // The ID token came straight from Google over TLS with our client secret, so its claims are trusted.
-  const claims = JSON.parse(Buffer.from(google.id_token.split('.')[1], 'base64url').toString()) as GoogleId;
-  const tokens = { refresh_token: google.refresh_token, scope: google.scope };
-  if (linkTo) {
-    const id = { sub: claims.sub, email: claims.email, email_verified: claims.email_verified, name: claims.name };
-    return back(returnTo, { link: sealTicket({ u: linkTo, c: challenge, g: tokens, id }) });
-  }
-  const userId = await saveGoogle(pool, undefined, tokens, claims);
+  const google = await exchange(req, code);
+  if (!google) return back(returnTo, { error: 'google' });
+  const userId = await saveGoogle(pool, undefined, google.tokens, google.claims);
   return back(returnTo, { session: await issueSession(userId!) });
 }
 
