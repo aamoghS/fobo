@@ -12,6 +12,7 @@ import { setSession } from '@/lib/session';
 import { refreshToday } from '@/lib/week';
 import { DEFAULT_TINT } from '@fobo/core/options';
 
+import { loadDemo } from './demo';
 import { inviteFrom, invites } from './invites';
 import { people, requests, sent, type Person } from './people';
 import { planDetails, plans, tentative, type PlanDetail } from './plans';
@@ -144,6 +145,7 @@ export function setExit(id: string, energyCost: number, label: string, note: str
 
 export function signOut() {
   signedIn = false;
+  demo = false;
   setSession(null);
   clearLive();
 }
@@ -179,6 +181,20 @@ export function useLiveScreen() {
   return useLive();
 }
 
+// fobo-demo branch: with no account, the app runs on the sample week in src/data/demo.ts, as if
+// signed in and onboarded. Loaded once, so changes made in the demo (adding, moving) stay put.
+let demo = false;
+function startDemo() {
+  if (!demo) {
+    demo = true;
+    loadDemo();
+    bump();
+  }
+  signedIn = true;
+  onboarded = true;
+  return true;
+}
+
 let signedIn = false;
 /** True after the user's data loaded with a working session. */
 export const isSignedIn = () => signedIn;
@@ -194,7 +210,7 @@ export function markOnboarded() {
 /** True when signed in and the user's data loaded. */
 export async function loadLive(): Promise<boolean> {
   let me = await api<ApiMe>('GET', '/me');
-  if (!me) return false;
+  if (!me) return startDemo();
   signedIn = true;
   // Local times are the phone's: keep the profile's timezone in step with it (and pull Google again in full).
   if (me.timezone !== deviceTimezone() && !timezoneSent) {
