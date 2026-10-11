@@ -13,8 +13,9 @@ import { week } from '@/data/week';
 import { answers } from '@/features/profile/answers';
 import { useCharacter } from '@/features/profile/character';
 import { api } from '@/lib/api';
-import { signInWithGoogle } from '@/lib/google-auth';
+import { linkGoogle, signInWithGoogle } from '@/lib/google-auth';
 import { weekdayLong } from '@/lib/format';
+import { notify } from '@/lib/notify';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
 import { CharacterArt } from '@/screens/you/CharacterArt';
 import { color, radius } from '@/styles/tokens';
@@ -140,6 +141,17 @@ export function BringInWeek() {
     }
   };
 
+  // An email account links Google to itself, rather than signing in to a separate Google account.
+  const link = async () => {
+    try {
+      if (!(await linkGoogle('/onboarding/calendar'))) return;
+      await loadLive();
+      await check();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Google sign-in failed. Try again.');
+    }
+  };
+
   return (
     <View style={[styles.stretch, styles.options]}>
       <Option
@@ -157,7 +169,7 @@ export function BringInWeek() {
             : 'Sign in with Google to connect it. New, moved and cancelled plans then update on their own.'
         }
         done={google.kind === 'linked'}
-        onPress={google.kind === 'no-access' ? allow : undefined}
+        onPress={google.kind === 'no-access' ? allow : google.kind === 'email' ? link : undefined}
       />
       {/* Shown for the demo; Outlook doesn't connect. */}
       <Option

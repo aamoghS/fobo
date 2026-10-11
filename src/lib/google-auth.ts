@@ -3,7 +3,8 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import { API_URL } from './api';
+import { API_URL, send } from './api';
+import { finishLink } from './google-link';
 import { setSession } from './session';
 
 let pending: string | null = null;
@@ -27,6 +28,28 @@ export async function signInWithGoogle(next: string): Promise<boolean> {
   }
   setSession(session);
   return true;
+}
+
+/**
+ * Connects Google Calendar to the email account signed in, rather than signing in to a separate Google
+ * account. True when linked (the API links Calendar and syncs on the way back); false when the person
+ * closed the browser.
+ */
+export async function linkGoogle(next: string): Promise<boolean> {
+  const returnTo = Linking.createURL('auth', { queryParams: { next } });
+  const res = await send<{ url: string; key: string }>('POST', '/auth/google/link', { returnTo });
+  if ('error' in res) throw new Error(res.error);
+  const result = await WebBrowser.openAuthSessionAsync(res.data.url, returnTo);
+  if (result.type !== 'success') return false;
+  const { link, error } = Linking.parse(result.url).queryParams ?? {};
+  if (typeof link !== 'string') throw new Error(`Google sign-in failed (${error ?? 'not linked'}).`);
+  await finishLink(link, res.data.key);
+  return true;
+}
+
+/** The web build finishes a link on /auth; here linkGoogle already has. */
+export async function completeLink(_ticket: string): Promise<boolean> {
+  return false;
 }
 
 /** True once, for the nonce of the sign-in in progress (the /auth route uses it when the link opens the app). */

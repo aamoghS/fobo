@@ -15,7 +15,7 @@ import { TextField } from '@/components/TextField';
 import { loadLive, signOut, useLiveScreen } from '@/data/live';
 import { profile } from '@/data/profile';
 import { api, API_URL, send } from '@/lib/api';
-import { signInWithGoogle } from '@/lib/google-auth';
+import { linkGoogle, signInWithGoogle } from '@/lib/google-auth';
 import { notify } from '@/lib/notify';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -84,6 +84,17 @@ export function Settings() {
     await load();
   };
 
+  // An email account links Google to itself; the API links Calendar on the way back.
+  const link = async () => {
+    try {
+      if (!(await linkGoogle('/you/settings'))) return;
+      await loadLive();
+      await load();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Google sign-in failed. Try again.');
+    }
+  };
+
   const save = async () => {
     if (!editing) return;
     const value = editing.value.trim().replace(/^@/, '');
@@ -129,7 +140,7 @@ export function Settings() {
               ? 'Calendar wasn’t allowed. Tap to allow it.'
               : 'Sign in with Google to connect it.'
           }
-          onPress={google.kind === 'no-access' ? () => void signInWithGoogle('/you/settings') : undefined}
+          onPress={google.kind === 'no-access' ? () => void signInWithGoogle('/you/settings') : google.kind === 'email' ? link : undefined}
           trailing={google.kind === 'linked' ? <Icon name="check" /> : undefined}
         />
         {google.kind === 'linked' && (
