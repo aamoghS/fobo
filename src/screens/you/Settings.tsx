@@ -42,6 +42,7 @@ export function Settings() {
   const [outlookTapped, setOutlookTapped] = useState(false);
   const [editing, setEditing] = useState<Editing>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<'ask' | 'working' | null>(null);
 
   const load = useCallback(async () => {
     const [mine, list, status] = await Promise.all([
@@ -108,6 +109,17 @@ export function Settings() {
     setMe(res.data);
     setEditing(null);
     await loadLive();
+  };
+
+  const deleteAccount = async () => {
+    setDeleting('working');
+    if (!(await api('DELETE', '/me'))) {
+      setDeleting('ask');
+      return notify("Couldn't delete your account. Try again in a moment.");
+    }
+    setDeleting(null);
+    signOut();
+    router.replace('/welcome');
   };
 
   const name = me?.name || profile.name;
@@ -197,7 +209,18 @@ export function Settings() {
           }}
         />
         {!!email && <Text style={[type.foot, styles.muted, styles.center]}>{`Logged in as ${email}`}</Text>}
+        <Button label="Delete account" variant="text" onPress={() => setDeleting('ask')} />
       </View>
+
+      <Sheet visible={!!deleting} onClose={() => deleting !== 'working' && setDeleting(null)} title="Delete your account?">
+        <View style={styles.edit}>
+          <Text style={[type.sub, styles.muted]}>
+            This removes your plans, calendar connection, friends and character from Fobo for good. Your Google Calendar stays as it is.
+          </Text>
+          <Button label={deleting === 'working' ? 'Deleting' : 'Delete account'} disabled={deleting === 'working'} onPress={deleteAccount} />
+          <Button label="Keep my account" variant="quiet" disabled={deleting === 'working'} onPress={() => setDeleting(null)} />
+        </View>
+      </Sheet>
 
       <Sheet visible={!!editing} onClose={() => setEditing(null)} title={editing?.field === 'handle' ? 'Your username' : 'Your name'}>
         {editing && (
