@@ -17,10 +17,10 @@ import { signInWithGoogle } from '@/lib/google-auth';
 import { weekdayLong } from '@/lib/format';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
 import { CharacterArt } from '@/screens/you/CharacterArt';
-import { color, radius, shadow } from '@/styles/tokens';
+import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '@fobo/core/constants';
-import { CAPACITY_LABELS, RECHARGE_VALUES, RECOVERY_VALUES, SOCIAL_ENERGY_VALUES } from '@fobo/core/copy';
+import { CAPACITY_LABELS, NOTHING_PLANNED, RECHARGE_VALUES, RECOVERY_VALUES, SOCIAL_ENERGY_VALUES } from '@fobo/core/copy';
 
 // The steps that come after the questions: your capacity profile, bring in your week, and does this look right.
 // Onboarding.tsx sets each inside its Frame.
@@ -240,21 +240,20 @@ export function WeekReview() {
 
   return (
     <View style={styles.stretch}>
-      <WeekShelf days={shelfDays(selected)} onSelectDay={setSelected} />
+      <WeekShelf days={shelfDays(selected)} onSelectDay={setSelected} fit />
       <View style={styles.dayHead}>
         <Text accessibilityRole="header" style={[type.title, styles.ink]}>
           {weekdayLong(selected)}
         </Text>
         <Text style={[type.foot, styles.muted]}>{`${dayLoadOn(selected)} of ${DAY_ROOM}`}</Text>
       </View>
+      {/* Rows sit on the ground, as on Your week and Plans. */}
       {dayPlans.length ? (
-        <View style={styles.card}>
-          {dayPlans.map((p, i) => (
-            <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => router.push({ pathname: '/plans/new', params: { id: p.id } })} />
-          ))}
-        </View>
+        dayPlans.map((p, i) => (
+          <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => router.push({ pathname: '/plans/new', params: { id: p.id } })} />
+        ))
       ) : (
-        <Text style={[type.sub, styles.muted]}>Nothing on this day.</Text>
+        <Text style={[type.sub, styles.muted]}>{NOTHING_PLANNED}</Text>
       )}
     </View>
   );
@@ -285,5 +284,4 @@ const styles = StyleSheet.create({
   // Icon/outlook (566:2426) is 20x19.
   brand: { width: 20, height: 19 },
   dayHead: { paddingTop: 28, paddingBottom: 12, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  card: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
 });

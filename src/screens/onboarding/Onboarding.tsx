@@ -16,7 +16,7 @@ import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
 import { loadLive } from '@/data/live';
-import { localDay, mondayOf } from '@/data/week';
+import { localDay, weekStartOf } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { answers, chooseAnswer, finishOnboarding } from '@/features/profile/onboarding';
 import { api } from '@/lib/api';
@@ -36,8 +36,10 @@ import { AnswerSummary, BringInWeek, WeekPlan, WeekReview, plansFound } from './
 export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'profile', 'week-intro', 'calendar', 'review', 'transition', 'compare'] as const;
 export type Step = (typeof STEPS)[number];
 
-// Four segments: the three questions, then your week (bring it in, check it, compare). The profile
-// summary, the week intro and Bring in your week sit between with just a back button.
+// Four segments: the three questions, then your week (bring it in, check it). The profile summary,
+// the week intro and Bring in your week sit between with just a back button. Last week (the
+// transition and the four pairs) starts its own four, as drawn (391:12326, 446:4427): the
+// transition shows the first, and each pair fills one more (see Compare).
 const PROGRESS: Record<Step, number | null> = {
   start: 0,
   recharge: 1,
@@ -47,8 +49,8 @@ const PROGRESS: Record<Step, number | null> = {
   'week-intro': null,
   calendar: null,
   review: 4,
-  transition: 4,
-  compare: 4,
+  transition: 1,
+  compare: 1,
 };
 
 // Steps with Skip but no progress bar, and where Skip goes: past the calendar, to the week as it is.
@@ -186,7 +188,7 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
   }
 }
 
-function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
+function Header({ step, editing = false, progress }: { step: Step; editing?: boolean; progress?: number }) {
   const router = useRouter();
   const i = STEPS.indexOf(step);
   const skip = () =>
@@ -204,7 +206,7 @@ function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
       </Pressable>
       {PROGRESS[step] !== null && (
         <View style={styles.progress}>
-          <Progress step={PROGRESS[step]} />
+          <Progress step={progress ?? PROGRESS[step]!} />
         </View>
       )}
       {(PROGRESS[step] !== null || SKIP_TO[step]) && (
@@ -328,10 +330,13 @@ const ART = [
 /** "Four quick taps". */
 const PAIRS = 4;
 
-/** Last week's plans that took something, costliest first, two at a time. */
+/**
+ * Last week's plans, costliest first, two at a time. Plans fresh from a calendar often have no cost
+ * guessed yet, so those count too: picking between them is how they get one.
+ */
 function pairsFrom(list: Plan[]) {
   const picked = list
-    .filter((p) => p.status === 'accepted' && p.kind !== 'rest' && p.energyCost > 0)
+    .filter((p) => p.status === 'accepted' && p.kind !== 'rest')
     .sort((a, b) => b.energyCost - a.energyCost)
     .slice(0, PAIRS * 2);
   const pairs: [Plan, Plan][] = [];
@@ -350,10 +355,10 @@ function Compare({ onDone }: { onDone: () => void }) {
   const [n, setN] = useState(0);
 
   useEffect(() => {
-    const monday = mondayOf();
-    const last = new Date(monday);
-    last.setDate(monday.getDate() - 7);
-    void api<Plan[]>('GET', `/plans?from=${localDay(last)}T00:00&to=${localDay(monday)}T00:00`).then((list) => {
+    const sunday = weekStartOf();
+    const last = new Date(sunday);
+    last.setDate(sunday.getDate() - 7);
+    void api<Plan[]>('GET', `/plans?from=${localDay(last)}T00:00&to=${localDay(sunday)}T00:00`).then((list) => {
       const found = pairsFrom(list ?? []);
       // Nothing to compare yet (a new calendar): this step has nothing to ask.
       if (!found.length) onDone();
@@ -378,7 +383,7 @@ function Compare({ onDone }: { onDone: () => void }) {
     <View style={styles.screen}>
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.compare, { paddingTop: Math.max(insets.top, 40) }]}>
         <View style={styles.compareHeader}>
-          <Header step="compare" />
+          <Header step="compare" progress={n + 1} />
         </View>
         <View style={styles.question}>
           <Text accessibilityRole="header" style={[type.display, styles.strong]}>

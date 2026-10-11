@@ -121,11 +121,8 @@ function AchievementCarousel({ onSeeAll }: { onSeeAll: () => void }) {
         {achievements.map((a) => (
           <View key={a.id} style={[styles.achievement, { width: card, backgroundColor: color[tint[a.badge]] }]} accessible accessibilityLabel={`${a.title}, unlocked. ${a.how}`}>
             <Medal badge={a.badge} icon={a.icon} size={104} ribbon />
-            <Text style={[type.bodyStrong, styles.ink, styles.center]} numberOfLines={1}>
+            <Text style={[type.bodyStrong, styles.ink, styles.center, styles.toBottom]} numberOfLines={1}>
               {a.title}
-            </Text>
-            <Text style={[type.foot, styles.muted, styles.center]} numberOfLines={2}>
-              {a.how}
             </Text>
           </View>
         ))}
@@ -136,12 +133,9 @@ function AchievementCarousel({ onSeeAll }: { onSeeAll: () => void }) {
             onPress={onSeeAll}
             style={[styles.achievement, styles.locked, { width: card }]}>
             <Medal badge={next.badge} icon={next.icon} size={104} locked />
-            <Text style={[type.label, styles.muted]}>Up next</Text>
+            <Text style={[type.label, styles.muted, styles.toBottom]}>Up next</Text>
             <Text style={[type.bodyStrong, styles.ink, styles.center]} numberOfLines={1}>
               {next.title}
-            </Text>
-            <Text style={[type.foot, styles.muted, styles.center]} numberOfLines={2}>
-              {next.how}
             </Text>
           </Pressable>
         )}
@@ -212,7 +206,10 @@ const styles = StyleSheet.create({
   bleed: { marginHorizontal: -space.margin },
   center: { textAlign: 'center' },
   achievements: { paddingHorizontal: space.margin, gap: CARD_GAP },
-  achievement: { minHeight: 236, paddingTop: 18, paddingBottom: 16, paddingHorizontal: 14, gap: 4, alignItems: 'center', borderRadius: radius.panel },
+  // No minimum: the card ends just under the title (the how-to stays in the label and on See all).
+  // Pushes a card's words to its bottom, so every title sits on the same line across the row.
+  toBottom: { marginTop: 'auto' },
+  achievement: { paddingTop: 18, paddingBottom: 20, paddingHorizontal: 14, gap: 4, alignItems: 'center', borderRadius: radius.panel },
   locked: { justifyContent: 'center', backgroundColor: color.fill, paddingTop: 30 },
   dots: { marginTop: 12, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 6, height: 6, borderRadius: radius.full, backgroundColor: color.ink3, opacity: 0.35 },

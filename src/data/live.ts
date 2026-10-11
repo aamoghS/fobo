@@ -16,7 +16,7 @@ import { inviteFrom, invites } from './invites';
 import { people, requests, sent, type Person } from './people';
 import { planDetails, plans, tentative, type PlanDetail } from './plans';
 import { achievements, capacity, profile, widget, type Achievement } from './profile';
-import { NO_NEXT, localDay, localNow, mondayOf, resetWeek, setNow, week } from './week';
+import { NO_NEXT, localDay, localNow, resetWeek, setNow, week, weekStartOf } from './week';
 
 type ApiPlan = Plan & { detail?: PlanDetail };
 type ApiWeek = { start: string; end: string; personalHours: number; upNext: typeof week.upNext | null };
@@ -205,13 +205,13 @@ export async function loadLive(): Promise<boolean> {
   }
 
   const now = new Date();
-  const monday = mondayOf(now);
-  const start = localDay(monday);
+  const sunday = weekStartOf(now);
+  const start = localDay(sunday);
   // Four weeks of plans either side, so Plans shows what is coming up and Your week can swipe back.
-  const from = new Date(monday);
-  from.setDate(monday.getDate() - 7 * WEEKS_BACK);
-  const until = new Date(monday);
-  until.setDate(monday.getDate() + 7 * (WEEKS_AHEAD + 1));
+  const from = new Date(sunday);
+  from.setDate(sunday.getDate() - 7 * WEEKS_BACK);
+  const until = new Date(sunday);
+  until.setDate(sunday.getDate() + 7 * (WEEKS_AHEAD + 1));
 
   const [w, list, circle, friends, you] = await Promise.all([
     api<ApiWeek>('GET', `/week?start=${start}`),

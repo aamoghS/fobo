@@ -25,8 +25,13 @@ const STACK_W = 46;
 const FULL = 154;
 const GAP = 2;
 const REST_H = 16;
+/** The least a plan's scrap stands, so a short, light plan still reads as paper with room for a face. */
+const MIN_BLOCK = 20;
 /** How far the character (top scrap) laps over the scrap below it, like paper stuck on top. */
 const OVERLAP = 6;
+/** With `fit`, the busiest day is drawn this tall at most, and never more than MAX_ZOOM times true size. */
+const FIT_TO = 0.8;
+const MAX_ZOOM = 3;
 
 export type ShelfDay = {
   date: string;
@@ -57,10 +62,15 @@ type Props = {
   onSwipeWeek?: (dir: 1 | -1) => void;
   /** Which ways there is a week to swipe to. */
   canSwipe?: { back: boolean; ahead: boolean };
+  /**
+   * Zooms a light week so its busiest day fills most of the shelf, rather than every block sitting at
+   * the minimum. The dotted line (a full day) is hidden while zoomed, since it would no longer mean full.
+   */
+  fit?: boolean;
 };
 
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true, onSelectDay, onSwipeWeek, canSwipe = { back: true, ahead: true } }: Props) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true, onSelectDay, onSwipeWeek, canSwipe = { back: true, ahead: true }, fit = false }: Props) {
   const selectedIndex = Math.max(0, days.findIndex((d) => d.selected));
   const [width, setWidth] = useState(0);
   // The pill glides between days rather than jumping.
@@ -68,6 +78,8 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
   useEffect(() => {
     Animated.spring(pillX, { toValue: selectedIndex, friction: 8, tension: 120, useNativeDriver: false }).start();
   }, [selectedIndex, pillX]);
+  const busiest = Math.max(0, ...days.map((d) => d.plans.reduce((sum, p) => sum + (p.kind === 'rest' ? 0 : p.energyCost), 0)));
+  const zoom = fit && busiest > 0 ? Math.min(MAX_ZOOM, Math.max(1, (FIT_TO * DAY_ROOM) / busiest)) : 1;
   const step = days.length > 1 ? (width - STACK_W) / (days.length - 1) : 0;
 
   // Swiping the shelf turns the week: the stacks follow the finger (with give at the ends), and
@@ -132,7 +144,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
         ...(canSwipe.ahead ? [{ name: 'ahead', label: 'Next week' }] : []),
       ] : undefined}
       onAccessibilityAction={(e) => onSwipeWeek?.(e.nativeEvent.actionName === 'ahead' ? 1 : -1)}>
-      {labels && (
+      {labels && zoom === 1 && (
         <Svg style={styles.fullLine} width="100%" height={2}>
           <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
         </Svg>
@@ -143,7 +155,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
         style={[styles.week, { opacity: slide.interpolate({ inputRange: [-Math.max(1, width), 0, Math.max(1, width)], outputRange: [0, 1, 0] }), transform: [{ translateX: slide }] }]}>
       <View style={styles.stacks}>
         {days.map((day) => (
-          <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
+          <Stack key={day.date} day={day} zoom={zoom} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
         ))}
       </View>
       {labels && (
@@ -195,7 +207,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
   );
 }
 
-function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming; separate?: string }) {
+function Stack({ day, zoom, incoming, separate }: { day: ShelfDay; zoom: number; incoming?: Incoming; separate?: string }) {
   // A little hop when the day is picked.
   const hop = useRef(new Animated.Value(0)).current;
   const first = useRef(true);
@@ -227,7 +239,7 @@ function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming
         const isTop = i === blocks.length - 1 && !incoming;
         // The character grows by OVERLAP and its bottom is tucked over the scrap below, so the stack keeps its height.
         const lapsOver = isTop && blocks.length > 1;
-        const visible = Math.max((p.energyCost / DAY_ROOM) * FULL - GAP, 10);
+        const visible = Math.max((p.energyCost / DAY_ROOM) * FULL * zoom - GAP, MIN_BLOCK);
         const h = visible + (lapsOver ? OVERLAP + GAP : 0);
         return (
           <View key={p.id} style={[{ marginTop: GAP }, lapsOver && styles.lapsOver]}>
@@ -245,7 +257,7 @@ function Stack({ day, incoming, separate }: { day: ShelfDay; incoming?: Incoming
       {/* Rest is a cushion drawn in front of the stack's base. */}
       {rest.length > 0 && (
         <View style={styles.cushion}>
-          <Scrap cut="rest" width={STACK_W + 4} height={REST_H} seed={seedFrom(rest[0].id)} />
+          <Scrap cut="rest" past={day.past} width={STACK_W + 4} height={REST_H} seed={seedFrom(rest[0].id)} />
         </View>
       )}
     </Animated.View>
@@ -308,7 +320,7 @@ function IncomingBlock({ plan, mood, past, lapsOver, onLanded }: IncomingProps) 
   const rotate = fly.interpolate({ inputRange: [0, 0.7, 1], outputRange: ['22deg', '-5deg', '0deg'] });
 
   // Sized and placed exactly as it will be once it's part of the stack (see Stack).
-  const visible = Math.max((plan.energyCost / DAY_ROOM) * FULL - GAP, 10);
+  const visible = Math.max((plan.energyCost / DAY_ROOM) * FULL - GAP, MIN_BLOCK);
   const h = visible + (lapsOver ? OVERLAP + GAP : 0);
   const scale = Math.min(1, (visible - 2) / FACE_H[mood]);
   return (

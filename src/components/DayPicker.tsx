@@ -9,8 +9,8 @@ import { IconButton } from './IconButton';
 import { Pressable } from './Pressable';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-// Weeks start on Monday, like Your week.
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// Weeks start on Sunday, like Your week.
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** A month of days to pick one from. `value` and `onChange` are YYYY-MM-DD. */
@@ -23,7 +23,7 @@ export function DayPicker({ value, onChange }: { value: string; onChange: (day: 
   const shift = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1));
 
   // Blank cells before the 1st, so it lands under its weekday.
-  const lead = (month.getDay() + 6) % 7;
+  const lead = month.getDay();
   const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const cells = [...Array<null>(lead).fill(null), ...Array.from({ length: count }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))];
   while (cells.length % 7) cells.push(null);

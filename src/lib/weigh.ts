@@ -26,14 +26,14 @@ export type Verdict = 'over' | 'full' | 'room';
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** Monday to Sunday around a day. */
+/** Sunday to Saturday around a day. */
 function weekOf(day: string) {
   const d = new Date(`${day}T00:00`);
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return daysBetween(ymd(monday), ymd(sunday));
+  const sunday = new Date(d);
+  sunday.setDate(d.getDate() - d.getDay());
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
+  return daysBetween(ymd(sunday), ymd(saturday));
 }
 
 export function asPlan(c: Candidate): Plan {

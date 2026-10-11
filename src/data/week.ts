@@ -8,11 +8,11 @@ export const localDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)
 /** "2026-10-07T10:00" in the phone's timezone. */
 export const localNow = (d = new Date()) => `${localDay(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-/** The Monday that starts the week holding `d`. */
-export function mondayOf(d = new Date()) {
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return monday;
+/** The Sunday that starts the week holding `d`. */
+export function weekStartOf(d = new Date()) {
+  const sunday = new Date(d);
+  sunday.setDate(d.getDate() - d.getDay());
+  return sunday;
 }
 
 /** Now, as local wall-clock time. src/data/live.ts updates it on every load. */
@@ -23,10 +23,10 @@ export function setNow(now: string) {
 }
 
 function thisWeek() {
-  const monday = mondayOf();
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return { start: localDay(monday), end: localDay(sunday) };
+  const first = weekStartOf();
+  const last = new Date(first);
+  last.setDate(first.getDate() + 6);
+  return { start: localDay(first), end: localDay(last) };
 }
 
 export const NO_NEXT = { title: NOTHING_PLANNED, when: '' };

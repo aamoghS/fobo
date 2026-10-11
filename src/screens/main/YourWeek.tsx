@@ -37,7 +37,7 @@ export function YourWeek() {
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
   };
-  // A new week opens on today when it holds today, otherwise on its Monday.
+  // A new week opens on today when it holds today, otherwise on its Sunday.
   const toWeek = (next: number) => {
     const n = Math.max(-WEEKS_BACK, Math.min(WEEKS_AHEAD, next));
     setOffset(n);
@@ -72,6 +72,7 @@ export function YourWeek() {
             onSelectDay={pick}
             onSwipeWeek={(dir) => toWeek(offset + dir)}
             canSwipe={{ back: offset > -WEEKS_BACK, ahead: offset < WEEKS_AHEAD }}
+            fit
           />
 
           <View style={styles.summary}>

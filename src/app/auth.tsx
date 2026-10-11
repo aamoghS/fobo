@@ -18,10 +18,12 @@ export default function AuthReturn() {
     if (session && takeSignInNonce(nonce)) setSession(session);
     loadLive()
       .catch(() => false)
-      // Back to where sign-in started (like the calendar step), unless onboarding comes first.
-      .then((signedIn) =>
-        setTo(!signedIn ? '/welcome' : inApp(next) && (next.startsWith('/onboarding') || homeAfterSignIn() === '/week') ? next : homeAfterSignIn()),
-      );
+      // Back to where sign-in started (like the calendar step mid-onboarding), unless onboarding comes
+      // first. Sign-in from Welcome (onboarding's start) still goes wherever this account belongs.
+      .then((signedIn) => {
+        const midOnboarding = inApp(next) && next.startsWith('/onboarding/') && next !== '/onboarding/start';
+        setTo(!signedIn ? '/welcome' : midOnboarding || (inApp(next) && homeAfterSignIn() === '/week') ? next! : homeAfterSignIn());
+      });
   }, [session, nonce, next]);
 
   if (!to) return null;

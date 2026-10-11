@@ -27,7 +27,8 @@ type Props = {
 /** One scrap of paper = one plan. Carries --shadow-paper as an offset copy underneath. */
 export function Scrap({ cut, past = false, width, height, seed = 1, fill: paint }: Props) {
   const d = scrapPath(cut, width, height, seed);
-  const fill = past && cut !== 'rest' ? color.scrapPast : (paint ?? scrapColor[cut]);
+  // Every kind goes grey once it's over, rest included.
+  const fill = past ? color.scrapPast : (paint ?? scrapColor[cut]);
   return (
     <Svg width={width} height={height + paperShadow.y} viewBox={`0 0 ${width} ${height + paperShadow.y}`}>
       <Path d={d} fill={paperShadow.color} transform={`translate(${paperShadow.x} ${paperShadow.y})`} />

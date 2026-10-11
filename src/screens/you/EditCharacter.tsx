@@ -4,7 +4,8 @@ import { ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { EYE_ART, PaperSpirit } from '@/components/PaperSpirit';
+import { IconButton } from '@/components/IconButton';
+import { EYE_ART, eyeFlip, PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { EYES, SHAPES, SWATCHES } from '@/data/profile';
 import { saveCharacter, useCharacter, type Character } from '@/features/profile/character';
@@ -40,9 +41,14 @@ export function EditCharacter() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 120 }}>
-      <View style={[styles.hero, { paddingTop: insets.top }]}>
-        <View style={styles.heroTint} />
+      {/* The character stands below the status bar, with room to grow to its full height. */}
+      <View style={[styles.hero, { height: insets.top + HERO }]}>
+        {/* A wash of the character's own colour. */}
+        <View style={[styles.heroTint, { backgroundColor: color[draft.color] }]} />
         <CharacterArt character={draft} size={132} />
+        <View style={[styles.back, { top: insets.top + 8 }]}>
+          <IconButton icon="back" label="Back" iconSize={24} onPress={() => router.back()} />
+        </View>
       </View>
 
       <View style={styles.body}>
@@ -106,7 +112,8 @@ export function EditCharacter() {
           contentContainerStyle={styles.eyes}>
           {EYES.map((e) => {
             const on = draft.eyes === e.key;
-            const { Art, w, h } = EYE_ART[e.key];
+            const eye = EYE_ART[e.key];
+            const { Art, w, h } = eye;
             return (
               <Pressable
                 key={e.key}
@@ -116,7 +123,9 @@ export function EditCharacter() {
                 accessibilityLabel={e.label}
                 onPress={() => set('eyes', e.key)}
                 style={[styles.eyeTile, on && styles.selectedOutline]}>
-                <Art width={w * 1.5} height={h * 1.5} color={color.creatureInk} />
+                <View style={eyeFlip(eye)}>
+                  <Art width={w * 1.2} height={h * 1.2} color={color.creatureInk} />
+                </View>
               </Pressable>
             );
           })}
@@ -159,6 +168,8 @@ function Slider({ value, onChange, label }: { value: number; onChange: (v: numbe
       onMoveShouldSetResponder={() => true}
       onResponderGrant={move}
       onResponderMove={move}
+      // Keeps the drag once it starts, so nothing else (a scroll, a swipe) takes it over.
+      onResponderTerminationRequest={() => false}
       style={styles.slider}>
       <View pointerEvents="none" style={styles.track} />
       <View pointerEvents="none" style={[styles.thumb, { left: value * (width - 23) }]} />
@@ -166,22 +177,25 @@ function Slider({ value, onChange, label }: { value: number; onChange: (v: numbe
   );
 }
 
-const EYE_TILE = 124;
+const EYE_TILE = 96;
+/** Hero room below the status bar: the tallest character (height at full) plus a little air. */
+const HERO = 212;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
   ink: { color: color.ink },
   center: { textAlign: 'center' },
-  hero: { height: 170, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0, overflow: 'hidden' },
-  // Highlight at 25%, as drawn.
-  heroTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: color.highlight, opacity: 0.25 },
+  hero: { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 0, overflow: 'hidden' },
+  heroTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.14 },
+  back: { position: 'absolute', left: 17 },
   body: { paddingHorizontal: 17, paddingTop: 16 },
   section: { marginTop: 20 },
   shapes: { marginTop: 17, flexDirection: 'row', gap: 8 },
   shape: { flex: 1, alignItems: 'center' },
   shapeTile: {
     alignSelf: 'stretch',
-    height: 98,
+    // Just taller than the 61-wide character (66), so the tiles don't stand mostly empty.
+    height: 74,
     alignItems: 'center',
     justifyContent: 'flex-end',
     borderRadius: radius.md,
@@ -195,7 +209,7 @@ const styles = StyleSheet.create({
   swatch: { width: 38, height: 38, borderRadius: radius.full },
   bleed: { marginTop: 10, marginHorizontal: -17 },
   eyes: { paddingHorizontal: 17, gap: 10 },
-  eyeTile: { width: EYE_TILE, height: 72, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: color.fill },
+  eyeTile: { width: EYE_TILE, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: color.fill },
   slider: { marginTop: 11, height: 23, justifyContent: 'center' },
   track: { height: 4, borderRadius: radius.full, backgroundColor: color.divider },
   thumb: { position: 'absolute', width: 23, height: 23, borderRadius: radius.full, backgroundColor: color.groundDeep },

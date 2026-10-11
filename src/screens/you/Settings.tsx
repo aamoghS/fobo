@@ -180,7 +180,6 @@ export function Settings() {
       <View style={styles.logout}>
         <Button
           label="Log out"
-          variant="quiet"
           onPress={() => {
             signOut();
             router.replace('/welcome');

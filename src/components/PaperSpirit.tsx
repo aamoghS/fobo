@@ -29,7 +29,11 @@ export const EYE_ART = {
   sleepy: { Art: SleepyEyes, w: 39.1, h: 6.5 },
   happy: { Art: HappyEyes, w: 35.1, h: 15.4 },
   bored: { Art: BoredEyes, w: 37.1, h: 17.7 },
+  // Sleepy's art turned upside down: closed eyes curved up into a smile.
+  cheerful: { Art: SleepyEyes, w: 39.1, h: 6.5, flip: true },
 } as const;
+/** Turns an eye style's art over when it's drawn flipped (cheerful). */
+export const eyeFlip = (e: (typeof EYE_ART)[SpiritEyes]) => ('flip' in e && e.flip ? { transform: [{ scaleY: -1 }] } : undefined);
 export type SpiritEyes = keyof typeof EYE_ART;
 
 // Where each body's own eyes sat: the centre of the eye pair, in the 96x104 frame.
@@ -92,7 +96,7 @@ export function PaperSpirit({ mood, size = 96, conveysState = false, color, stre
       <View style={stretch !== 1 && { transform: [{ translateY: (height * (1 - stretch)) / 2 }, { scaleY: stretch }] }}>
         <Art width={size} height={height} color={color ?? MOOD_COLOR[mood]} />
         {eye && (
-          <View style={{ position: 'absolute', left: (EYE_AT[mood].x - eye.w / 2) * k, top: (EYE_AT[mood].y - eye.h / 2) * k }}>
+          <View style={[{ position: 'absolute', left: (EYE_AT[mood].x - eye.w / 2) * k, top: (EYE_AT[mood].y - eye.h / 2) * k }, eyeFlip(eye)]}>
             <eye.Art width={eye.w * k} height={eye.h * k} color={tokens.creatureInk} />
           </View>
         )}

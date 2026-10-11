@@ -58,7 +58,8 @@ export default function RootLayout() {
         {/* 393 design width; centred in a 430 column on larger screens. */}
         <View style={styles.page}>
           <View style={styles.column}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.ground } }}>
+            {/* Every screen cuts in instantly; no slide. */}
+            <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: color.ground } }}>
               {/* Pre-onboarding and onboarding cut straight to the next screen, so the sun can carry across,
                   and there's no swipe back: the back buttons move between them. */}
               {INSTANT.map((name) => (

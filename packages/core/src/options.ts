@@ -25,6 +25,7 @@ export const EYES = [
   { key: 'sleepy', label: 'Sleepy' },
   { key: 'happy', label: 'Happy' },
   { key: 'bored', label: 'Bored' },
+  { key: 'cheerful', label: 'Cheerful' },
 ] as const;
 
 /** Avatar ring tints, as token names. */

@@ -163,6 +163,8 @@ function Agenda({ days, heaviest, past = false, onOpen }: { days: string[]; heav
 }
 
 const HOUR_H = 40;
+/** The calendar's day starts at 6 AM; anything earlier shows from the top edge. */
+const DAY_START = 6;
 const GUTTER = 44;
 const minutes = (iso: string) => {
   const d = new Date(iso);
@@ -198,7 +200,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const body = useRef<ScrollView>(null);
 
   const all = days.flatMap(plansOn);
-  const first = Math.min(7, ...all.map((p) => Math.floor(minutes(p.start) / 60)));
+  const first = DAY_START;
   const last = Math.max(21, ...all.map((p) => Math.ceil(minutes(p.end) / 60)));
   const hours = Array.from({ length: last - first }, (_, i) => first + i);
   const gridH = hours.length * HOUR_H;
@@ -287,9 +289,11 @@ function useCalendar(onOpen: (p: Plan) => void) {
         }}>
         {days.map((date) => (
           <View key={date} style={[styles.calCol, { width: colW, height: gridH }]}>
-            {plansOn(date).map((p) => {
-              const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
-              const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
+            {plansOn(date).filter((p) => minutes(p.end) > first * 60).map((p) => {
+              // A plan that began before the grid starts is cut off at its top edge.
+              const from = Math.max(minutes(p.start), first * 60);
+              const top = ((from - first * 60) / 60) * HOUR_H;
+              const height = Math.max(((minutes(p.end) - from) / 60) * HOUR_H - 2, 20);
               return (
                 <Pressable
                   key={p.id}

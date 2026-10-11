@@ -8,11 +8,14 @@ import { setSession } from './session';
 
 let pending: string | null = null;
 
-/** True when signed in; false when the person closed the browser. */
-export async function signInWithGoogle(_next: string): Promise<boolean> {
+/**
+ * True when signed in; false when the person closed the browser. `next` is where the app goes back to
+ * if the return link opens it through the /auth route (as it can mid-onboarding), rather than home.
+ */
+export async function signInWithGoogle(next: string): Promise<boolean> {
   const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
   pending = nonce;
-  const returnTo = Linking.createURL('auth', { queryParams: { nonce } });
+  const returnTo = Linking.createURL('auth', { queryParams: { nonce, next } });
   const result = await WebBrowser.openAuthSessionAsync(
     `${API_URL}/auth/google/start?return=${encodeURIComponent(returnTo)}`,
     returnTo,

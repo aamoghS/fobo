@@ -1,6 +1,6 @@
 import type { Plan } from '@/features/plans/types';
 
-/** The signed-in user's plans, four weeks from this Monday, filled from the API by src/data/live.ts. */
+/** The signed-in user's plans, four weeks from this Sunday, filled from the API by src/data/live.ts. */
 export const plans: Plan[] = [];
 
 /** Invites not answered yet and plans written on Weigh a plan: openable, but not part of the week. */
