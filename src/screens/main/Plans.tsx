@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
@@ -11,8 +11,8 @@ import { scrapColor } from '@/components/Scrap';
 import { useLiveScreen } from '@/data/live';
 import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
-import { dateTile, daysBetween, timeRange, weekRange } from '@/lib/format';
-import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
+import { dateTile, daysBetween, timeRange, weekdayInitial, weekRange } from '@/lib/format';
+import { dayLoadOn, plansOn, todayIso } from '@/lib/week';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
@@ -28,10 +28,14 @@ export function Plans() {
   const [view, setView] = useState<View_>('calendar');
   const days = daysBetween(todayIso, week.end);
   const open = (p: Plan) => router.push({ pathname: '/plans/[id]', params: { id: p.id } });
+  const calendar = useCalendar(open);
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
+      {/* In calendar view the day headings (third child) stick to the top while the hours scroll. */}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
+        stickyHeaderIndices={view === 'calendar' ? [2] : undefined}>
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
@@ -47,7 +51,8 @@ export function Plans() {
           <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
         </View>
 
-        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : <Calendar onOpen={open} />}
+        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.header}
+        {view === 'calendar' && calendar.grid}
       </ScrollView>
       <NavFade color={color.ground} />
     </View>
@@ -101,77 +106,122 @@ const minutes = (iso: string) => {
 };
 const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
 
+/** Days the calendar can swipe through: this week and the next. */
+function calendarDays() {
+  const end = new Date(`${week.end}T00:00`);
+  end.setDate(end.getDate() + 7);
+  const last = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+  return daysBetween(week.start, last);
+}
+
 /**
- * Three days from today on one time grid (Figma 206:3859, without the characters, for room):
- * each day's date and load, solid scraps of colour for plans, and a line for now.
+ * The calendar (after Figma 206:3859): three days wide on one time grid, swiping sideways a day at a
+ * time like Google Calendar's 3-day view, opening on today. Its heading row (day, date, load) is a
+ * separate piece so it can stick to the top while you scroll the hours; it follows the swipe.
  */
-function Calendar({ onOpen }: { onOpen: (p: Plan) => void }) {
-  const days = shelfDays().filter((d) => d.date >= todayIso).slice(0, 3);
-  const all = days.flatMap((d) => d.plans);
+function useCalendar(onOpen: (p: Plan) => void) {
+  const { width } = useWindowDimensions();
+  // The app is a column of at most 430 (see app/_layout.tsx).
+  const colW = Math.floor((Math.min(width, 430) - GUTTER) / 3);
+  const days = calendarDays();
+  const startAt = Math.max(0, days.indexOf(todayIso));
+  const head = useRef<ScrollView>(null);
+  const body = useRef<ScrollView>(null);
+
+  const all = days.flatMap(plansOn);
   const first = Math.min(7, ...all.map((p) => Math.floor(minutes(p.start) / 60)));
   const last = Math.max(21, ...all.map((p) => Math.ceil(minutes(p.end) / 60)));
   const hours = Array.from({ length: last - first }, (_, i) => first + i);
   const gridH = hours.length * HOUR_H;
   const nowY = ((minutes(NOW) - first * 60) / 60) * HOUR_H;
 
-  return (
-    <View style={styles.calendar}>
-      <View style={styles.calHead}>
-        <View style={styles.gutter} />
-        {days.map((d) => {
-          const tile = dateTile(d.date);
+  // Open on today, both rows together.
+  useEffect(() => {
+    const x = startAt * colW;
+    requestAnimationFrame(() => {
+      body.current?.scrollTo({ x, animated: false });
+      head.current?.scrollTo({ x, animated: false });
+    });
+  }, [startAt, colW]);
+
+  const snap = {
+    horizontal: true,
+    showsHorizontalScrollIndicator: false,
+    snapToInterval: colW,
+    decelerationRate: 'fast' as const,
+    disableIntervalMomentum: true,
+  };
+
+  const header = (
+    <View style={styles.calHead}>
+      <View style={styles.gutter} />
+      <ScrollView ref={head} {...snap} scrollEnabled={false} style={styles.strip}>
+        {days.map((date) => {
+          const tile = dateTile(date);
+          const isToday = date === todayIso;
           return (
-            <View key={d.date} style={styles.calDay}>
-              <Text style={[type.foot, styles.muted]}>{d.label}</Text>
-              <Text style={[type.bodyStrong, styles.ink]}>{tile.day}</Text>
-              <Text style={[type.foot, styles.muted]}>{`${dayLoadOn(d.date)}/${DAY_ROOM}`}</Text>
+            <View key={date} style={[styles.calDay, styles.snap, { width: colW }]}>
+              <Text style={[type.foot, isToday ? styles.ink : styles.muted]}>{weekdayInitial(date)}</Text>
+              <View style={[styles.dateDot, isToday && styles.dateDotOn]}>
+                <Text style={[type.bodyStrong, isToday ? styles.selInk : styles.ink]}>{tile.day}</Text>
+              </View>
+              <Text style={[type.foot, styles.muted]}>{`${dayLoadOn(date)}/${DAY_ROOM}`}</Text>
             </View>
           );
         })}
-      </View>
-
-      <View style={[styles.calBody, { height: gridH }]}>
-        {hours.map((h) => (
-          <View key={h} style={[styles.hourRow, { top: (h - first) * HOUR_H }]}>
-            <Text style={[styles.hour, styles.muted]}>{hourLabel(h)}</Text>
-            <View style={styles.hourLine} />
-          </View>
-        ))}
-        <View style={styles.columns}>
-          {days.map((d) => (
-            <View key={d.date} style={styles.calCol}>
-              {d.plans.map((p) => {
-                const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
-                const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
-                return (
-                  <Pressable
-                    key={p.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
-                    onPress={() => onOpen(p)}
-                    style={[styles.event, height < 32 && styles.eventShort, { top, height, backgroundColor: scrapColor[p.kind] }]}>
-                    <Text style={[type.label, styles.eventText]} numberOfLines={height >= 56 ? 2 : 1}>
-                      {p.title}
-                    </Text>
-                    {height >= 52 && (
-                      <Text style={[type.foot, styles.eventTime]} numberOfLines={1}>
-                        {timeRange(p.start, p.end)}
-                      </Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-              {d.selected && nowY >= 0 && nowY <= gridH && (
-                <View pointerEvents="none" style={[styles.now, { top: nowY }]}>
-                  <View style={styles.nowDot} />
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      </View>
+      </ScrollView>
     </View>
   );
+
+  const grid = (
+    <View style={[styles.calBody, { height: gridH }]}>
+      {hours.map((h) => (
+        <View key={h} style={[styles.hourRow, { top: (h - first) * HOUR_H }]}>
+          <Text style={[styles.hour, styles.muted]}>{hourLabel(h)}</Text>
+          <View style={styles.hourLine} />
+        </View>
+      ))}
+      <ScrollView
+        ref={body}
+        {...snap}
+        style={styles.columns}
+        scrollEventThrottle={16}
+        onScroll={(e) => head.current?.scrollTo({ x: e.nativeEvent.contentOffset.x, animated: false })}>
+        {days.map((date) => (
+          <View key={date} style={[styles.calCol, styles.snap, { width: colW, height: gridH }]}>
+            {plansOn(date).map((p) => {
+              const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
+              const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
+              return (
+                <Pressable
+                  key={p.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.title}, ${timeRange(p.start, p.end)}`}
+                  onPress={() => onOpen(p)}
+                  style={[styles.event, height < 32 && styles.eventShort, { top, height, backgroundColor: scrapColor[p.kind] }]}>
+                  <Text style={[type.label, styles.eventText]} numberOfLines={height >= 56 ? 2 : 1}>
+                    {p.title}
+                  </Text>
+                  {height >= 52 && (
+                    <Text style={[type.foot, styles.eventTime]} numberOfLines={1}>
+                      {timeRange(p.start, p.end)}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+            {date === todayIso && nowY >= 0 && nowY <= gridH && (
+              <View pointerEvents="none" style={[styles.now, { top: nowY }]}>
+                <View style={styles.nowDot} />
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  return { header, grid };
 }
 
 const styles = StyleSheet.create({
@@ -187,17 +237,22 @@ const styles = StyleSheet.create({
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  calendar: { marginTop: space[16], marginHorizontal: -space.margin },
-  calHead: { flexDirection: 'row', paddingTop: space[8], paddingBottom: space[12] },
-  calDay: { flex: 1, alignItems: 'center' },
-  calBody: { borderTopWidth: 1, borderTopColor: color.rule },
+  // Full-bleed, with the ground behind it so the hours pass under it when it sticks.
+  calHead: { marginTop: space[16], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },
+  strip: { flex: 1 },
+  calDay: { alignItems: 'center', gap: 2 },
+  dateDot: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  dateDotOn: { backgroundColor: color.selBg },
+  // Web: snap a day at a time (native uses snapToInterval).
+  snap: { scrollSnapAlign: 'start' } as object,
+  calBody: { marginTop: space[12], marginHorizontal: -space.margin },
   gutter: { width: GUTTER },
   hourRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
   // Figma sets these at 11; the ramp's smallest is 13, too wide for the gutter.
   hour: { width: GUTTER, paddingRight: space[8], textAlign: 'right', fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 14, marginTop: -14 },
   hourLine: { flex: 1, height: 1, backgroundColor: color.rule },
-  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, flexDirection: 'row' },
-  calCol: { flex: 1, borderLeftWidth: 1, borderLeftColor: color.rule },
+  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, scrollSnapType: 'x mandatory' } as object,
+  calCol: { borderLeftWidth: 1, borderLeftColor: color.rule },
   event: { position: 'absolute', left: 3, right: 3, paddingHorizontal: space[8], paddingVertical: 6, gap: 2, borderRadius: radius.sm, overflow: 'hidden' },
   // Half-hour blocks: just the title, centred, so it isn't clipped.
   eventShort: { paddingVertical: 0, justifyContent: 'center' },
