@@ -41,6 +41,6 @@ export const UNSORTED_KIND = 'work';
 export const ONBOARDING: Record<string, readonly string[] | null> = {
   recharge: ['alone', 'depends', 'people'],
   'head-home': ['In the first hour', 'After 1 to 2 hours', 'After 2 to 3 hours', 'I stayed happily to the end'],
-  yourself: ['Same evening', 'Next morning', 'After a day', '2 to 3 days', 'Longer'],
+  yourself: ['Same day', 'Next day', '2 to 3 days', 'Longer'],
   compare: null,
 };

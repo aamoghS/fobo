@@ -13,17 +13,15 @@ type Props = {
   /** 95x104 character art. */
   Art: FC<SvgProps>;
   selected: boolean;
-  /** Degrees the card tips when chosen, so a row of them looks hand-stuck. */
-  tilt?: number;
   onPress: () => void;
 };
 
 /**
  * Answer tile from Q1 (378:11162). Unselected as drawn; the selected state isn't drawn,
  * so it borrows the Choice Card's (34:992): ink fill, white title, ink-3 caption. Chosen, it pops
- * up with a slight tilt.
+ * up a touch.
  */
-export function AnswerCard({ title, caption, Art, selected, tilt = -3, onPress }: Props) {
+export function AnswerCard({ title, caption, Art, selected, onPress }: Props) {
   const stuck = useRef(new Animated.Value(selected ? 1 : 0)).current;
   useEffect(() => {
     let live = true;
@@ -44,10 +42,7 @@ export function AnswerCard({ title, caption, Art, selected, tilt = -3, onPress }
         styles.wrap,
         selected && styles.lifted,
         {
-          transform: [
-            { rotate: stuck.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${tilt}deg`] }) },
-            { scale: stuck.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) },
-          ],
+          transform: [{ scale: stuck.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }],
         },
       ]}>
       <Pressable

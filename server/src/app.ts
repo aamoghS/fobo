@@ -42,8 +42,9 @@ export function createHandler(pool: pg.Pool = createPool()) {
       if (e instanceof HttpError) return json(e.status, { error: e.message });
       // Postgres integrity and input errors (bad handle, taken handle, bad date) are the caller's.
       // Drizzle wraps the driver's error; the Postgres code is on the cause.
-      const err = e as { code?: string; cause?: { code?: string } };
-      const code = err.code ?? err.cause?.code ?? '';
+      // Not every error's code is a string (Node's network errors can be numbers), so read it as text.
+      const err = e as { code?: unknown; cause?: { code?: unknown } };
+      const code = String(err.code ?? err.cause?.code ?? '');
       if (code.startsWith('23') || code.startsWith('22')) return json(400, { error: 'invalid input' });
       console.error(e);
       return json(500, { error: 'server error' });

@@ -10,10 +10,9 @@ import DependsArt from '@/assets/illustrations/onboarding/answer-depends.svg';
 import PeopleArt from '@/assets/illustrations/onboarding/answer-people.svg';
 import BathArt from '@/assets/illustrations/onboarding/bubble-bath.svg';
 import NookArt from '@/assets/illustrations/onboarding/reading-nook.svg';
-import RechargingArt from '@/assets/illustrations/onboarding/recharging.svg';
 import { AnswerCard } from '@/components/AnswerCard';
 import { Button } from '@/components/Button';
-import { Icon } from '@/components/Icon';
+import { Icon, type IconName } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
@@ -29,13 +28,31 @@ import { DAY_ROOM } from '@fobo/core/constants';
 import { ONBOARDING } from '@fobo/core/options';
 
 import { QuietTrio } from './QuietTrio';
+import { Recharging } from './Recharging';
 import { SleepyBed } from './SleepyBed';
+import { CalendarArt } from './CalendarArt';
+import { AnswerSummary, WeekPlan, BringInWeek, WeekReview, plansFound } from './WeekSetup';
 
-export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'transition', 'compare'] as const;
+export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'profile', 'week-intro', 'calendar', 'review', 'transition', 'compare'] as const;
 export type Step = (typeof STEPS)[number];
 
-// Four segments: the three questions, then the comparison (transition + pairs).
-const PROGRESS: Record<Step, number> = { start: 0, recharge: 1, 'head-home': 2, yourself: 3, transition: 4, compare: 4 };
+// Four segments: the three questions, then your week (bring it in, check it, compare). The profile
+// summary, the week intro and Bring in your week sit between with just a back button.
+const PROGRESS: Record<Step, number | null> = {
+  start: 0,
+  recharge: 1,
+  'head-home': 2,
+  yourself: 3,
+  profile: null,
+  'week-intro': null,
+  calendar: null,
+  review: 4,
+  transition: 4,
+  compare: 4,
+};
+
+// Steps with Skip but no progress bar, and where Skip goes: past the calendar, to the week as it is.
+const SKIP_TO: Partial<Record<Step, Step>> = { 'week-intro': 'review' };
 
 /** `editing`: opened from Capacity Profile to change one answer; Next and Skip go back there. */
 export function OnboardingStep({ step, editing = false }: { step: Step; editing?: boolean }) {
@@ -72,19 +89,19 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
         <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
           <Art Svg={SleepyBed} width={147} />
           {/* "recharge" has no question mark in Figma; copied as drawn. */}
-          <Copy title="How do you usually recharge" body="No wrong answer. It's a starting guess, not a label." />
+          <Copy title="How do you usually recharge" body="No wrong answer. It's a starting guess, not a label." mutedBody gap={12} />
           <RechargeAnswers value={picked} onChange={pick} />
         </Frame>
       );
     case 'head-home':
       return (
         <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
-          <Art Svg={RechargingArt} width={162} />
-          <Copy lead="Think of your last group hangout." title="When did you start wanting to head home?" />
+          <Art Svg={Recharging} width={162} />
+          <Copy title="At your last hangout, when did you feel ready to head home?" />
           <Radios
             value={picked}
             onChange={pick}
-            label="When did you start wanting to head home?"
+            label="At your last hangout, when did you feel ready to head home?"
             options={[...ONBOARDING['head-home']!]}
           />
         </Frame>
@@ -102,6 +119,57 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
           />
         </Frame>
       );
+    case 'profile':
+      return (
+        <Frame step={step} onNext={next} cta="Looks right">
+          <AnswerSummary />
+        </Frame>
+      );
+    case 'week-intro':
+      return (
+        <Frame
+          step={step}
+          onNext={next}
+          cta="Connect calendar"
+          ctaIcon="calendar">
+          <Copy
+            title="Start with a week you know."
+            body="Connect your calendar. Fobo compares a few of last week’s plans, then forecasts the week ahead."
+            mutedBody
+            gap={12}
+          />
+          <CalendarArt />
+          <WeekPlan />
+        </Frame>
+      );
+    case 'calendar':
+      return (
+        <Frame step={step} onNext={next} cta="Continue">
+          <Copy
+            title="Bring in your week"
+            body="Fobo reads titles and times, then guesses what each plan costs. You can correct every guess."
+            mutedBody
+          />
+          <BringInWeek />
+        </Frame>
+      );
+    case 'review': {
+      const found = plansFound();
+      return (
+        <Frame step={step} onNext={next} cta="Looks right">
+          <Copy
+            title="Does this look right?"
+            body={
+              found
+                ? `Found ${found} ${found === 1 ? 'plan' : 'plans'} this week. Each has a guessed type and energy cost. Tap a plan to correct either.`
+                : 'No plans this week yet. Add a few by hand, or carry on and Fobo learns as you go.'
+            }
+            mutedBody
+          />
+          <WeekReview />
+        </Frame>
+      );
+    }
     case 'transition':
       return (
         <Frame step={step} onNext={next} gap={40}>
@@ -124,6 +192,8 @@ function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
   const skip = () =>
     editing
       ? router.back()
+      : SKIP_TO[step]
+      ? router.push({ pathname: '/onboarding/[step]', params: { step: SKIP_TO[step]! } })
       : i === STEPS.length - 1
       ? router.replace('/week')
       : router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
@@ -132,12 +202,16 @@ function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={13} style={styles.headerSide}>
         <Icon name="back" />
       </Pressable>
-      <View style={styles.progress}>
-        <Progress step={PROGRESS[step]} />
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Skip" onPress={skip} hitSlop={13} style={styles.headerSide}>
-        <Text style={[type.label, styles.skip]}>Skip</Text>
-      </Pressable>
+      {PROGRESS[step] !== null && (
+        <View style={styles.progress}>
+          <Progress step={PROGRESS[step]} />
+        </View>
+      )}
+      {(PROGRESS[step] !== null || SKIP_TO[step]) && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Skip" onPress={skip} hitSlop={13} style={styles.headerSide}>
+          <Text style={[type.label, styles.skip]}>Skip</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -150,6 +224,7 @@ function Frame({
   gap = 20,
   editing = false,
   ready = true,
+  ctaIcon,
   children,
 }: {
   step: Step;
@@ -159,6 +234,7 @@ function Frame({
   editing?: boolean;
   /** False greys out the button. */
   ready?: boolean;
+  ctaIcon?: IconName;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -171,7 +247,7 @@ function Frame({
       </ScrollView>
       {/* Pinned, so the button sits in the same spot on every step however long the content runs. */}
       <View style={[styles.pinned, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        <Button label={cta} disabled={!ready} onPress={onNext} />
+        <Button label={cta} icon={ctaIcon} disabled={!ready} onPress={onNext} />
       </View>
     </View>
   );
@@ -185,10 +261,19 @@ function Art({ Svg, width }: { Svg: FC<SvgProps>; width: number }) {
   );
 }
 
-function Copy({ lead, title, body, mutedBody }: { lead?: string; title: string; body?: string; mutedBody?: boolean }) {
+function Copy({
+  title,
+  body,
+  mutedBody,
+  gap = 16,
+}: {
+  title: string;
+  body?: string;
+  mutedBody?: boolean;
+  gap?: number;
+}) {
   return (
-    <View style={styles.copy}>
-      {lead && <Text style={[type.sub, styles.muted]}>{lead}</Text>}
+    <View style={[styles.copy, { gap }]}>
       <Text accessibilityRole="header" style={[type.display, styles.ink]}>
         {title}
       </Text>
@@ -208,10 +293,9 @@ type Answer = { value: string | null; onChange: (v: string) => void };
 function RechargeAnswers({ value, onChange }: Answer) {
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="How do you usually recharge" style={styles.answers}>
-      {RECHARGE.map((a, i) => (
+      {RECHARGE.map((a) => (
         <AnswerCard
           key={a.value}
-          tilt={i % 2 ? 3 : -3}
           title={a.title}
           caption={a.caption}
           Art={a.Art}
@@ -345,7 +429,7 @@ const styles = StyleSheet.create({
   skip: { color: color.ink2, textAlign: 'center' },
   body: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingTop: 40, paddingBottom: 68 },
   art: { height: 155, alignItems: 'center' },
-  copy: { alignSelf: 'stretch', gap: 16 },
+  copy: { alignSelf: 'stretch' },
   answers: { flexDirection: 'row', gap: 8, alignSelf: 'stretch', marginHorizontal: -6 },
   radios: { alignSelf: 'stretch' },
   compare: { flexGrow: 1, paddingBottom: 20 },

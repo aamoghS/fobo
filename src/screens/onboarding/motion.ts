@@ -45,6 +45,19 @@ export function useCycle(period: number, { delay = 0, rest = 0 } = {}) {
   );
 }
 
+/** Eases 0 → 1 over `rise` ms, holds, eases back to 0 over `fall` ms, rests, repeats. Holds at `rest` under Reduce Motion. */
+export function useRiseFall({ rise, fall, hold = 0, pause = 0, rest = 0 }: { rise: number; fall: number; hold?: number; pause?: number; rest?: number }) {
+  return useLoop(
+    (v) => {
+      const ease = (toValue: number, duration: number) =>
+        Animated.timing(v, { toValue, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: native });
+      return Animated.sequence([ease(1, rise), Animated.delay(hold), ease(0, fall), Animated.delay(pause)]);
+    },
+    0,
+    rest,
+  );
+}
+
 export type Steps = Extract<NonNullable<Animated.WithAnimatedValue<ViewStyle>['transform']>, readonly unknown[]>;
 
 /** Transforms that pivot on (x, y) in a w x h frame instead of its centre. */

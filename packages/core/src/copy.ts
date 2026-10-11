@@ -24,6 +24,9 @@ export const SOCIAL_ENERGY_VALUES: Record<string, string> = {
   'I stayed happily to the end': 'Lasts all night',
 };
 export const RECOVERY_VALUES: Record<string, string> = {
+  'Same day': 'Recovers the same day',
+  'Next day': '1 night recovery needed',
+  // Earlier answers, still saved on some profiles.
   'Same evening': 'Recovers the same evening',
   'Next morning': '1 night recovery needed',
   'After a day': '1 day recovery needed',
