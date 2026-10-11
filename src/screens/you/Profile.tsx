@@ -1,29 +1,26 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import BadgeBlue from '@/assets/profile/badge-blue.svg';
-import BadgeGreen from '@/assets/profile/badge-green.svg';
-import BadgePink from '@/assets/profile/badge-pink.svg';
-import BadgeRed from '@/assets/profile/badge-red.svg';
-import Squiggle from '@/assets/profile/squiggle.svg';
-import WidgetScraps from '@/assets/profile/widget-scraps.svg';
 import { Icon } from '@/components/Icon';
+import { IconButton } from '@/components/IconButton';
+import { Medal } from '@/components/Medal';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
-import { achievements, profile, widget } from '@/data/profile';
+import { achievements, allAchievements, profile, type Achievement } from '@/data/profile';
 import { useCharacter } from '@/features/profile/character';
-import { color, radius } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { CharacterArt } from './CharacterArt';
 
-const badges = { red: BadgeRed, pink: BadgePink, green: BadgeGreen, blue: BadgeBlue };
+// A card's paper, from the badge's colour family.
+const tint: Record<Achievement['badge'], keyof typeof color> = { red: 'tintPeach', pink: 'tintRose', green: 'tintMint', blue: 'tintSky' };
 
 /**
- * Profile v.1 (443:3735), the You tab. The Appearance section (Light / Dark / Match System)
- * is left out: the app is light only (DESIGN.md).
+ * Profile (572:3027), the You tab: a profile card (banner, your character in a round frame you can
+ * edit, name and title), the capacity profile nudge, your streak, and achievements.
  */
 export function Profile() {
   const router = useRouter();
@@ -32,39 +29,38 @@ export function Profile() {
   const character = useCharacter();
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 28) }]}>
-      <View style={styles.hero}>
-        <View style={StyleSheet.absoluteFill} importantForAccessibility="no-hide-descendants">
-          <Squiggle width="100%" height={184} preserveAspectRatio="xMidYMid slice" />
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 40) }]}>
+      <View style={styles.card}>
+        <View style={styles.banner} importantForAccessibility="no-hide-descendants">
+          {/* Your character again, mirrored and leaning in from the right. */}
+          <View style={styles.bannerCharacter}>
+            <CharacterArt character={character} size={155} />
+          </View>
         </View>
-        <View style={styles.heroCharacter}>
-          <CharacterArt character={character} size={155} />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          onPress={() => router.push('/you/settings')}
-          style={styles.settings}>
-          <Icon name="settings" />
-        </Pressable>
-      </View>
 
-      <View style={styles.identity}>
+        <View style={styles.avatarRow}>
+          <View style={styles.avatar}>
+            <View style={styles.avatarInner} importantForAccessibility="no-hide-descendants">
+              <CharacterArt character={character} size={115} />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit Character"
+              onPress={() => router.push('/you/character')}
+              hitSlop={7}
+              style={styles.edit}>
+              <Icon name="pencil" size={15} color={color.selInk} />
+            </Pressable>
+          </View>
+          <IconButton icon="settings" label="Settings" onPress={() => router.push('/you/settings')} />
+        </View>
+
         <View style={styles.names}>
-          <Text accessibilityRole="header" style={[type.title, styles.ink]}>
+          <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             {profile.name}
           </Text>
-          <Text style={[type.sub, styles.ink]}>{profile.title}</Text>
+          <Text style={[type.sub, styles.muted, styles.title]}>{profile.title}</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit Character"
-          onPress={() => router.push('/you/character')}
-          hitSlop={{ top: 4, bottom: 4 }}
-          style={styles.editCharacter}>
-          <Icon name="pencil" />
-          <Text style={[type.label, styles.ink]}>Edit Character</Text>
-        </Pressable>
       </View>
 
       <Pressable
@@ -72,28 +68,21 @@ export function Profile() {
         accessibilityLabel="Update your capacity profile"
         onPress={() => router.push('/you/capacity')}
         style={styles.capacity}>
-        <Icon name="refresh" color={color.paper} />
+        <Icon name="refresh" color={color.selInk} />
         <View style={styles.capacityText}>
           <Text style={[type.body, styles.onInk]}>Update your capacity profile!</Text>
           <Text style={[type.foot, styles.onInk]}>It’s been a while since you’ve updated us. Let us know if anything’s changed.</Text>
         </View>
-        <Icon name="chevron" color={color.paper} />
+        <Icon name="chevron" color={color.selInk} />
       </Pressable>
 
       <View style={styles.streak} accessible accessibilityLabel={`${profile.streak.title} ${profile.streak.detail}`}>
-        <View style={styles.streakTop}>
-          <View style={styles.bolt}>
-            <Icon name="bolt" size={22} />
-          </View>
-          <View>
-            <Text style={[type.bodyStrong, styles.ink]}>{profile.streak.title}</Text>
-            <Text style={[type.foot, styles.ink]}>{profile.streak.detail}</Text>
-          </View>
+        <View style={styles.bolt}>
+          <Icon name="bolt" size={22} />
         </View>
-        <View style={styles.streakBars}>
-          {Array.from({ length: profile.streak.of }, (_, i) => (
-            <View key={i} style={[styles.streakBar, { backgroundColor: i < profile.streak.days ? color.highlight : color.divider }]} />
-          ))}
+        <View style={styles.streakText}>
+          <Text style={[type.bodyStrong, styles.ink]}>{profile.streak.title}</Text>
+          <Text style={[type.foot, styles.ink]}>{profile.streak.detail}</Text>
         </View>
       </View>
 
@@ -101,76 +90,111 @@ export function Profile() {
         <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink]}>
           Achievements
         </Text>
-        <Pressable accessibilityRole="button" hitSlop={12}>
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={() => router.push('/you/achievements')}>
           <Text style={[type.foot, styles.ink, styles.underline]}>See all</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.achievements}>
-        {achievements.map((a) => {
-          const Badge = badges[a.badge];
-          return (
-            <View key={a.id} style={styles.achievement} accessible accessibilityLabel={a.title}>
-              <View style={styles.badge}>
-                <Badge width={92.8} height={95} />
-                <View style={styles.badgeIcon}>
-                  <Icon name={a.icon} />
-                </View>
-              </View>
-              <Text style={[type.label, styles.ink, styles.achievementTitle]} numberOfLines={1}>
-                {a.title}
-              </Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      <Text accessibilityRole="header" style={[type.bodyStrong, styles.ink, styles.widgetsHead]}>
-        Home Screen Widgets
-      </Text>
-      {/* Background art is a PNG; the copy stays live because it will come from the API. */}
-      <View style={styles.widget}>
-        <Image source={require('@/assets/profile/widget-bg.png')} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <View style={styles.widgetCard}>
-          <Text style={[type.bodyStrong, styles.muted]}>{widget.label}</Text>
-          <Text style={[type.subStrong, styles.ink, styles.widgetHeadline]}>{widget.headline}</Text>
-          <Text style={[type.bodyStrong, styles.ink, styles.widgetNext]}>{widget.next}</Text>
-          <Text style={[type.subStrong, styles.muted]}>{widget.nudge}</Text>
-          <View style={styles.widgetScraps} importantForAccessibility="no-hide-descendants">
-            <WidgetScraps width={141} height={77} />
-          </View>
-        </View>
-      </View>
+      <AchievementCarousel onSeeAll={() => router.push('/you/achievements')} />
     </ScrollView>
   );
 }
 
+/** What you've unlocked, a card each, swiped sideways; it ends on the next one to earn. */
+function AchievementCarousel({ onSeeAll }: { onSeeAll: () => void }) {
+  const { width } = useWindowDimensions();
+  // About two thirds of the column, so the next card peeks in.
+  const card = Math.round(Math.min(width, 430) * 0.6);
+  const next = allAchievements.find((a) => !achievements.some((e) => e.id === a.id));
+  const count = achievements.length + (next ? 1 : 0);
+  const [at, setAt] = useState(0);
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={card + CARD_GAP}
+        decelerationRate="fast"
+        scrollEventThrottle={32}
+        onScroll={(e) => setAt(Math.max(0, Math.min(count - 1, Math.round(e.nativeEvent.contentOffset.x / (card + CARD_GAP)))))}
+        style={styles.bleed}
+        contentContainerStyle={styles.achievements}>
+        {achievements.map((a) => (
+          <View key={a.id} style={[styles.achievement, { width: card, backgroundColor: color[tint[a.badge]] }]} accessible accessibilityLabel={`${a.title}, unlocked. ${a.how}`}>
+            <Medal badge={a.badge} icon={a.icon} size={104} ribbon />
+            <Text style={[type.bodyStrong, styles.ink, styles.center]} numberOfLines={1}>
+              {a.title}
+            </Text>
+            <Text style={[type.foot, styles.muted, styles.center]} numberOfLines={2}>
+              {a.how}
+            </Text>
+          </View>
+        ))}
+        {next && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Next to unlock: ${next.title}. ${next.how}`}
+            onPress={onSeeAll}
+            style={[styles.achievement, styles.locked, { width: card }]}>
+            <Medal badge={next.badge} icon={next.icon} size={104} locked />
+            <Text style={[type.label, styles.muted]}>Up next</Text>
+            <Text style={[type.bodyStrong, styles.ink, styles.center]} numberOfLines={1}>
+              {next.title}
+            </Text>
+            <Text style={[type.foot, styles.muted, styles.center]} numberOfLines={2}>
+              {next.how}
+            </Text>
+          </Pressable>
+        )}
+      </ScrollView>
+      {count > 1 && (
+        <View style={styles.dots} importantForAccessibility="no-hide-descendants">
+          {Array.from({ length: count }, (_, i) => (
+            <View key={i} style={[styles.dot, i === at && styles.dotOn]} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const CARD_GAP = 12;
+const AVATAR = 108;
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingHorizontal: 20, paddingBottom: 120 },
+  content: { paddingHorizontal: space.margin, paddingBottom: 120, gap: space[20] },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   onInk: { color: color.selInk },
   underline: { textDecorationLine: 'underline' },
-  hero: { height: 184, borderRadius: radius.panel, overflow: 'visible' },
-  heroCharacter: { position: 'absolute', left: '50%', marginLeft: -78, top: 13 },
-  settings: { position: 'absolute', top: -1, right: 0, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  identity: { marginTop: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  names: { gap: 4 },
-  editCharacter: {
-    height: 36,
-    paddingLeft: 12,
-    paddingRight: 16,
-    gap: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  card: { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 15, borderRadius: 22, backgroundColor: color.paper, boxShadow: shadow.soft },
+  banner: { height: 138, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.scrapWork },
+  // Figma's 155x182 character, flipped and turned about 12° (its box sits at 171,-20 in the banner).
+  bannerCharacter: { position: 'absolute', left: 189, top: -6, transform: [{ rotate: '12deg' }, { scaleX: -1 }] },
+  // The avatar rises 54px into the banner; the row keeps only the settings button's height below it.
+  avatarRow: { height: 62, marginBottom: -12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  avatar: { position: 'absolute', left: 8, top: 12 - 66, width: AVATAR, height: AVATAR, borderRadius: radius.full, backgroundColor: color.paper },
+  avatarInner: {
+    position: 'absolute',
+    left: 5,
+    right: 5,
+    top: 5,
+    height: 101,
     borderRadius: radius.full,
-    backgroundColor: color.fill,
+    overflow: 'hidden',
+    alignItems: 'center',
+    // The character fills the frame and is cut off below its eyes' row, as in Figma.
+    paddingTop: 4,
+    backgroundColor: color.tintButter,
   },
+  edit: { position: 'absolute', left: 74, top: 76, width: 31, height: 31, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: color.accent },
+  names: { alignSelf: 'flex-start', paddingTop: space[8], gap: 2 },
+  title: { paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: color.divider },
+
   capacity: {
-    marginTop: 26,
-    marginHorizontal: -9,
     minHeight: 95,
-    paddingLeft: 16,
+    paddingLeft: 15,
     paddingRight: 12,
     paddingVertical: 12,
     gap: 15,
@@ -180,41 +204,17 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink,
   },
   capacityText: { flex: 1, gap: 7 },
-  streak: {
-    marginTop: 37,
-    marginHorizontal: -9,
-    paddingTop: 13,
-    paddingBottom: 11,
-    paddingHorizontal: 11,
-    gap: 11,
-    borderRadius: radius.md,
-    backgroundColor: color.tintButter,
-  },
-  streakTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  bolt: { width: 37, height: 37, borderRadius: radius.full, backgroundColor: color.highlight, alignItems: 'center', justifyContent: 'center' },
-  streakBars: { flexDirection: 'row', gap: 12, paddingRight: 22 },
-  streakBar: { flex: 1, height: 4, borderRadius: radius.full },
-  sectionHead: { marginTop: 32, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  bleed: { marginHorizontal: -20 },
-  achievements: { paddingHorizontal: 17, paddingTop: 20, gap: 12 },
-  achievement: { width: 137, height: 129, alignItems: 'center', borderRadius: radius.panel, backgroundColor: color.fill },
-  badge: { marginTop: 6, width: 92.8, height: 95, alignItems: 'center' },
-  badgeIcon: { position: 'absolute', top: 32, left: 0, right: 0, alignItems: 'center' },
-  achievementTitle: { position: 'absolute', top: 98, left: 4, right: 4, textAlign: 'center' },
-  widgetsHead: { marginTop: 30 },
-  widget: { marginTop: 13, height: 203, borderRadius: radius.md, overflow: 'hidden' },
-  widgetCard: {
-    position: 'absolute',
-    left: 18.4,
-    right: 18.4,
-    top: 12.6,
-    height: 178,
-    paddingLeft: 13.6,
-    paddingTop: 12.4,
-    borderRadius: radius.md,
-    backgroundColor: color.paper,
-  },
-  widgetHeadline: { width: 163 },
-  widgetNext: { marginTop: 17 },
-  widgetScraps: { position: 'absolute', left: 179.6, top: 105.4 },
+  streak: { padding: 12, gap: 9, flexDirection: 'row', alignItems: 'center' },
+  streakText: { flex: 1 },
+  bolt: { width: 37, height: 37, borderRadius: radius.full, backgroundColor: color.moodBright, alignItems: 'center', justifyContent: 'center' },
+
+  sectionHead: { marginTop: space[8], flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  bleed: { marginHorizontal: -space.margin },
+  center: { textAlign: 'center' },
+  achievements: { paddingHorizontal: space.margin, gap: CARD_GAP },
+  achievement: { minHeight: 236, paddingTop: 18, paddingBottom: 16, paddingHorizontal: 14, gap: 4, alignItems: 'center', borderRadius: radius.panel },
+  locked: { justifyContent: 'center', backgroundColor: color.fill, paddingTop: 30 },
+  dots: { marginTop: 12, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: radius.full, backgroundColor: color.ink3, opacity: 0.35 },
+  dotOn: { width: 18, backgroundColor: color.ink, opacity: 1 },
 });

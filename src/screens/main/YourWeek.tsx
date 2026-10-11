@@ -4,14 +4,14 @@ import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { IconButton } from '@/components/IconButton';
+import { Pressable } from '@/components/Pressable';
 import { NavFade } from '@/components/NavFade';
 import { PlanLine } from '@/components/PlanLine';
 import { WeekShelf } from '@/components/WeekShelf';
 import { useLiveScreen } from '@/data/live';
 import { week } from '@/data/week';
 import { dayShort, hours, weekdayLong, weekRange } from '@/lib/format';
-import { dayLoadOn, plansLeftToday, plansOn, shelfDays, todayIso } from '@/lib/week';
+import { WEEKS_AHEAD, WEEKS_BACK, dayLoadOn, plansLeftToday, plansOn, shelfDays, todayIso, weekAt } from '@/lib/week';
 import { DAY_ROOM } from '../../../packages/core/src';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -24,6 +24,9 @@ export function YourWeek() {
   const insets = useSafeAreaInsets();
   const left = plansLeftToday();
   const [selected, setSelected] = useState(todayIso);
+  // Weeks from this one (-1 = last week); swiping the shelf moves it.
+  const [offset, setOffset] = useState(0);
+  const shown = weekAt(offset);
   const dayPlans = plansOn(selected);
   // The list fades in again for each day you pick.
   const fade = useRef(new Animated.Value(1)).current;
@@ -32,6 +35,12 @@ export function YourWeek() {
     setSelected(date);
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  };
+  // A new week opens on today when it holds today, otherwise on its Monday.
+  const toWeek = (next: number) => {
+    const n = Math.max(-WEEKS_BACK, Math.min(WEEKS_AHEAD, next));
+    setOffset(n);
+    pick(n === 0 ? todayIso : weekAt(n).start);
   };
 
   return (
@@ -44,13 +53,24 @@ export function YourWeek() {
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
               Your week
             </Text>
-            <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
+            <View style={styles.range}>
+              <Text style={[type.sub, styles.muted]}>{weekRange(shown.start, shown.end)}</Text>
+              {offset !== 0 && (
+                <Pressable accessibilityRole="button" onPress={() => toWeek(0)} hitSlop={12}>
+                  <Text style={[type.sub, styles.ink, styles.underline]}>This week</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-          <IconButton icon="calendar" label="Calendar" />
         </View>
 
         <View style={styles.overview}>
-          <WeekShelf days={shelfDays(selected)} onSelectDay={pick} />
+          <WeekShelf
+            days={shelfDays(selected, offset)}
+            onSelectDay={pick}
+            onSwipeWeek={(dir) => toWeek(offset + dir)}
+            canSwipe={{ back: offset > -WEEKS_BACK, ahead: offset < WEEKS_AHEAD }}
+          />
 
           <View style={styles.summary}>
             <View style={styles.remaining}>
@@ -71,7 +91,7 @@ export function YourWeek() {
         <View style={styles.upNext}>
           <View style={styles.listHead}>
             <Text accessibilityRole="header" style={[type.title, styles.ink]}>
-              {selected === todayIso ? 'Today' : 'Upcoming'}
+              {selected === todayIso ? 'Today' : selected < todayIso ? 'Earlier' : 'Upcoming'}
             </Text>
             <Text style={[type.sub, styles.muted]}>{`${dayShort(selected)} · ${dayLoadOn(selected)}/${DAY_ROOM}`}</Text>
           </View>
@@ -98,6 +118,8 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: space.margin, paddingBottom: 200 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heading: { flex: 1, gap: space[4] },
+  range: { flexDirection: 'row', alignItems: 'baseline', gap: space[12] },
+  underline: { textDecorationLine: 'underline' },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   overview: {

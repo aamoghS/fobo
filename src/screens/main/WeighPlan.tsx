@@ -6,6 +6,7 @@ import { Icon } from '@/components/Icon';
 import { PlanFields, emptyDraft, readDraft, type PlanDraft } from '@/components/PlanFields';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
+import { Segmented } from '@/components/Segmented';
 import { inviteFrom, invites, type Invite } from '@/data/invites';
 import { demoAccept, demoWeigh, demoWrite } from '@/data/demo';
 import { addPlan, isDemo, loadLive, useLiveScreen } from '@/data/live';
@@ -89,10 +90,15 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.tabs} accessibilityRole="tablist">
-          <TabButton label="Tentative plans" active={tab === 'tentative'} onPress={() => setTab('tentative')} />
-          <TabButton label="Write a plan" active={tab === 'write'} onPress={() => setTab('write')} />
-        </View>
+        <Segmented
+          style={styles.tabs}
+          options={[
+            { key: 'tentative', label: 'Tentative plans' },
+            { key: 'write', label: 'Write a plan' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         {tab === 'tentative' ? (
           <>
@@ -129,18 +135,6 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
         />
       </View>
     </View>
-  );
-}
-
-function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.tab, active && styles.tabActive]}>
-      <Text style={[type.bodyStrong, active ? styles.selInk : styles.ink]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -240,10 +234,7 @@ const styles = StyleSheet.create({
   ink: { color: color.ink },
   muted: { color: color.ink2 },
   selInk: { color: color.selInk },
-  // Segmented toggle: chips in a fill capsule, the chosen side goes black.
-  tabs: { marginTop: space[12], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
-  tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
-  tabActive: { backgroundColor: color.selBg },
+  tabs: { marginTop: space[12] },
   dayHeading: { paddingTop: space[28], paddingBottom: space[8] },
   write: { paddingTop: space[20] },
   row: {

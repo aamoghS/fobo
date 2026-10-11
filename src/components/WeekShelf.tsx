@@ -53,10 +53,14 @@ type Props = {
   labels?: boolean;
   /** Makes the days tappable; the selected pill slides over and the chosen stack hops. */
   onSelectDay?: (date: string) => void;
+  /** Makes the shelf swipeable: left for the next week (1), right for the one before (-1). */
+  onSwipeWeek?: (dir: 1 | -1) => void;
+  /** Which ways there is a week to swipe to. */
+  canSwipe?: { back: boolean; ahead: boolean };
 };
 
 /** Seven stacks on one baseline (34:907). Dotted line = a full day. Scrap height = energy. */
-export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true, onSelectDay }: Props) {
+export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, labels = true, onSelectDay, onSwipeWeek, canSwipe = { back: true, ahead: true } }: Props) {
   const selectedIndex = Math.max(0, days.findIndex((d) => d.selected));
   const [width, setWidth] = useState(0);
   // The pill glides between days rather than jumping.
@@ -66,66 +70,77 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
   }, [selectedIndex, pillX]);
   const step = days.length > 1 ? (width - STACK_W) / (days.length - 1) : 0;
 
-  // Like the tab bar, the pill can be dragged: it lifts, follows the finger along the days (each label
-  // lights as it passes), and letting go picks the day under it.
-  const lift = useRef(new Animated.Value(0)).current;
-  const shelf = useRef<View>(null);
-  const shelfLeft = useRef(0);
-  const live = useRef({ days, step, selectedIndex, onSelectDay });
-  live.current = { days, step, selectedIndex, onSelectDay };
-  /** The day (as a fractional index) under a point along the shelf. */
-  const dayAt = (fx: number) => {
-    const { days: all, step: st } = live.current;
-    return st ? Math.max(0, Math.min(all.length - 1, (fx - STACK_W / 2) / st)) : 0;
+  // Swiping the shelf turns the week: the stacks follow the finger (with give at the ends), and
+  // letting go far enough slides this week out and the next one in from the other side.
+  const slide = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useRef(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled?.()
+      .then((r) => (reduceMotion.current = r))
+      .catch(() => {});
+  }, []);
+  const live = useRef({ width, onSwipeWeek, canSwipe });
+  live.current = { width, onSwipeWeek, canSwipe };
+  const turn = (dir: 1 | -1) => {
+    const { width: w, onSwipeWeek: swipe } = live.current;
+    if (reduceMotion.current) {
+      slide.setValue(0);
+      swipe?.(dir);
+      return;
+    }
+    Animated.timing(slide, { toValue: -dir * w, duration: 160, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
+      swipe?.(dir);
+      slide.setValue(dir * w * 0.6);
+      Animated.spring(slide, { toValue: 0, friction: 9, tension: 90, useNativeDriver: false }).start();
+    });
   };
-  const drag = useRef(
+  const settle = () => Animated.spring(slide, { toValue: 0, friction: 7, tension: 120, useNativeDriver: false }).start();
+  const swipe = useRef(
     PanResponder.create({
       // Taps stay with the day columns; a sideways drag is taken from them.
-      onMoveShouldSetPanResponderCapture: (_, g) =>
-        !!live.current.onSelectDay && Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderGrant: (_, g) => {
-        shelf.current?.measureInWindow((left) => (shelfLeft.current = left));
-        Animated.spring(lift, { toValue: 1, friction: 6, tension: 160, useNativeDriver: false }).start();
-        follow(g.moveX - shelfLeft.current);
+      onMoveShouldSetPanResponderCapture: (_, g) => !!live.current.onSwipeWeek && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderGrant: () => slide.stopAnimation(),
+      onPanResponderMove: (_, g) => {
+        const { back, ahead } = live.current.canSwipe;
+        // No week that way: it gives a little and springs back.
+        const blocked = (g.dx > 0 && !back) || (g.dx < 0 && !ahead);
+        slide.setValue(blocked ? g.dx * 0.2 : g.dx);
       },
-      onPanResponderMove: (_, g) => follow(g.moveX - shelfLeft.current),
-      // Where the finger last was: the release itself doesn't always carry a position on the web.
-      onPanResponderRelease: () => land(Math.round(last.current)),
-      onPanResponderTerminate: () => land(null),
+      onPanResponderRelease: (_, g) => {
+        const { width: w, canSwipe: can } = live.current;
+        const far = Math.abs(g.dx) > w * 0.22 || Math.abs(g.vx) > 0.5;
+        if (far && g.dx < 0 && can.ahead) turn(1);
+        else if (far && g.dx > 0 && can.back) turn(-1);
+        else settle();
+      },
+      onPanResponderTerminate: settle,
       onPanResponderTerminationRequest: () => false,
     }),
   ).current;
-  const last = useRef(0);
-  function follow(fx: number) {
-    last.current = dayAt(fx);
-    pillX.stopAnimation();
-    Animated.spring(pillX, { toValue: last.current, friction: 12, tension: 400, useNativeDriver: false }).start();
-  }
-  function land(i: number | null) {
-    Animated.spring(lift, { toValue: 0, friction: 7, tension: 120, useNativeDriver: false }).start();
-    const { days: all, selectedIndex: at, onSelectDay: select } = live.current;
-    if (i !== null && i !== at && all[i]) select?.(all[i].date);
-    // Picking a new day springs the pill there (the effect above); otherwise it settles back.
-    else Animated.spring(pillX, { toValue: at, friction: 8, tension: 120, useNativeDriver: false }).start();
-  }
+  const shelf = useRef<View>(null);
 
   return (
     <View
       ref={shelf}
       style={[styles.shelf, !labels && styles.shelfBare, { marginTop: headroom }]}
-      onLayout={(e) => {
-        setWidth(e.nativeEvent.layout.width);
-        shelf.current?.measureInWindow((left) => (shelfLeft.current = left));
-      }}
-      {...(onSelectDay && labels ? drag.panHandlers : {})}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      {...(onSwipeWeek ? swipe.panHandlers : {})}
       accessibilityRole={onSelectDay ? undefined : 'image'}
-      accessibilityLabel={onSelectDay ? undefined : describe(days)}>
+      accessibilityLabel={onSelectDay ? undefined : describe(days)}
+      accessibilityActions={onSwipeWeek ? [
+        ...(canSwipe.back ? [{ name: 'back', label: 'Previous week' }] : []),
+        ...(canSwipe.ahead ? [{ name: 'ahead', label: 'Next week' }] : []),
+      ] : undefined}
+      onAccessibilityAction={(e) => onSwipeWeek?.(e.nativeEvent.actionName === 'ahead' ? 1 : -1)}>
       {labels && (
         <Svg style={styles.fullLine} width="100%" height={2}>
           <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
         </Svg>
       )}
       {limitLabel && <Text style={[type.foot, styles.limitLabel]}>{limitLabel}</Text>}
+      <Animated.View
+        pointerEvents="box-none"
+        style={[styles.week, { opacity: slide.interpolate({ inputRange: [-Math.max(1, width), 0, Math.max(1, width)], outputRange: [0, 1, 0] }), transform: [{ translateX: slide }] }]}>
       <View style={styles.stacks}>
         {days.map((day) => (
           <Stack key={day.date} day={day} incoming={incoming?.date === day.date ? incoming : undefined} separate={separate} />
@@ -141,8 +156,6 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
                 {
                   transform: [
                     { translateX: pillX.interpolate({ inputRange: [0, Math.max(1, days.length - 1)], outputRange: [0, step * Math.max(1, days.length - 1)] }) },
-                    // Lifted while dragged, like the tab bar's.
-                    { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
                   ],
                 },
               ]}
@@ -163,6 +176,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
           ))}
         </View>
       )}
+      </Animated.View>
       {/* Tap targets: a full-height column per day, over the stack and its label. */}
       {onSelectDay && (
         <View style={styles.taps}>
@@ -361,6 +375,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   shelfBare: { height: FULL + 4 },
+  week: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   fullLine: {
     position: 'absolute',
     top: 0,

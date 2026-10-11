@@ -37,7 +37,8 @@ export function People() {
   const featured = plans.filter((p) => p.with?.length && p.end > NOW).sort((a, b) => a.start.localeCompare(b.start))[0];
   // People are friend ids on Fobo plans, and names or emails on Google invites.
   const first = featured?.with?.[0];
-  const host = first ? (getPerson(first)?.name ?? first.split('@')[0]) : undefined;
+  // First names only, so the line fits on the card.
+  const host = first ? (getPerson(first)?.name ?? first.split('@')[0]).split(' ')[0] : undefined;
   const others = (featured?.with?.length ?? 1) - 1;
   const featuredWhen = featured && `${dayAndHour(featured.start)} · ${host}${others ? ` + ${others}` : ''}`;
 
@@ -72,8 +73,12 @@ export function People() {
             style={styles.card}>
             <Image source={require('@/assets/people/comal-card.png')} style={StyleSheet.absoluteFill} contentFit="cover" />
             <View style={styles.cardText}>
-              <Text style={[type.title, styles.onArt]}>{featured.title}</Text>
-              <Text style={[type.sub, styles.onArt, styles.cardWhen]}>{featuredWhen}</Text>
+              <Text style={[type.title, styles.onArt]} numberOfLines={2}>
+                {featured.title}
+              </Text>
+              <Text style={[type.sub, styles.onArt, styles.cardWhen]} numberOfLines={1}>
+                {featuredWhen}
+              </Text>
             </View>
             <View style={styles.cardChevron}>
               <Icon name="chevron" size={20} color={color.paper} />
@@ -146,7 +151,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   section: { paddingTop: space[28], paddingBottom: space[12] },
   card: { height: 196, borderRadius: radius.row, overflow: 'hidden' },
-  cardText: { position: 'absolute', left: space[16], top: 103, width: 156 },
+  // Pinned to the bottom so a two-line title grows upward instead of running off the card.
+  cardText: { position: 'absolute', left: space[16], bottom: space[16], width: 156 },
   onArt: { color: color.selInk, textShadowColor: paperShadow.color, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   cardWhen: { opacity: 0.9 },
   cardChevron: { position: 'absolute', right: space[12], top: 159 },
