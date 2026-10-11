@@ -59,7 +59,7 @@ export default function RootLayout() {
         <View style={styles.page}>
           <View style={styles.column}>
             {/* Every screen cuts in instantly; no slide. */}
-            <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: color.ground } }}>
+            <Stack screenOptions={{ headerShown: false, animation: 'none', gestureEnabled: false, fullScreenGestureEnabled: false, contentStyle: { backgroundColor: color.ground } }}>
               {/* Pre-onboarding and onboarding cut straight to the next screen, so the sun can carry across,
                   and there's no swipe back: the back buttons move between them. */}
               {INSTANT.map((name) => (
@@ -78,7 +78,7 @@ export default function RootLayout() {
 }
 
 // Drawers: see-through so the screen beneath stays, and BottomSheet animates itself.
-const DRAWER = { presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } } as const;
+const DRAWER = { presentation: 'transparentModal', animation: 'none', gestureEnabled: false, fullScreenGestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } } as const;
 
 const styles = StyleSheet.create({
   page: { flex: 1, alignItems: 'center', backgroundColor: color.ground },

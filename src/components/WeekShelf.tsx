@@ -64,7 +64,7 @@ type Props = {
   canSwipe?: { back: boolean; ahead: boolean };
   /**
    * Zooms a light week so its busiest day fills most of the shelf, rather than every block sitting at
-   * the minimum. The dotted line (a full day) is hidden while zoomed, since it would no longer mean full.
+   * the minimum. The dotted line stays at the top of the shelf.
    */
   fit?: boolean;
 };
@@ -144,7 +144,7 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
         ...(canSwipe.ahead ? [{ name: 'ahead', label: 'Next week' }] : []),
       ] : undefined}
       onAccessibilityAction={(e) => onSwipeWeek?.(e.nativeEvent.actionName === 'ahead' ? 1 : -1)}>
-      {labels && zoom === 1 && (
+      {labels && (
         <Svg style={styles.fullLine} width="100%" height={2}>
           <Line x1={1} y1={1} x2="100%" y2={1} stroke={color.ink3} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="6 5" />
         </Svg>
