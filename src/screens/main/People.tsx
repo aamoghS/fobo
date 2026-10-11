@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
 import { NavFade } from '@/components/NavFade';
+import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
-import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { useLiveScreen } from '@/data/live';
 import { getPerson, people, requests } from '@/data/people';
@@ -49,7 +49,7 @@ export function People() {
           <Text accessibilityRole="header" style={[type.display, styles.ink]}>
             People
           </Text>
-          <IconButton icon="plus" label="Add person" onPress={() => router.push('/people/add')} />
+          <Button label="Add friend" icon="plus" size="compact" style={styles.add} onPress={() => router.push('/people/add')} />
         </View>
 
         {requests.length > 0 && (
@@ -142,6 +142,8 @@ export function People() {
 }
 
 const styles = StyleSheet.create({
+  // An ink pill so the main action stands out, the height of an IconButton.
+  add: { height: 44, paddingLeft: space[12], paddingRight: space[16], gap: space[8] },
   requests: { marginTop: space[16], minHeight: 56, paddingHorizontal: space[16], gap: space[12], flexDirection: 'row', alignItems: 'center', borderRadius: radius.row, backgroundColor: color.fill },
   requestsText: { flex: 1 },
   screen: { flex: 1, backgroundColor: color.ground },

@@ -91,7 +91,9 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
     setSaving(false);
     if ('error' in result) return setError(result.error);
     await loadLive();
-    if (then === 'back') close();
+    // An edit goes back to the plan it was opened from (so its X then returns to Plans); a new plan
+    // opens in its place, unless it was added from somewhere that wants it back (onboarding).
+    if (plan || then === 'back') close();
     else router.replace({ pathname: '/plans/[id]', params: { id: result.data.id } });
   };
 

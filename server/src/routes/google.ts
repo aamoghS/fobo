@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { withService, withUser, type Db } from '../db.ts';
 import { HttpError, route } from '../http.ts';
 import { calendarConnections, calendarSync, events } from '../schema.ts';
+import { classifyUnsorted } from '../classify.ts';
 import { googleAccount, syncConnection } from '../sync.ts';
 
 const connection = {
@@ -23,7 +24,9 @@ export async function connect(db: Db, userId: string) {
     .returning({ id: calendarConnections.id });
   // A fresh link reads every calendar in full again.
   await db.delete(calendarSync).where(eq(calendarSync.connectionId, conn.id));
-  return { connectionId: conn.id, account: account.email, ...(await syncConnection(db, conn.id)) };
+  const synced = await syncConnection(db, conn.id);
+  await classifyUnsorted(db, userId);
+  return { connectionId: conn.id, account: account.email, ...synced };
 }
 
 export const googleRoutes = [
@@ -49,7 +52,9 @@ export const googleRoutes = [
         if (lastSyncedAt && Date.now() - new Date(lastSyncedAt).getTime() < 30_000) continue;
         results.push({ connectionId: id, ...(await syncConnection(db, id)) });
       }
-      return { results };
+      // New events come in without a kind; sort them so they aren't all drawn as work.
+      const sorted = await classifyUnsorted(db, claims.sub);
+      return { results, sorted };
     })),
 
   // Connected Apps & Devices in Settings.
