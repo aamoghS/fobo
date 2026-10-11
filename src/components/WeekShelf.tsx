@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, PanResponder, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
 import asleepFace from '@/assets/faces/asleep.svg';
@@ -65,10 +65,59 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
     Animated.spring(pillX, { toValue: selectedIndex, friction: 8, tension: 120, useNativeDriver: false }).start();
   }, [selectedIndex, pillX]);
   const step = days.length > 1 ? (width - STACK_W) / (days.length - 1) : 0;
+
+  // Like the tab bar, the pill can be dragged: it lifts, follows the finger along the days (each label
+  // lights as it passes), and letting go picks the day under it.
+  const lift = useRef(new Animated.Value(0)).current;
+  const shelf = useRef<View>(null);
+  const shelfLeft = useRef(0);
+  const live = useRef({ days, step, selectedIndex, onSelectDay });
+  live.current = { days, step, selectedIndex, onSelectDay };
+  /** The day (as a fractional index) under a point along the shelf. */
+  const dayAt = (fx: number) => {
+    const { days: all, step: st } = live.current;
+    return st ? Math.max(0, Math.min(all.length - 1, (fx - STACK_W / 2) / st)) : 0;
+  };
+  const drag = useRef(
+    PanResponder.create({
+      // Taps stay with the day columns; a sideways drag is taken from them.
+      onMoveShouldSetPanResponderCapture: (_, g) =>
+        !!live.current.onSelectDay && Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderGrant: (_, g) => {
+        shelf.current?.measureInWindow((left) => (shelfLeft.current = left));
+        Animated.spring(lift, { toValue: 1, friction: 6, tension: 160, useNativeDriver: false }).start();
+        follow(g.moveX - shelfLeft.current);
+      },
+      onPanResponderMove: (_, g) => follow(g.moveX - shelfLeft.current),
+      // Where the finger last was: the release itself doesn't always carry a position on the web.
+      onPanResponderRelease: () => land(Math.round(last.current)),
+      onPanResponderTerminate: () => land(null),
+      onPanResponderTerminationRequest: () => false,
+    }),
+  ).current;
+  const last = useRef(0);
+  function follow(fx: number) {
+    last.current = dayAt(fx);
+    pillX.stopAnimation();
+    Animated.spring(pillX, { toValue: last.current, friction: 12, tension: 400, useNativeDriver: false }).start();
+  }
+  function land(i: number | null) {
+    Animated.spring(lift, { toValue: 0, friction: 7, tension: 120, useNativeDriver: false }).start();
+    const { days: all, selectedIndex: at, onSelectDay: select } = live.current;
+    if (i !== null && i !== at && all[i]) select?.(all[i].date);
+    // Picking a new day springs the pill there (the effect above); otherwise it settles back.
+    else Animated.spring(pillX, { toValue: at, friction: 8, tension: 120, useNativeDriver: false }).start();
+  }
+
   return (
     <View
+      ref={shelf}
       style={[styles.shelf, !labels && styles.shelfBare, { marginTop: headroom }]}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        setWidth(e.nativeEvent.layout.width);
+        shelf.current?.measureInWindow((left) => (shelfLeft.current = left));
+      }}
+      {...(onSelectDay && labels ? drag.panHandlers : {})}
       accessibilityRole={onSelectDay ? undefined : 'image'}
       accessibilityLabel={onSelectDay ? undefined : describe(days)}>
       {labels && (
@@ -87,7 +136,16 @@ export function WeekShelf({ days, incoming, headroom = 0, limitLabel, separate, 
           {width > 0 && (
             <Animated.View
               pointerEvents="none"
-              style={[styles.selectedPill, { transform: [{ translateX: pillX.interpolate({ inputRange: [0, Math.max(1, days.length - 1)], outputRange: [0, step * Math.max(1, days.length - 1)] }) }] }]}
+              style={[
+                styles.selectedPill,
+                {
+                  transform: [
+                    { translateX: pillX.interpolate({ inputRange: [0, Math.max(1, days.length - 1)], outputRange: [0, step * Math.max(1, days.length - 1)] }) },
+                    // Lifted while dragged, like the tab bar's.
+                    { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+                  ],
+                },
+              ]}
             />
           )}
           {days.map((day, i) => (

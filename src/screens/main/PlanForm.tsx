@@ -5,48 +5,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
-import { DayPicker } from '@/components/DayPicker';
-import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
-import { MiniScrap } from '@/components/MiniScrap';
-import { Pressable } from '@/components/Pressable';
-import { SelectField } from '@/components/SelectField';
-import { Sheet } from '@/components/Sheet';
+import { PlanFields, dayLabel, parseTime, readDraft, type PlanDraft } from '@/components/PlanFields';
 import { TextField } from '@/components/TextField';
 import { loadLive, useLiveScreen } from '@/data/live';
 import { people } from '@/data/people';
 import { getPlan } from '@/data/plans';
 import { localDay } from '@/data/week';
 import { dayLoad } from '@/features/capacity/day-load';
-import type { PlanKind } from '@/features/plans/types';
 import { send } from '@/lib/api';
 import { costFromLength } from '@/lib/energy';
-import { dateTile } from '@/lib/format';
 import { plansOn } from '@/lib/week';
 import { color, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '@fobo/core/constants';
 
-const KINDS: { key: PlanKind; label: string }[] = [
-  { key: 'social', label: 'Social' },
-  { key: 'work', label: 'Work' },
-  { key: 'obligation', label: 'Obligation' },
-  { key: 'enjoy', label: 'Enjoy' },
-  { key: 'rest', label: 'Rest' },
-];
 const COSTS = Array.from({ length: DAY_ROOM + 1 }, (_, i) => i);
-
-/** "7pm", "7:30 pm" or "19:30" as "19:30"; null when it isn't a time. */
-function parseTime(text: string) {
-  const m = text.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
-  if (!m) return null;
-  let h = Number(m[1]);
-  const min = Number(m[2] ?? 0);
-  if (m[3] === 'pm' && h < 12) h += 12;
-  if (m[3] === 'am' && h === 12) h = 0;
-  if (h > 23 || min > 59) return null;
-  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-}
 
 /** "20:30" as "8:30", the app's leave-by style. */
 const clock = (hhmm: string) => {
@@ -54,15 +28,6 @@ const clock = (hhmm: string) => {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')}`;
 };
 
-
-function dayLabel(day: string, today: string) {
-  const tomorrow = new Date(`${today}T00:00`);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (day === today) return 'Today';
-  if (day === localDay(tomorrow)) return 'Tomorrow';
-  const t = dateTile(day);
-  return `${t.weekday.slice(0, 1)}${t.weekday.slice(1).toLowerCase()} ${t.day}`;
-}
 
 /**
  * Add a plan (Plans +), or edit one (`id`): Edit, Move it (`focus: 'time'`) and the leave-by Edit
@@ -76,47 +41,40 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const plan = id ? getPlan(id) : undefined;
-  const today = localDay(new Date());
 
-  const [title, setTitle] = useState(plan?.title ?? '');
-  const [kind, setKind] = useState<PlanKind>(plan?.kind ?? 'social');
-  const [day, setDay] = useState(plan?.start.slice(0, 10) ?? today);
-  const [starts, setStarts] = useState(plan?.start.slice(11, 16) ?? '');
-  const [ends, setEnds] = useState(plan?.end.slice(11, 16) ?? '');
+  const [draft, setDraft] = useState<PlanDraft>({
+    title: plan?.title ?? '',
+    day: plan?.start.slice(0, 10) ?? localDay(new Date()),
+    kind: plan?.kind ?? 'social',
+    starts: plan?.start.slice(11, 16) ?? '',
+    ends: plan?.end.slice(11, 16) ?? '',
+    notes: plan?.notes ?? '',
+  });
+  const day = draft.day;
   const [cost, setCost] = useState(plan?.energyCost ?? 3);
   const [withIds, setWithIds] = useState<string[]>(plan?.with?.filter((w) => people.some((p) => p.id === w)) ?? []);
   const [leaveBy, setLeaveBy] = useState(plan?.leaveBy ?? '');
-  const [notes, setNotes] = useState(plan?.notes ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [picking, setPicking] = useState<'day' | 'kind' | null>(null);
 
   const before = dayLoad(plansOn(day).filter((p) => p.id !== id));
   const after = before + cost;
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plans'));
 
   const save = async () => {
-    const s = parseTime(starts);
-    const e = parseTime(ends);
+    const read = readDraft(draft);
     const exit = leaveBy.trim() ? parseTime(leaveBy) : '';
-    if (!title.trim()) return setError('Give the plan a name.');
-    if (!s || !e) return setError('Add a start and end time, like 7pm or 19:00.');
+    if ('error' in read) return setError(read.error);
     if (exit === null) return setError('Add the leave-by time like 8:30pm.');
-    // An end at or before the start runs past midnight.
-    const next = new Date(`${day}T00:00`);
-    next.setDate(next.getDate() + 1);
-    const endDay = e <= s ? localDay(next) : day;
     setSaving(true);
     const result = await send<{ id: string }>(plan ? 'PATCH' : 'POST', plan ? `/plans/${plan.id}` : '/plans', {
-      title: title.trim(),
-      start: `${day}T${s}`,
-      end: `${endDay}T${e}`,
-      kind,
-      energyCost: plan ? cost : costFromLength(`${day}T${s}`, `${endDay}T${e}`),
+      ...read,
+      kind: draft.kind,
+      energyCost: plan ? cost : costFromLength(read.start, read.end),
       // Google invites keep their own guest list.
       ...(plan?.source === 'google' ? {} : { with: withIds }),
       leaveBy: exit ? clock(exit) : null,
-      notes: notes.trim() || null,
+      notes: draft.notes.trim() || null,
     });
     setSaving(false);
     if ('error' in result) return setError(result.error);
@@ -148,33 +106,12 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
           {plan ? 'Edit plan' : 'New plan'}
         </Text>
 
-        <TextField label="What" placeholder="Dinner at Comal" value={title} onChangeText={setTitle} autoFocus={!plan} />
-        {plan?.source === 'google' && <Text style={[type.foot, styles.muted]}>Changes to the name and time go to Google Calendar too.</Text>}
-
-        <View style={styles.pair}>
-          <SelectField label="Day" value={dayLabel(day, today)} onPress={() => setPicking('day')} />
-          <SelectField
-            label="Kind"
-            value={KINDS.find((k) => k.key === kind)!.label}
-            leading={<MiniScrap kind={kind} id="kind" size={20} />}
-            onPress={() => setPicking('kind')}
-          />
-        </View>
-        <View style={styles.times}>
-          <View style={styles.time}>
-            <TextField label="Starts" placeholder="7pm" value={starts} onChangeText={setStarts} autoCapitalize="none" autoFocus={focus === 'time'} />
-          </View>
-          <View style={styles.time}>
-            <TextField label="Ends" placeholder="9pm" value={ends} onChangeText={setEnds} autoCapitalize="none" />
-          </View>
-        </View>
-
-        <TextField
-          label="Additional details (optional)"
-          placeholder="Address, what to bring, anything to remember"
-          value={notes}
-          onChangeText={setNotes}
-          rows={3}
+        <PlanFields
+          draft={draft}
+          onChange={setDraft}
+          autoFocus={!plan}
+          focusTime={focus === 'time'}
+          titleNote={plan?.source === 'google' && <Text style={[type.foot, styles.muted]}>Changes to the name and time go to Google Calendar too.</Text>}
         />
 
         {/* A new plan's cost starts as a guess; it's corrected here, once it's on the week. */}
@@ -186,7 +123,7 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
               ))}
             </Section>
             <Text style={[type.sub, after > DAY_ROOM ? styles.over : styles.muted]}>
-              {`${dayLabel(day, today)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
+              {`${dayLabel(day)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
             </Text>
           </>
         )}
@@ -226,34 +163,6 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
         {plan && <Button label="Delete plan" variant="quiet" onPress={remove} disabled={saving} />}
       </View>
 
-      <Sheet visible={picking === 'day'} onClose={() => setPicking(null)} title="Pick a day">
-        <DayPicker
-          value={day}
-          onChange={(d) => {
-            setDay(d);
-            setPicking(null);
-          }}
-        />
-      </Sheet>
-      <Sheet visible={picking === 'kind'} onClose={() => setPicking(null)} title="What kind of plan?">
-        <View accessibilityRole="radiogroup">
-          {KINDS.map((k, i) => (
-            <Pressable
-              key={k.key}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: kind === k.key }}
-              onPress={() => {
-                setKind(k.key);
-                setPicking(null);
-              }}
-              style={[styles.kindRow, i > 0 && styles.rule]}>
-              <MiniScrap kind={k.key} id={k.key} size={28} />
-              <Text style={[type.bodyStrong, styles.ink, styles.grow]}>{k.label}</Text>
-              {kind === k.key && <Icon name="check" />}
-            </Pressable>
-          ))}
-        </View>
-      </Sheet>
     </KeyboardAvoidingView>
   );
 }
@@ -285,11 +194,5 @@ const styles = StyleSheet.create({
   bleed: { marginHorizontal: -space.margin },
   chips: { gap: space[8], paddingHorizontal: space.margin },
   wrap: { gap: space[8], flexDirection: 'row', flexWrap: 'wrap' },
-  times: { flexDirection: 'row', gap: space[12] },
-  pair: { flexDirection: 'row', gap: space[12] },
   pinned: { paddingHorizontal: space.margin, paddingTop: space[12], gap: space[8] },
-  kindRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space[12] },
-  rule: { borderTopWidth: 1, borderTopColor: color.rule },
-  grow: { flex: 1 },
-  time: { flex: 1 },
 });

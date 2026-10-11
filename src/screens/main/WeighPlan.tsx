@@ -3,13 +3,14 @@ import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View
 
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
+import { PlanFields, emptyDraft, readDraft, type PlanDraft } from '@/components/PlanFields';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
 import { inviteFrom, invites, type Invite } from '@/data/invites';
 import { loadLive, useLiveScreen } from '@/data/live';
 import { people } from '@/data/people';
 import type { Plan } from '@/features/plans/types';
-import { api } from '@/lib/api';
+import { api, send } from '@/lib/api';
 import { notify } from '@/lib/notify';
 import type { Candidate } from '@/lib/weigh';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
@@ -17,7 +18,6 @@ import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { WeighResult } from './WeighResult';
-import { WritePlanCard } from './WritePlanCard';
 
 type Tab = 'tentative' | 'write';
 
@@ -28,14 +28,34 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [tab, setTab] = useState<Tab>('tentative');
   // Nothing chosen until you pick one; the button waits for it.
   const [selected, setSelected] = useState<string>();
-  const [written, setWritten] = useState('');
+  // Kind starts on Guess for me: weighing works it out.
+  const [draft, setDraft] = useState<PlanDraft>(() => emptyDraft(null));
+  const [writtenId, setWrittenId] = useState<string>();
   const [weighing, setWeighing] = useState<Candidate>();
   const [busy, setBusy] = useState(false);
 
-  // Gemini weighs it (POST /weigh), and a written plan is saved as tentative. The result tries it on its day.
+  // A written plan is saved as tentative first (POST /plans), so weighing reads exactly what was filled in.
+  const written = async () => {
+    const read = readDraft(draft);
+    if ('error' in read) return notify(read.error);
+    const fields = { ...read, kind: draft.kind, notes: draft.notes.trim() || null };
+    // Weighed before (and back to change it): update that tentative plan rather than add another.
+    const made = await send<{ id: string }>(
+      writtenId ? 'PATCH' : 'POST',
+      writtenId ? `/plans/${writtenId}` : '/plans',
+      writtenId ? fields : { ...fields, status: 'proposed' },
+    );
+    if ('error' in made) return notify(made.error);
+    setWrittenId(made.data.id);
+    return made.data.id;
+  };
+
+  // Gemini weighs it (POST /weigh): its cost, and its kind if left to guess. The result tries it on its day.
   const weigh = async () => {
     setBusy(true);
-    const weighed = await api<Plan>('POST', '/weigh', tab === 'tentative' ? { planId: selected } : { text: written });
+    const planId = tab === 'tentative' ? selected : await written();
+    if (!planId) return setBusy(false);
+    const weighed = await api<Plan>('POST', '/weigh', { planId });
     if (weighed) await loadLive();
     setBusy(false);
     if (!weighed) return notify("Couldn't weigh that plan. Try again in a moment.");
@@ -82,9 +102,9 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
             ))}
           </>
         ) : (
-          <>
-            <WritePlanCard text={written} onChangeText={setWritten} />
-          </>
+          <View style={styles.write}>
+            <PlanFields draft={draft} onChange={setDraft} guessKind />
+          </View>
         )}
       </ScrollView>
 
@@ -93,7 +113,7 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
         <Button
           label={busy ? 'Weighing…' : 'Weigh this plan'}
           trailingIcon="arrow"
-          disabled={busy || (tab === 'tentative' ? !selected : !written.trim())}
+          disabled={busy || (tab === 'tentative' ? !selected : !draft.title.trim() || !draft.starts.trim() || !draft.ends.trim())}
           onPress={weigh}
         />
       </View>
@@ -214,6 +234,7 @@ const styles = StyleSheet.create({
   tab: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   tabActive: { backgroundColor: color.selBg },
   dayHeading: { paddingTop: space[28], paddingBottom: space[8] },
+  write: { paddingTop: space[20] },
   row: {
     minHeight: 84,
     paddingVertical: space[16],
