@@ -13,14 +13,14 @@ const lan = args.includes('--lan');
 const expoArgs = [...args.filter((a) => a !== '--local'), ...(lan ? [] : ['--tunnel'])];
 const children = [];
 
-// The tunnel needs an Expo login on this computer (and the same account in Expo Go on the phone).
+// The tunnel works without an Expo login (it's named <random>-anonymous-<port>); signed in, the dev server
+// also shows up in Expo Go on that account.
 if (!lan) {
   try {
     const who = execSync('npx expo whoami', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n').pop();
-    console.log(`Expo account: ${who} (sign in to Expo Go on the phone with the same account)`);
+    console.log(`Expo account: ${who} (the dev server shows up in Expo Go on the same account)`);
   } catch {
-    console.error('Not logged in to Expo. Run `npx expo login` (or `npx eas-cli login --device`), then try again.');
-    process.exit(1);
+    console.log('Not signed in to Expo, which is fine: scan the QR code below with the phone camera or Expo Go.');
   }
 }
 
