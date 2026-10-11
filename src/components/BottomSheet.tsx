@@ -1,6 +1,6 @@
 import { useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Easing, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, PanResponder, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { color, radius, shadow, space } from '@/styles/tokens';
@@ -15,18 +15,23 @@ type Props = {
 };
 
 const DURATION = 360;
+/** Dimmed space left above the sheet, below the status bar, so there's somewhere to tap out. */
+const TAP_OUT = 56;
+/** Dragged down this far (or flicked), the sheet closes; less, it springs back. */
+const DISMISS = 120;
 // The web has no native animated module; it runs the JS driver either way.
 const NATIVE = Platform.OS !== 'web';
 
 /**
  * A route presented as a drawer: slides up over the screen beneath (the route is a
- * transparentModal in the root Stack), with a dimmed backdrop that also closes it.
+ * transparentModal in the root Stack). Tapping the dimmed backdrop or dragging the sheet down closes it.
  */
 export function BottomSheet({ children, height = 0.92 }: Props) {
+  'use no memo'; // The drag handlers read refs set during render.
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const sheetH = Math.round(window.height * height);
+  const sheetH = Math.round(Math.min(window.height * height, window.height - insets.top - TAP_OUT));
   // 0 = off screen below, 1 = in place.
   const shown = useRef(new Animated.Value(0)).current;
   const closing = useRef(false);
@@ -47,14 +52,36 @@ export function BottomSheet({ children, height = 0.92 }: Props) {
 
   const translateY = shown.interpolate({ inputRange: [0, 1], outputRange: [sheetH, 0] });
 
+  // Dragging down: the sheet follows the finger (on a wrapper, since `shown` runs on the native driver).
+  const dragY = useRef(new Animated.Value(0)).current;
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  const drag = useRef(
+    PanResponder.create({
+      // Bubble phase: a ScrollView or button inside gets first say, so lists still scroll and taps still land.
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => dragY.setValue(Math.max(0, g.dy)),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > DISMISS || g.vy > 0.8) closeRef.current();
+        else Animated.spring(dragY, { toValue: 0, friction: 8, tension: 120, useNativeDriver: false }).start();
+      },
+      onPanResponderTerminate: () => Animated.spring(dragY, { toValue: 0, friction: 8, tension: 120, useNativeDriver: false }).start(),
+    }),
+  ).current;
+
   return (
     <View style={styles.root}>
       <Animated.View style={[styles.backdrop, { opacity: Animated.multiply(shown, 0.4) }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => close()} style={StyleSheet.absoluteFill} />
       </Animated.View>
-      <Animated.View style={[styles.sheet, { height: sheetH, paddingBottom: insets.bottom, transform: [{ translateY }] }]}>
-        <View style={styles.grabber} />
-        {children(close)}
+      <Animated.View style={{ transform: [{ translateY: dragY }] }} {...drag.panHandlers}>
+        <Animated.View style={[styles.sheet, { height: sheetH, paddingBottom: insets.bottom, transform: [{ translateY }] }]}>
+          {/* The grabber's strip is a bigger target for the drag than the bar itself. */}
+          <View style={styles.grab}>
+            <View style={styles.grabber} />
+          </View>
+          {children(close)}
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -70,9 +97,8 @@ const styles = StyleSheet.create({
     boxShadow: shadow.lift,
     overflow: 'hidden',
   },
+  grab: { paddingTop: space[8], paddingBottom: space[8], alignItems: 'center' },
   grabber: {
-    alignSelf: 'center',
-    marginTop: space[8],
     width: 36,
     height: 4,
     borderRadius: radius.full,

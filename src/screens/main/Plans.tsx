@@ -3,11 +3,13 @@ import { useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { NavFade } from '@/components/NavFade';
 import { PlanLine } from '@/components/PlanLine';
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
+import { Segmented } from '@/components/Segmented';
 import { useLiveScreen } from '@/data/live';
 import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
@@ -26,7 +28,11 @@ export function Plans() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [view, setView] = useState<View_>('calendar');
+  // The agenda lists each day by time, or with the plans that take the most first.
+  const [heaviest, setHeaviest] = useState(false);
   const days = daysBetween(todayIso, week.end);
+  // Earlier this week, most recent first.
+  const pastDays = daysBetween(week.start, todayIso).reverse();
   const open = (p: Plan) => router.push({ pathname: '/plans/[id]', params: { id: p.id } });
   const calendar = useCalendar(open);
 
@@ -34,8 +40,9 @@ export function Plans() {
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
-        // In calendar view the day headings (third child) stick while the hours scroll.
-        stickyHeaderIndices={view === 'calendar' ? [2] : undefined}>
+        // In calendar view the day headings (third child) stick while the hours scroll. The agenda keeps an
+        // empty view in that slot, since changing sticky children remounts the toggle and stops its slide.
+        stickyHeaderIndices={[2]}>
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
@@ -46,12 +53,42 @@ export function Plans() {
           <IconButton icon="plus" label="Add plan" onPress={() => router.push('/plans/new')} />
         </View>
 
-        <View style={styles.toggle} accessibilityRole="tablist">
-          <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
-          <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
-        </View>
+        <Segmented
+          style={styles.toggle}
+          options={[
+            { key: 'agenda', label: 'Agenda' },
+            { key: 'calendar', label: 'Calendar' },
+          ]}
+          value={view}
+          onChange={setView}
+        />
 
-        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.header}
+        {view === 'agenda' ? <View /> : calendar.header}
+        {view === 'agenda' && (
+          <View style={styles.sortRow}>
+            <Text accessibilityRole="header" style={[type.title, styles.ink]}>
+              Upcoming events
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={heaviest ? 'Sort by time' : 'Sort by energy, heaviest first'}
+              onPress={() => setHeaviest((v) => !v)}
+              hitSlop={12}
+              style={styles.sort}>
+              <Icon name="sort" size={17} color={color.ink2} />
+              <Text style={[type.label, styles.muted]}>Sort</Text>
+            </Pressable>
+          </View>
+        )}
+        {view === 'agenda' && <Agenda days={days} heaviest={heaviest} onOpen={open} />}
+        {view === 'agenda' && (
+          <>
+            <Text accessibilityRole="header" style={[type.title, styles.ink, styles.pastHead]}>
+              Past events
+            </Text>
+            <Agenda days={pastDays} heaviest={heaviest} past onOpen={open} />
+          </>
+        )}
         {view === 'calendar' && calendar.grid}
       </ScrollView>
       <NavFade color={color.ground} />
@@ -59,20 +96,23 @@ export function Plans() {
   );
 }
 
-function Segment({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={onPress} style={[styles.segment, active && styles.segmentOn]}>
-      <Text style={[type.subStrong, active ? styles.selInk : styles.ink]}>{label}</Text>
-    </Pressable>
-  );
-}
+/**
+ * Plans a section per day: "WED 7" with its load, then its plans. Upcoming lists the rest of the week
+ * (plans that haven't ended); `past` lists the ones that have, skipping days with none.
+ */
+function Agenda({ days, heaviest, past = false, onOpen }: { days: string[]; heaviest: boolean; past?: boolean; onOpen: (p: Plan) => void }) {
+  const sections = days
+    .map((date) => {
+      const byTime = plansOn(date).filter((p) => (past ? p.end <= NOW : p.end > NOW));
+      return { date, list: heaviest ? [...byTime].sort((a, b) => b.energyCost - a.energyCost) : byTime };
+    })
+    .filter((d) => !past || d.list.length > 0);
 
-/** The rest of the week, a section per day: "WED 7" with its load, then a card of plans. */
-function Agenda({ days, onOpen }: { days: string[]; onOpen: (p: Plan) => void }) {
+  if (past && sections.length === 0) return <Text style={[type.sub, styles.muted, styles.pastNone]}>Nothing earlier this week.</Text>;
+
   return (
     <>
-      {days.map((date) => {
-        const list = plansOn(date);
+      {sections.map(({ date, list }) => {
         const tile = dateTile(date);
         return (
           <View key={date}>
@@ -261,10 +301,12 @@ const styles = StyleSheet.create({
   selInk: { color: color.selInk },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heading: { gap: space[4] },
-  // Same segmented toggle as Weigh a plan.
-  toggle: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
-  segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
-  segmentOn: { backgroundColor: color.selBg },
+  toggle: { marginTop: space[20] },
+  // Laid out like Your circle and its Sort on People.
+  sortRow: { marginTop: space[28], marginBottom: -space[8], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pastHead: { marginTop: space[48], marginBottom: -space[8] },
+  pastNone: { marginTop: space[28] },
+  sort: { flexDirection: 'row', alignItems: 'center', gap: space[8] },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   // Full-bleed, with the ground behind it so the hours pass under it when it sticks.
   calHead: { marginTop: space[16], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },

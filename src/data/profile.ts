@@ -19,10 +19,13 @@ export const profile = {
   streak: { days: 0, of: STREAK_DAYS, title: '', detail: '' },
 };
 
-export type Achievement = { id: string; title: string; icon: IconName; badge: 'red' | 'pink' | 'green' | 'blue' };
+export type Achievement = { id: string; title: string; how: string; icon: IconName; badge: 'red' | 'pink' | 'green' | 'blue' };
 
 // The catalog the API awards from must use the app's icons and badges.
 ACHIEVEMENTS satisfies readonly Achievement[];
+
+/** Every achievement there is, earned or not. */
+export const allAchievements: readonly Achievement[] = ACHIEVEMENTS;
 
 /** Earned achievements. */
 export const achievements: Achievement[] = [];

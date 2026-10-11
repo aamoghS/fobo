@@ -1,14 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState, type FC } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
-import type { SvgProps } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import BoredEyes from '@/assets/profile/eyes-bored.svg';
-import HappyEyes from '@/assets/profile/eyes-happy.svg';
-import SleepyEyes from '@/assets/profile/eyes-sleepy.svg';
 import { Button } from '@/components/Button';
-import { PaperSpirit } from '@/components/PaperSpirit';
+import { EYE_ART, PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
 import { EYES, SHAPES, SWATCHES } from '@/data/profile';
 import { saveCharacter, useCharacter, type Character } from '@/features/profile/character';
@@ -16,12 +12,6 @@ import { color, radius } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
 import { CharacterArt } from './CharacterArt';
-
-const eyeArt: Record<Character['eyes'], { Art: FC<SvgProps>; w: number; h: number }> = {
-  sleepy: { Art: SleepyEyes, w: 39.1, h: 6.5 },
-  happy: { Art: HappyEyes, w: 35.1, h: 15.4 },
-  bored: { Art: BoredEyes, w: 37.1, h: 17.7 },
-};
 
 const SWATCH_NAMES: Record<(typeof SWATCHES)[number], string> = {
   moodFine: 'Green',
@@ -72,7 +62,7 @@ export function EditCharacter() {
                 onPress={() => set('shape', s.key)}
                 style={styles.shape}>
                 <View style={[styles.shapeTile, on && styles.selectedOutline]}>
-                  <PaperSpirit mood={s.art} size={61} />
+                  <PaperSpirit mood={s.art} size={61} eyes={draft.eyes} />
                 </View>
                 <Text style={[type.foot, styles.ink, styles.center]}>{s.label}</Text>
               </Pressable>
@@ -105,10 +95,18 @@ export function EditCharacter() {
         <Text accessibilityRole="header" style={[type.body, styles.ink, styles.section]}>
           Edit eyes
         </Text>
-        <View accessibilityRole="radiogroup" accessibilityLabel="Edit eyes" style={styles.eyes}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={EYE_TILE + 10}
+          decelerationRate="fast"
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Edit eyes"
+          style={styles.bleed}
+          contentContainerStyle={styles.eyes}>
           {EYES.map((e) => {
             const on = draft.eyes === e.key;
-            const { Art, w, h } = eyeArt[e.key];
+            const { Art, w, h } = EYE_ART[e.key];
             return (
               <Pressable
                 key={e.key}
@@ -117,15 +115,12 @@ export function EditCharacter() {
                 aria-checked={on}
                 accessibilityLabel={e.label}
                 onPress={() => set('eyes', e.key)}
-                style={[styles.eyeChip, on && styles.eyeChipOn]}>
-                <View style={styles.eyeArt}>
-                  <Art width={w} height={h} color={on ? color.selInk : color.creatureInk} />
-                </View>
-                <Text style={[type.body, { color: on ? color.selInk : color.ink }]}>{e.label}</Text>
+                style={[styles.eyeTile, on && styles.selectedOutline]}>
+                <Art width={w * 1.5} height={h * 1.5} color={color.creatureInk} />
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         <Text accessibilityRole="header" style={[type.body, styles.ink, styles.section]}>
           Height
@@ -171,6 +166,8 @@ function Slider({ value, onChange, label }: { value: number; onChange: (v: numbe
   );
 }
 
+const EYE_TILE = 124;
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
   ink: { color: color.ink },
@@ -196,19 +193,9 @@ const styles = StyleSheet.create({
   swatchRing: { padding: 2, borderRadius: radius.full, borderWidth: 2, borderColor: 'transparent' },
   swatchOn: { borderColor: color.selBg },
   swatch: { width: 38, height: 38, borderRadius: radius.full },
-  eyes: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 10, columnGap: 16 },
-  eyeChip: {
-    width: '46%',
-    height: 42,
-    paddingLeft: 16,
-    gap: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.full,
-    backgroundColor: color.fill,
-  },
-  eyeChipOn: { backgroundColor: color.selBg },
-  eyeArt: { width: 40, alignItems: 'center' },
+  bleed: { marginTop: 10, marginHorizontal: -17 },
+  eyes: { paddingHorizontal: 17, gap: 10 },
+  eyeTile: { width: EYE_TILE, height: 72, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: color.fill },
   slider: { marginTop: 11, height: 23, justifyContent: 'center' },
   track: { height: 4, borderRadius: radius.full, backgroundColor: color.divider },
   thumb: { position: 'absolute', width: 23, height: 23, borderRadius: radius.full, backgroundColor: color.groundDeep },

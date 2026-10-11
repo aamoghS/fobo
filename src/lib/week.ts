@@ -1,6 +1,6 @@
 import type { ShelfDay } from '@/components/WeekShelf';
 import { plans } from '@/data/plans';
-import { NOW, week } from '@/data/week';
+import { NOW, localDay, week } from '@/data/week';
 import type { Plan, PlanKind } from '@/features/plans/types';
 
 import { dayLoad } from '@/features/capacity/day-load';
@@ -16,8 +16,22 @@ export const plansOn = (day: string) =>
 /** Load on a day, out of DAY_ROOM. */
 export const dayLoadOn = (date: string) => Math.round(dayLoad(plansOn(date)));
 
-export function shelfDays(selected: string = today): ShelfDay[] {
-  return daysBetween(week.start, week.end).map((date) => {
+/** How far Your week can swipe from this week: the weeks of plans live.ts loads. */
+export const WEEKS_BACK = 4;
+export const WEEKS_AHEAD = 3;
+
+const shift = (iso: string, days: number) => {
+  const d = new Date(`${iso}T12:00`);
+  d.setDate(d.getDate() + days);
+  return localDay(d);
+};
+
+/** This week moved by `offset` weeks (-1 = last week). */
+export const weekAt = (offset: number) => ({ start: shift(week.start, offset * 7), end: shift(week.end, offset * 7) });
+
+export function shelfDays(selected: string = today, offset = 0): ShelfDay[] {
+  const { start, end } = weekAt(offset);
+  return daysBetween(start, end).map((date) => {
     const dayPlans = plansOn(date);
     const past = date < today;
     return {

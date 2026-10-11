@@ -9,7 +9,7 @@ import type { Plan } from '@/features/plans/types';
 import { api, send } from '@/lib/api';
 import { notify } from '@/lib/notify';
 import { setSession } from '@/lib/session';
-import { refreshToday } from '@/lib/week';
+import { WEEKS_AHEAD, WEEKS_BACK, refreshToday } from '@/lib/week';
 import { DEFAULT_TINT } from '@fobo/core/options';
 
 import { inviteFrom, invites } from './invites';
@@ -207,13 +207,15 @@ export async function loadLive(): Promise<boolean> {
   const now = new Date();
   const monday = mondayOf(now);
   const start = localDay(monday);
-  // Four weeks of plans, so Plans shows what is coming up.
+  // Four weeks of plans either side, so Plans shows what is coming up and Your week can swipe back.
+  const from = new Date(monday);
+  from.setDate(monday.getDate() - 7 * WEEKS_BACK);
   const until = new Date(monday);
-  until.setDate(monday.getDate() + 28);
+  until.setDate(monday.getDate() + 7 * (WEEKS_AHEAD + 1));
 
   const [w, list, circle, friends, you] = await Promise.all([
     api<ApiWeek>('GET', `/week?start=${start}`),
-    api<ApiPlan[]>('GET', `/plans?from=${start}T00:00&to=${localDay(until)}T00:00`),
+    api<ApiPlan[]>('GET', `/plans?from=${localDay(from)}T00:00&to=${localDay(until)}T00:00`),
     api<Person[]>('GET', '/people'),
     api<{ incoming: ApiFriend[]; outgoing: ApiFriend[] }>('GET', '/friends'),
     api<ApiProfile>('GET', '/profile'),
