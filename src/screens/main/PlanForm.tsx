@@ -8,7 +8,8 @@ import { Chip } from '@/components/Chip';
 import { IconButton } from '@/components/IconButton';
 import { PlanFields, dayLabel, parseTime, readDraft, type PlanDraft } from '@/components/PlanFields';
 import { TextField } from '@/components/TextField';
-import { loadLive, useLiveScreen } from '@/data/live';
+import { demoRemove, demoSave } from '@/data/demo';
+import { demoChanged, isDemo, loadLive, useLiveScreen } from '@/data/live';
 import { people } from '@/data/people';
 import { getPlan } from '@/data/plans';
 import { localDay } from '@/data/week';
@@ -67,6 +68,17 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
     if ('error' in read) return setError(read.error);
     if (exit === null) return setError('Add the leave-by time like 8:30pm.');
     setSaving(true);
+    if (isDemo()) {
+      // fobo-demo: saved on the sample week, no server.
+      const savedId = demoSave(
+        { ...read, kind: draft.kind ?? undefined, energyCost: plan ? cost : costFromLength(read.start, read.end), with: withIds, leaveBy: exit ? clock(exit) : undefined, notes: draft.notes.trim() || null },
+        plan?.id,
+      );
+      demoChanged();
+      setSaving(false);
+      if (then === 'back') return close();
+      return router.replace({ pathname: '/plans/[id]', params: { id: savedId } });
+    }
     const result = await send<{ id: string }>(plan ? 'PATCH' : 'POST', plan ? `/plans/${plan.id}` : '/plans', {
       ...read,
       kind: draft.kind,
@@ -86,6 +98,12 @@ export function PlanForm({ id, focus, then }: { id?: string; focus?: string; the
   const remove = async () => {
     if (!plan) return;
     setSaving(true);
+    if (isDemo()) {
+      demoRemove(plan.id);
+      demoChanged();
+      setSaving(false);
+      return router.replace('/plans');
+    }
     const result = await send('DELETE', `/plans/${plan.id}`);
     setSaving(false);
     if ('error' in result) return setError(result.error);

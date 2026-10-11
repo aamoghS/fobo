@@ -116,6 +116,7 @@ export function movePlan(id: string, date: string) {
 
 /** Saves a change the screen already shows; on failure says why and reloads, undoing it. */
 async function save(id: string, body: Record<string, unknown>) {
+  if (demo) return; // fobo-demo: the change already shows, and there's no server to save to.
   const result = await send('PATCH', `/plans/${id}`, body);
   if ('error' in result) {
     notify(result.error);
@@ -184,6 +185,10 @@ export function useLiveScreen() {
 // fobo-demo branch: with no account, the app runs on the sample week in src/data/demo.ts, as if
 // signed in and onboarded. Loaded once, so changes made in the demo (adding, moving) stay put.
 let demo = false;
+/** fobo-demo: true while the app runs on the sample week (no account). */
+export const isDemo = () => demo;
+/** Redraws after a demo change made outside this module. */
+export const demoChanged = () => bump();
 function startDemo() {
   if (!demo) {
     demo = true;

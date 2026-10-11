@@ -200,3 +200,74 @@ export function loadDemo() {
     { label: 'Time for yourself', value: 'A few hours a week', step: 'yourself' },
   ]);
 }
+
+// Offline stand-ins for the API writes, so the demo's actions work without a server.
+
+/** A best guess at a written plan's kind from its name ("Guess for me" on Weigh a plan). */
+function guessKind(title: string): PlanKind {
+  const t = title.toLowerCase();
+  if (/(dinner|drinks|party|brunch|lunch with|coffee|birthday|karaoke|date)/.test(t)) return 'social';
+  if (/(meeting|review|standup|sync|work|interview|call|deadline)/.test(t)) return 'work';
+  if (/(dentist|doctor|laundry|groceries|errand|move|bills|appointment)/.test(t)) return 'obligation';
+  if (/(nap|rest|sleep|nothing)/.test(t)) return 'rest';
+  return 'enjoy';
+}
+
+/** A cost out of 10 from how long it runs: about one per hour, at least one, at most six. */
+function costOf(start: string, end: string) {
+  const hours = (Date.parse(end) - Date.parse(start)) / 36e5;
+  return Math.min(6, Math.max(1, Math.round(hours * 1.2 * 2) / 2));
+}
+
+let made = 0;
+
+/** Weigh a plan, written: saved as tentative (like POST /plans with status proposed). Returns its id. */
+export function demoWrite(fields: { title: string; start: string; end: string; kind: PlanKind | null; notes: string | null }, id?: string) {
+  const kind = fields.kind ?? guessKind(fields.title);
+  const next: Plan = {
+    id: id ?? `demo-written-${++made}`,
+    title: fields.title,
+    kind,
+    start: fields.start,
+    end: fields.end,
+    energyCost: costOf(fields.start, fields.end),
+    status: 'proposed',
+    shared: kind === 'social',
+    notes: fields.notes,
+  };
+  const at = tentative.findIndex((p) => p.id === next.id);
+  if (at >= 0) tentative[at] = next;
+  else tentative.push(next);
+  return next.id;
+}
+
+/** Weighing (like POST /weigh): the tentative plan with its cost. */
+export const demoWeigh = (id: string) => tentative.find((p) => p.id === id) ?? null;
+
+/** Saying yes (like PATCH status accepted): off the tentative list and onto the week. */
+export function demoAccept(id: string) {
+  const at = tentative.findIndex((p) => p.id === id);
+  if (at < 0) return null;
+  const [taken] = tentative.splice(at, 1);
+  swap(invites, tentative.map((p) => inviteFrom(p, people)));
+  return { ...taken, status: 'accepted' as const };
+}
+
+/** Add or edit a plan (the plan form). Returns the plan's id. */
+export function demoSave(fields: Partial<Plan> & { title: string; start: string; end: string }, id?: string) {
+  const at = id ? plans.findIndex((p) => p.id === id) : -1;
+  if (at >= 0) {
+    plans[at] = { ...plans[at], ...fields } as Plan;
+    return plans[at].id;
+  }
+  const kind = fields.kind ?? guessKind(fields.title);
+  const plan: Plan = { status: 'accepted', shared: kind === 'social', energyCost: costOf(fields.start, fields.end), ...fields, kind, id: `demo-plan-${++made}` } as Plan;
+  plans.push(plan);
+  return plan.id;
+}
+
+/** Delete a plan (the plan form). */
+export function demoRemove(id: string) {
+  const at = plans.findIndex((p) => p.id === id);
+  if (at >= 0) plans.splice(at, 1);
+}

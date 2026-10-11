@@ -7,7 +7,8 @@ import { PlanFields, emptyDraft, readDraft, type PlanDraft } from '@/components/
 import { Pressable } from '@/components/Pressable';
 import { scrapColor } from '@/components/Scrap';
 import { inviteFrom, invites, type Invite } from '@/data/invites';
-import { loadLive, useLiveScreen } from '@/data/live';
+import { demoAccept, demoWeigh, demoWrite } from '@/data/demo';
+import { addPlan, isDemo, loadLive, useLiveScreen } from '@/data/live';
 import { people } from '@/data/people';
 import type { Plan } from '@/features/plans/types';
 import { api, send } from '@/lib/api';
@@ -39,6 +40,11 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
     const read = readDraft(draft);
     if ('error' in read) return notify(read.error);
     const fields = { ...read, kind: draft.kind, notes: draft.notes.trim() || null };
+    if (isDemo()) {
+      const id = demoWrite(fields, writtenId);
+      setWrittenId(id);
+      return id;
+    }
     // Weighed before (and back to change it): update that tentative plan rather than add another.
     const made = await send<{ id: string }>(
       writtenId ? 'PATCH' : 'POST',
@@ -55,8 +61,8 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setBusy(true);
     const planId = tab === 'tentative' ? selected : await written();
     if (!planId) return setBusy(false);
-    const weighed = await api<Plan>('POST', '/weigh', { planId });
-    if (weighed) await loadLive();
+    const weighed = isDemo() ? demoWeigh(planId) : await api<Plan>('POST', '/weigh', { planId });
+    if (weighed && !isDemo()) await loadLive();
     setBusy(false);
     if (!weighed) return notify("Couldn't weigh that plan. Try again in a moment.");
     setWeighing(inviteFrom(weighed, people));
@@ -65,6 +71,11 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
   if (weighing) {
     // Saying yes: the plan stops being tentative.
     const add = async () => {
+      if (isDemo()) {
+        const taken = demoAccept(weighing.id);
+        if (taken) addPlan(taken);
+        return onAdded();
+      }
       const accepted = await api('PATCH', `/plans/${weighing.id}`, { status: 'accepted' });
       if (!accepted) return notify("Couldn't add that plan. Try again in a moment.");
       await loadLive();
