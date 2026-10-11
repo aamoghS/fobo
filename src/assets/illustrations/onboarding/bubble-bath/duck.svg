@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="155" viewBox="0 0 180 155" fill="none">
+<ellipse id="Duck body" cx="93.1001" cy="110.215" rx="10.8" ry="6" fill="#FFD15A" />
+<circle id="Duck head" cx="102.7" cy="103.015" r="6" fill="#FFD15A" />
+<path id="Duck beak" d="M106.3 100.615L114.7 104.215L106.3 106.615V100.615Z" fill="#F1AD16" />
+<circle id="Duck eye" cx="103.78" cy="101.695" r="1.08" fill="#1E1B18" />
+</svg>

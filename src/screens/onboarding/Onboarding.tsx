@@ -2,13 +2,12 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, type FC, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { SvgProps } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { SvgProps } from 'react-native-svg';
 
 import AloneArt from '@/assets/illustrations/onboarding/answer-alone.svg';
 import DependsArt from '@/assets/illustrations/onboarding/answer-depends.svg';
 import PeopleArt from '@/assets/illustrations/onboarding/answer-people.svg';
-import BathArt from '@/assets/illustrations/onboarding/bubble-bath.svg';
 import NookArt from '@/assets/illustrations/onboarding/reading-nook.svg';
 import { AnswerCard } from '@/components/AnswerCard';
 import { Button } from '@/components/Button';
@@ -19,7 +18,7 @@ import { RadioGroup } from '@/components/RadioRow';
 import { loadLive } from '@/data/live';
 import { localDay, mondayOf } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
-import { answers, chooseAnswer } from '@/features/profile/onboarding';
+import { answers, chooseAnswer, finishOnboarding } from '@/features/profile/onboarding';
 import { api } from '@/lib/api';
 import { shortDateRange } from '@/lib/format';
 import { color, radius, shadow } from '@/styles/tokens';
@@ -27,11 +26,12 @@ import { type } from '@/styles/type';
 import { DAY_ROOM } from '@fobo/core/constants';
 import { ONBOARDING } from '@fobo/core/options';
 
+import { BubbleBath } from './BubbleBath';
+import { CalendarArt } from './CalendarArt';
 import { QuietTrio } from './QuietTrio';
 import { Recharging } from './Recharging';
 import { SleepyBed } from './SleepyBed';
-import { CalendarArt } from './CalendarArt';
-import { AnswerSummary, WeekPlan, BringInWeek, WeekReview, plansFound } from './WeekSetup';
+import { AnswerSummary, BringInWeek, WeekPlan, WeekReview, plansFound } from './WeekSetup';
 
 export const STEPS = ['start', 'recharge', 'head-home', 'yourself', 'profile', 'week-intro', 'calendar', 'review', 'transition', 'compare'] as const;
 export type Step = (typeof STEPS)[number];
@@ -71,7 +71,7 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
       if (answers[step]) await save({ [step]: answers[step] });
       router.back();
     } else if (i === STEPS.length - 1) {
-      await save(answers);
+      await finishOnboarding();
       router.replace('/week');
     } else router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   };
@@ -109,12 +109,12 @@ export function OnboardingStep({ step, editing = false }: { step: Step; editing?
     case 'yourself':
       return (
         <Frame step={step} onNext={next} editing={editing} ready={!!picked}>
-          <Art Svg={BathArt} width={180} />
-          <Copy title="After a big social day, when do you feel like yourself again" />
+          <Art Svg={BubbleBath} width={180} />
+          <Copy title="After a big social day, when do you feel like yourself again?" />
           <Radios
             value={picked}
             onChange={pick}
-            label="After a big social day, when do you feel like yourself again"
+            label="After a big social day, when do you feel like yourself again?"
             options={[...ONBOARDING.yourself!]}
           />
         </Frame>
@@ -195,7 +195,7 @@ function Header({ step, editing = false }: { step: Step; editing?: boolean }) {
       : SKIP_TO[step]
       ? router.push({ pathname: '/onboarding/[step]', params: { step: SKIP_TO[step]! } })
       : i === STEPS.length - 1
-      ? router.replace('/week')
+      ? void finishOnboarding().then(() => router.replace('/week'))
       : router.push({ pathname: '/onboarding/[step]', params: { step: STEPS[i + 1] } });
   return (
     <View style={styles.header}>

@@ -13,7 +13,7 @@ import { week } from '@/data/week';
 import { answers } from '@/features/profile/answers';
 import { useCharacter } from '@/features/profile/character';
 import { api } from '@/lib/api';
-import { connectOutlook } from '@/lib/outlook';
+import { signInWithGoogle } from '@/lib/google-auth';
 import { weekdayLong } from '@/lib/format';
 import { dayLoadOn, plansOn, shelfDays, todayIso } from '@/lib/week';
 import { CharacterArt } from '@/screens/you/CharacterArt';
@@ -96,24 +96,49 @@ export function WeekPlan() {
 
 type Connection = { id: string; accountEmail: string };
 
-/** Bring in your week: Google Calendar (linked at Google sign-in), Outlook, pasted notes, or plans by hand. */
+type GoogleState =
+  | { kind: 'checking' | 'connecting' | 'email' }
+  | { kind: 'linked'; email: string }
+  | { kind: 'no-access'; email: string | null };
+
+/**
+ * Bring in your week: Google Calendar (linked at Google sign-in; this says so, links it if that didn't
+ * happen, or asks for Calendar access), Outlook (in the UI only), pasted notes, or plans by hand.
+ */
 export function BringInWeek() {
   const router = useRouter();
-  // undefined while checking.
-  const [google, setGoogle] = useState<Connection | null>();
-  const [outlook, setOutlook] = useState<'idle' | 'linked' | 'unavailable'>('idle');
+  const [google, setGoogle] = useState<GoogleState>({ kind: 'checking' });
+  const [outlookTapped, setOutlookTapped] = useState(false);
 
-  useEffect(() => {
-    void api<Connection[]>('GET', '/connections').then(async (list) => {
-      const linked = list?.[0] ?? null;
-      setGoogle(linked);
+  const check = useCallback(async () => {
+    const [list, status] = await Promise.all([
+      api<Connection[]>('GET', '/connections'),
+      api<{ signedIn: boolean; email: string | null; calendar: boolean }>('GET', '/google-status'),
+    ]);
+    let linked = list?.[0] ?? null;
+    // Signed in with Google and Calendar allowed, but the link didn't happen at sign-in: make it now.
+    if (!linked && status?.calendar) {
+      setGoogle({ kind: 'connecting' });
+      const made = await api<{ account: string }>('POST', '/google-connect', {});
+      if (made) linked = { id: '', accountEmail: made.account };
+    }
+    if (linked) {
+      setGoogle({ kind: 'linked', email: linked.accountEmail });
       // Pull it fresh now, so Does this look right shows everything.
-      if (linked) {
-        await api('POST', '/google-sync', {});
-        await loadLive();
-      }
-    });
+      await api('POST', '/google-sync', {});
+      await loadLive();
+    } else if (status?.signedIn) setGoogle({ kind: 'no-access', email: status.email });
+    else setGoogle({ kind: 'email' });
   }, []);
+  useEffect(() => void check(), [check]);
+
+  // Signing in again with the same Google account asks for Calendar access; the API links it on return.
+  const allow = async () => {
+    if (await signInWithGoogle('/onboarding/calendar')) {
+      await loadLive();
+      await check();
+    }
+  };
 
   return (
     <View style={[styles.stretch, styles.options]}>
@@ -121,35 +146,26 @@ export function BringInWeek() {
         icon="google"
         title="Google Calendar"
         detail={
-          google === undefined
+          google.kind === 'checking'
             ? 'Checking for your calendar'
-            : google
-            ? `Connected as ${google.accountEmail}. New, moved and cancelled plans update on their own.`
+            : google.kind === 'connecting'
+            ? 'Connecting your calendar'
+            : google.kind === 'linked'
+            ? `Already connected as ${google.email}. New, moved and cancelled plans update on their own.`
+            : google.kind === 'no-access'
+            ? `Signed in${google.email ? ` as ${google.email}` : ''}, but Calendar wasn’t allowed. Tap to allow it.`
             : 'Sign in with Google to connect it. New, moved and cancelled plans then update on their own.'
         }
-        done={!!google}
+        done={google.kind === 'linked'}
+        onPress={google.kind === 'no-access' ? allow : undefined}
       />
+      {/* Shown for the demo; Outlook doesn't connect. */}
       <Option
         image={require('@/assets/icons/outlook.png')}
         title="Outlook"
-        detail={
-          outlook === 'linked'
-            ? 'Connected. New, moved and cancelled plans update on their own.'
-            : outlook === 'unavailable'
-            ? 'Outlook can’t connect yet. Try pasting your schedule instead.'
-            : 'Stays in sync on its own, like Google Calendar.'
-        }
-        done={outlook === 'linked'}
+        detail={outlookTapped ? 'Outlook isn’t available yet. Try pasting your schedule instead.' : 'Stays in sync on its own, like Google Calendar.'}
         first={false}
-        onPress={
-          outlook === 'linked'
-            ? undefined
-            : async () => {
-                const linked = await connectOutlook();
-                setOutlook(linked ? 'linked' : 'unavailable');
-                if (linked) await loadLive();
-              }
-        }
+        onPress={() => setOutlookTapped(true)}
       />
       <Option
         icon="paste"

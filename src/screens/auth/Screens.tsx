@@ -19,7 +19,7 @@ import SunshinePetalsArt from '@/assets/illustrations/sunshine-petals.svg';
 import { Button } from '@/components/Button';
 import { Pressable } from '@/components/Pressable';
 import { TextField } from '@/components/TextField';
-import { isSignedIn, loadLive } from '@/data/live';
+import { homeAfterSignIn, isSignedIn, loadLive } from '@/data/live';
 import { logInWithEmail, signUpWithEmail } from '@/lib/email-auth';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { notify } from '@/lib/notify';
@@ -37,14 +37,17 @@ import { handOffWelcomeSun, useFadeIn, WelcomeArt } from './WelcomeArt';
 // Google and email sign-in both go through the Fobo API (src/lib/google-auth.ts, src/lib/email-auth.ts).
 const ONBOARDING = '/onboarding/start' as const;
 
-/** Signs in with Google, then continues to `next` (the web build gets there through Google's redirect). */
+/**
+ * Signs in with Google, then goes to the week, or to onboarding for an account that hasn't been through
+ * it yet (a new Google account on Log in too). The web build gets there through /auth.
+ */
 function useGoogle(next: typeof ONBOARDING | '/week') {
   const router = useRouter();
   return async () => {
     try {
       if (await signInWithGoogle(next)) {
         await loadLive();
-        router.replace(next);
+        router.replace(homeAfterSignIn());
       }
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Google sign-in failed. Try again.');
@@ -86,7 +89,7 @@ export function Splash() {
           });
           leaving.start(({ finished }) => {
             if (!finished) return;
-            if (isSignedIn()) return router.replace('/week');
+            if (isSignedIn()) return router.replace(homeAfterSignIn());
             // Pre-login's sun picks up from here, mid-turn.
             spin.stopAnimation((v) => {
               const sun = sunshine.current;
@@ -246,7 +249,7 @@ export function Login() {
                 const result = await logInWithEmail(email, password);
                 if (!result.ok) return notify(result.error);
                 await loadLive();
-                router.replace('/week');
+                router.replace(homeAfterSignIn());
               })
             }
           />

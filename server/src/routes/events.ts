@@ -31,13 +31,14 @@ export const planColumns = {
   costNote: events.costNote,
   exitNote: events.exitNote,
   reminder: events.reminder,
+  notes: events.notes,
 };
 
 // App field -> column.
 const FIELDS = {
   title: 'title', kind: 'category', energyCost: 'cost', status: 'status', visibility: 'visibility',
   leaveBy: 'leaveBy', with: 'withPeople', protected: 'protected', costNote: 'costNote', exitNote: 'exitNote',
-  reminder: 'reminder',
+  reminder: 'reminder', notes: 'notes',
 } as const;
 // Title and time belong to Google Calendar: changing them writes there first (writeToGoogle).
 const GOOGLE_LOCKED = new Set(['title', 'start', 'end']);
@@ -146,6 +147,7 @@ export const eventRoutes = [
         costNote: (body.costNote as string) ?? null,
         exitNote: (body.exitNote as string) ?? null,
         reminder: (body.reminder as string) ?? null,
+        notes: (body.notes as string) ?? null,
       }).returning({ id: events.id });
       return planDetail(db, row.id);
     });

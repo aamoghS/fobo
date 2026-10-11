@@ -46,8 +46,10 @@ export function Sheet({ visible, onClose, title, children }: Props) {
     };
   }, [visible, shown]);
 
+  // Gone entirely once closed: a hidden Modal on the web still holds focus and eats the next tap.
+  if (!mounted) return null;
   return (
-    <Modal transparent visible={mounted} animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, { opacity: Animated.multiply(shown, 0.4) }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={StyleSheet.absoluteFill} />
