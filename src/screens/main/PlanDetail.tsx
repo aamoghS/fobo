@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Icon, type IconName } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
+import { MiniScrap } from '@/components/MiniScrap';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
-import { loadLive, useLiveScreen } from '@/data/live';
+import { useLiveScreen } from '@/data/live';
 import { getPlan, planDetails } from '@/data/plans';
 import { send } from '@/lib/api';
 import { eventDateLine } from '@/lib/format';
@@ -19,24 +20,15 @@ import { DAY_ROOM } from '../../../packages/core/src';
 
 /** Event detail (368:9064). */
 export function PlanDetail({ id }: { id: string }) {
+  'use no memo'; // Reads the in-memory data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const plan = getPlan(id);
   const detail = planDetails[id] ?? {};
-  const [planning, setPlanning] = useState(false);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plans'));
-  const edit = (focus?: 'time' | 'exit') => router.push({ pathname: '/plans/new', params: { id, ...(focus ? { focus } : {}) } });
-
-  // Gemini picks a leave-by time for this plan (POST /weigh with exit); it shows here once saved.
-  const planExit = async () => {
-    setPlanning(true);
-    const result = await send('POST', '/weigh', { planId: id, exit: true });
-    if (!('error' in result)) await loadLive();
-    setPlanning(false);
-    if ('error' in result) notify(result.error);
-  };
+  const edit = () => router.push({ pathname: '/plans/new', params: { id } });
 
   // A link to a page with the plan's name and time, through the share sheet.
   const invite = async () => {
@@ -72,8 +64,8 @@ export function PlanDetail({ id }: { id: string }) {
         </View>
 
         <View style={styles.header}>
-          {/* Figma only has a header character for work (Kind6). Other kinds need art. */}
-          {plan.kind === 'work' && <PaperSpirit mood="work" />}
+          {/* Figma draws a header character for work (Kind6); other kinds wear their own scrap. */}
+          {plan.kind === 'work' ? <PaperSpirit mood="work" /> : <View style={styles.spirit}><MiniScrap kind={plan.kind} id={plan.id} size={60} /></View>}
           <View style={styles.headerText}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
               {plan.title}
@@ -89,7 +81,7 @@ export function PlanDetail({ id }: { id: string }) {
               icon="scissors"
               title={`Leave by ${detail.exit.leaveBy}`}
               detail={detail.exit.note}
-              trailing={<Button label="Edit" variant="quiet" size="small" onPress={() => edit('exit')} />}
+              trailing={<Button label="Edit" variant="quiet" size="small" onPress={() => router.push({ pathname: '/exit/[id]', params: { id: plan.id } })} />}
             />
           )}
           {plan.notes && <Row icon="file" title="Details" detail={plan.notes} />}
@@ -100,14 +92,8 @@ export function PlanDetail({ id }: { id: string }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        <Button label="Move it" variant="quiet" style={styles.footerButton} onPress={() => edit('time')} />
-        <Button
-          label={planning ? 'Planning…' : 'Plan my exit'}
-          variant="ink"
-          style={styles.footerButton}
-          disabled={planning}
-          onPress={planExit}
-        />
+        <Button label="Move it" variant="quiet" style={styles.footerButton} onPress={() => router.push({ pathname: '/move/[id]', params: { id: plan.id } })} />
+        <Button label="Plan my exit" variant="ink" style={styles.footerButton} onPress={() => router.push({ pathname: '/exit/[id]', params: { id: plan.id } })} />
       </View>
     </View>
   );
@@ -164,6 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerText: { flex: 1 },
+  spirit: { width: 72, alignItems: 'center' },
   when: { paddingTop: space[4] },
   rows: { paddingTop: space[8], paddingHorizontal: space.margin },
   row: { paddingVertical: space[16], gap: space[16], flexDirection: 'row', alignItems: 'flex-start' },

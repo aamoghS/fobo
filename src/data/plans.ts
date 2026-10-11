@@ -11,6 +11,8 @@ export const planDetails: Record<string, PlanDetail> = {};
 
 export type PlanDetail = {
   costNote?: string;
+  /** The cost of staying the whole time, kept once an exit lowers the plan's cost. */
+  fullCost?: number;
   exit?: { leaveBy: string; note?: string };
   reminder?: string;
   people?: { names: string; insight?: string };

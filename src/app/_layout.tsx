@@ -65,7 +65,9 @@ export default function RootLayout() {
                 <Stack.Screen key={name} name={name} options={{ animation: 'none', gestureEnabled: false }} />
               ))}
               {/* Weigh a plan is a drawer: see-through so the tab beneath stays, and it animates itself. */}
-              <Stack.Screen name="weigh" options={{ presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }} />
+              <Stack.Screen name="weigh" options={DRAWER} />
+              <Stack.Screen name="move/[id]" options={DRAWER} />
+              <Stack.Screen name="exit/[id]" options={DRAWER} />
             </Stack>
           </View>
         </View>
@@ -73,6 +75,9 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+// Drawers: see-through so the screen beneath stays, and BottomSheet animates itself.
+const DRAWER = { presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } } as const;
 
 const styles = StyleSheet.create({
   page: { flex: 1, alignItems: 'center', backgroundColor: color.ground },

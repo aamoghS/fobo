@@ -17,6 +17,7 @@ import { type } from '@/styles/type';
 
 /** Your week (439:2323). */
 export function YourWeek() {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -75,7 +76,7 @@ export function YourWeek() {
         {dayPlans.length === 0 ? (
           <Text style={[type.sub, styles.muted, styles.empty]}>Nothing planned</Text>
         ) : (
-          <Animated.View style={[styles.list, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
+          <Animated.View style={[{ opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
             {dayPlans.map((p, i) => (
               <PlanLine key={p.id} plan={p} first={i === 0} onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })} />
             ))}
@@ -117,5 +118,4 @@ const styles = StyleSheet.create({
   upNext: { paddingTop: space[28], gap: space[12] },
   listHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   empty: { paddingTop: space[4] },
-  list: { borderRadius: radius.row, backgroundColor: color.paper, boxShadow: shadow.soft, overflow: 'hidden' },
 });

@@ -6,7 +6,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { DEFAULT_CHARACTER, saveCharacter, type Character } from '@/features/profile/character';
 import { answers } from '@/features/profile/answers';
 import type { Plan } from '@/features/plans/types';
-import { api } from '@/lib/api';
+import { api, send } from '@/lib/api';
+import { notify } from '@/lib/notify';
 import { setSession } from '@/lib/session';
 import { refreshToday } from '@/lib/week';
 import { DEFAULT_TINT } from '@fobo/core/options';
@@ -41,7 +42,9 @@ const pending = (f: ApiFriend): Person => ({
 const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 let timezoneSent = false;
 
-// Screens that show profile data call useLive() so they redraw after each load.
+// Screens that show profile data call useLive() so they redraw after each load. The data lives in
+// module-level arrays that change in place, so those screens opt out of React Compiler's
+// memoisation ('use no memo'); otherwise the compiler keeps their first reads.
 let version = 0;
 const listeners = new Set<() => void>();
 export function useLive() {
@@ -96,6 +99,47 @@ export function addPlan(plan: Plan, replaces?: string) {
   if (at >= 0) plans.splice(at, 1);
   plans.push(plan);
   bump();
+}
+
+/** Move it: same times, another day ("2026-10-11"). Shows at once, then saves; a failed save puts it back. */
+export function movePlan(id: string, date: string) {
+  const plan = plans.find((p) => p.id === id);
+  if (!plan) return;
+  // A plan that runs past midnight still ends the day after.
+  const end = new Date(`${date}T00:00`);
+  end.setDate(end.getDate() + Math.round((Date.parse(plan.end.slice(0, 10)) - Date.parse(plan.start.slice(0, 10))) / 864e5));
+  const moved = { start: `${date}${plan.start.slice(10)}`, end: `${localDay(end)}${plan.end.slice(10)}` };
+  updatePlan(id, (p) => ({ ...p, ...moved }));
+  void save(id, moved);
+}
+
+/** Saves a change the screen already shows; on failure says why and reloads, undoing it. */
+async function save(id: string, body: Record<string, unknown>) {
+  const result = await send('PATCH', `/plans/${id}`, body);
+  if ('error' in result) {
+    notify(result.error);
+    await loadLive().catch(() => false);
+  }
+}
+
+// Plans are replaced, never edited in place: screens are memoised by object identity (React Compiler).
+function updatePlan(id: string, change: (p: Plan) => Plan) {
+  const at = plans.findIndex((p) => p.id === id);
+  if (at < 0) return;
+  plans[at] = change(plans[at]);
+  bump();
+}
+
+/**
+ * Plan my exit: the plan keeps its times (as on the Event screen, "7–11 AM · Leave by 10:30"),
+ * carries the leave-by, and costs what the shorter stay costs. Shows at once, then saves. The full
+ * cost lives in memory only, so after a reload a new exit is weighed from the lowered cost.
+ */
+export function setExit(id: string, energyCost: number, label: string, note: string) {
+  const fullCost = planDetails[id]?.fullCost ?? plans.find((p) => p.id === id)?.energyCost;
+  planDetails[id] = { ...planDetails[id], fullCost, exit: { leaveBy: label, note } };
+  updatePlan(id, (p) => ({ ...p, energyCost, leaveBy: label }));
+  void save(id, { energyCost, leaveBy: label, exitNote: note });
 }
 
 export function signOut() {
