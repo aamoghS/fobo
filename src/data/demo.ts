@@ -268,3 +268,17 @@ export function demoRemove(id: string) {
   const at = plans.findIndex((p) => p.id === id);
   if (at >= 0) plans.splice(at, 1);
 }
+
+/** Last week (onboarding's "which cost you more?" pairs come from it): eight plans, costliest first in pairs. */
+export function demoLastWeek(): Plan[] {
+  return [
+    plan('last-offsite', 'Team offsite', 'work', -7, '09:00', '17:00', 6),
+    plan('last-birthday', 'Mara’s birthday party', 'social', -2, '20:00', '23:30', 5.5),
+    plan('last-deadline', 'Launch deadline', 'work', -4, '10:00', '18:00', 5),
+    plan('last-moving', 'Moving the couch', 'obligation', -1, '10:00', '13:00', 4.5),
+    plan('last-dinner', 'Dinner with Dani', 'social', -5, '19:00', '21:30', 4),
+    plan('last-doctor', 'Doctor’s appointment', 'obligation', -6, '15:00', '16:30', 3.5),
+    plan('last-drinks', 'Drinks after work', 'social', -3, '18:00', '20:00', 3),
+    plan('last-run', 'Morning run', 'enjoy', -3, '07:00', '08:00', 2.5),
+  ];
+}

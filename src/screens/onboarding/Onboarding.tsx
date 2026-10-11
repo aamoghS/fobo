@@ -15,7 +15,8 @@ import { Icon, type IconName } from '@/components/Icon';
 import { Pressable } from '@/components/Pressable';
 import { Progress } from '@/components/Progress';
 import { RadioGroup } from '@/components/RadioRow';
-import { loadLive } from '@/data/live';
+import { demoLastWeek } from '@/data/demo';
+import { isDemo, loadLive } from '@/data/live';
 import { localDay, mondayOf } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { answers, chooseAnswer, finishOnboarding } from '@/features/profile/onboarding';
@@ -353,7 +354,9 @@ function Compare({ onDone }: { onDone: () => void }) {
     const monday = mondayOf();
     const last = new Date(monday);
     last.setDate(monday.getDate() - 7);
-    void api<Plan[]>('GET', `/plans?from=${localDay(last)}T00:00&to=${localDay(monday)}T00:00`).then((list) => {
+    // fobo-demo: no server, so last week comes from the sample data.
+    const lastWeek = isDemo() ? Promise.resolve(demoLastWeek()) : api<Plan[]>('GET', `/plans?from=${localDay(last)}T00:00&to=${localDay(monday)}T00:00`);
+    void lastWeek.then((list) => {
       const found = pairsFrom(list ?? []);
       // Nothing to compare yet (a new calendar): this step has nothing to ask.
       if (!found.length) onDone();
@@ -368,7 +371,7 @@ function Compare({ onDone }: { onDone: () => void }) {
       chooseAnswer('compare', more.id);
       // It took more than the other, so it weighs more from now on.
       if (more.energyCost <= less.energyCost) {
-        void api('PATCH', `/plans/${more.id}`, { energyCost: Math.min(DAY_ROOM, less.energyCost + 0.5) });
+        if (!isDemo()) void api('PATCH', `/plans/${more.id}`, { energyCost: Math.min(DAY_ROOM, less.energyCost + 0.5) });
       }
     } else chooseAnswer('compare', String(choice));
     if (pairs && n + 1 < pairs.length) setN(n + 1);
