@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
@@ -34,7 +34,8 @@ export function Plans() {
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
-        stickyHeaderIndices={[1]}>
+        // In calendar view the day headings (third child) stick while the hours scroll.
+        stickyHeaderIndices={view === 'calendar' ? [2] : undefined}>
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
@@ -45,16 +46,13 @@ export function Plans() {
           <IconButton icon="plus" label="Weigh a plan" onPress={() => router.push('/weigh')} />
         </View>
 
-        {/* Sticks to the top in both views; in calendar view the day headings stick with it. */}
-        <View style={styles.sticky}>
-          <View style={styles.toggle} accessibilityRole="tablist">
-            <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
-            <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
-          </View>
-          {view === 'calendar' && calendar.header}
+        <View style={styles.toggle} accessibilityRole="tablist">
+          <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
+          <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
         </View>
 
-        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.grid}
+        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.header}
+        {view === 'calendar' && calendar.grid}
       </ScrollView>
       <NavFade color={color.ground} />
     </View>
@@ -142,19 +140,36 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const gridH = hours.length * HOUR_H;
   const nowY = ((minutes(NOW) - first * 60) / 60) * HOUR_H;
 
-  // Open on today, both rows together.
-  useEffect(() => {
+  // Open on today's page, both rows together, once the columns have been laid out.
+  const opened = useRef(false);
+  const openOnToday = () => {
+    if (opened.current) return;
+    opened.current = true;
     const x = startAt * colW;
-    requestAnimationFrame(() => {
-      body.current?.scrollTo({ x, animated: false });
-      head.current?.scrollTo({ x, animated: false });
-    });
-  }, [startAt, colW]);
+    page.current = startAt / PAGE;
+    body.current?.scrollTo({ x, animated: false });
+    head.current?.scrollTo({ x, animated: false });
+  };
+
+  // Web paging: when a swipe settles, click into the next page of three (or back), or return if
+  // the swipe was only a nudge. Native gets the same from snapToInterval + disableIntervalMomentum.
+  const page = useRef(startAt / PAGE);
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastPage = Math.ceil(days.length / PAGE) - 1;
+  const onWebScroll = (x: number) => {
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      const moved = x - page.current * pageW;
+      const step = moved > pageW * 0.15 ? Math.max(1, Math.round(moved / pageW)) : moved < -pageW * 0.15 ? Math.min(-1, Math.round(moved / pageW)) : 0;
+      page.current = Math.min(lastPage, Math.max(0, page.current + step));
+      body.current?.scrollTo({ x: page.current * pageW, animated: true });
+    }, 90);
+  };
 
   const snap = {
     horizontal: true,
     showsHorizontalScrollIndicator: false,
-    // Three days at a time.
+    // Three days at a time, one page per swipe.
     snapToInterval: pageW,
     decelerationRate: 'fast' as const,
     disableIntervalMomentum: true,
@@ -163,7 +178,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const header = (
     <View style={styles.calHead}>
       <View style={styles.gutter} />
-      <ScrollView ref={head} {...snap} scrollEnabled={false} style={styles.strip}>
+      <ScrollView ref={head} {...snap} scrollEnabled={false} style={{ width: pageW }}>
         {days.map((date) => {
           const tile = dateTile(date);
           const isToday = date === todayIso;
@@ -192,11 +207,17 @@ function useCalendar(onOpen: (p: Plan) => void) {
       <ScrollView
         ref={body}
         {...snap}
-        style={styles.columns}
+        style={[styles.columns, { width: pageW }]}
+        onLayout={openOnToday}
+        onContentSizeChange={openOnToday}
         scrollEventThrottle={16}
-        onScroll={(e) => head.current?.scrollTo({ x: e.nativeEvent.contentOffset.x, animated: false })}>
+        onScroll={(e) => {
+          const x = e.nativeEvent.contentOffset.x;
+          head.current?.scrollTo({ x, animated: false });
+          if (Platform.OS === 'web' && opened.current) onWebScroll(x);
+        }}>
         {days.map((date) => (
-          <View key={date} style={[styles.calCol, days.indexOf(date) % PAGE === 0 && styles.snap, { width: colW, height: gridH }]}>
+          <View key={date} style={[styles.calCol, { width: colW, height: gridH }]}>
             {plansOn(date).map((p) => {
               const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
               const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
@@ -241,26 +262,22 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heading: { gap: space[4] },
   // Same segmented toggle as Weigh a plan.
-  sticky: { paddingTop: space[12], paddingBottom: space[4], backgroundColor: color.ground },
-  toggle: { padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  toggle: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   // Full-bleed, with the ground behind it so the hours pass under it when it sticks.
-  calHead: { marginTop: space[12], marginBottom: -space[4], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },
-  strip: { flex: 1 },
+  calHead: { marginTop: space[16], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },
   calDay: { alignItems: 'center', gap: 2 },
   dateDot: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   dateDotOn: { backgroundColor: color.selBg },
-  // Web: snap to the first day of each page of three (native uses snapToInterval).
-  snap: { scrollSnapAlign: 'start' } as object,
   calBody: { marginTop: space[12], marginHorizontal: -space.margin },
   gutter: { width: GUTTER },
   hourRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
   // Figma sets these at 11; the ramp's smallest is 13, too wide for the gutter.
   hour: { width: GUTTER, paddingRight: space[8], textAlign: 'right', fontFamily: 'DMSans_500Medium', fontSize: 11, lineHeight: 14, marginTop: -14 },
   hourLine: { flex: 1, height: 1, backgroundColor: color.rule },
-  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER, right: 0, scrollSnapType: 'x mandatory' } as object,
+  columns: { position: 'absolute', top: 0, bottom: 0, left: GUTTER },
   calCol: { borderLeftWidth: 1, borderLeftColor: color.rule },
   event: { position: 'absolute', left: 3, right: 3, paddingHorizontal: space[8], paddingVertical: 6, gap: 2, borderRadius: radius.sm, overflow: 'hidden' },
   // Half-hour blocks: just the title, centred, so it isn't clipped.
