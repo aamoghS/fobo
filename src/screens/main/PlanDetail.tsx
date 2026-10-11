@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,7 +9,8 @@ import { IconButton } from '@/components/IconButton';
 import { MiniScrap } from '@/components/MiniScrap';
 import { PaperSpirit } from '@/components/PaperSpirit';
 import { Pressable } from '@/components/Pressable';
-import { useLiveScreen } from '@/data/live';
+import { Sheet } from '@/components/Sheet';
+import { loadLive, useLiveScreen } from '@/data/live';
 import { getPlan, planDetails } from '@/data/plans';
 import { send } from '@/lib/api';
 import { eventDateLine } from '@/lib/format';
@@ -26,6 +27,9 @@ export function PlanDetail({ id }: { id: string }) {
   const insets = useSafeAreaInsets();
   const plan = getPlan(id);
   const detail = planDetails[id] ?? {};
+  // The More sheet: open, or deleting the plan.
+  const [more, setMore] = useState<'open' | 'deleting' | null>(null);
+  const [error, setError] = useState('');
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plans'));
   const edit = () => router.push({ pathname: '/plans/new', params: { id } });
@@ -40,6 +44,19 @@ export function PlanDetail({ id }: { id: string }) {
     } catch {
       notify(result.data.url);
     }
+  };
+
+  // Same as Delete plan on the edit form: a Google plan is declined, Fobo's own is removed.
+  const remove = async () => {
+    setMore('deleting');
+    const result = await send('DELETE', `/plans/${id}`);
+    if ('error' in result) {
+      setMore('open');
+      return setError(result.error);
+    }
+    await loadLive().catch(() => false);
+    setMore(null);
+    close();
   };
 
   if (!plan) {
@@ -59,7 +76,14 @@ export function PlanDetail({ id }: { id: string }) {
           <IconButton icon="close" label="Close" onPress={close} />
           <View style={styles.actions}>
             <IconButton icon="pencil" label="Edit plan" onPress={() => edit()} />
-            <IconButton icon="more" label="More" />
+            <IconButton
+              icon="more"
+              label="More"
+              onPress={() => {
+                setError('');
+                setMore('open');
+              }}
+            />
           </View>
         </View>
 
@@ -95,6 +119,13 @@ export function PlanDetail({ id }: { id: string }) {
         <Button label="Move it" variant="quiet" style={styles.footerButton} onPress={() => router.push({ pathname: '/move/[id]', params: { id: plan.id } })} />
         <Button label="Plan my exit" variant="ink" style={styles.footerButton} onPress={() => router.push({ pathname: '/exit/[id]', params: { id: plan.id } })} />
       </View>
+
+      <Sheet visible={!!more} onClose={() => more !== 'deleting' && setMore(null)} title={plan.title}>
+        <View style={styles.sheet}>
+          {error ? <Text style={[type.sub, styles.error]}>{error}</Text> : null}
+          <Button label={more === 'deleting' ? 'Deleting' : 'Delete plan'} disabled={more === 'deleting'} onPress={remove} />
+        </View>
+      </Sheet>
     </View>
   );
 }
@@ -160,4 +191,6 @@ const styles = StyleSheet.create({
   rowDetail: { paddingTop: space[4] },
   footer: { paddingTop: space[12], paddingHorizontal: space.margin, gap: space[12], flexDirection: 'row' },
   footerButton: { flex: 1 },
+  sheet: { gap: space[20] },
+  error: { color: color.error },
 });

@@ -18,7 +18,8 @@ import { planDetails, plans, tentative, type PlanDetail } from './plans';
 import { achievements, capacity, profile, widget, type Achievement } from './profile';
 import { NO_NEXT, localDay, localNow, resetWeek, setNow, week, weekStartOf } from './week';
 
-type ApiPlan = Plan & { detail?: PlanDetail };
+// GET /plans sends the Event screen's details as flat fields (server/src/routes/events.ts planColumns).
+type ApiPlan = Plan & { costNote: string | null; exitNote: string | null; reminder: string | null; fullCost: number | null };
 type ApiWeek = { start: string; end: string; personalHours: number; upNext: typeof week.upNext | null };
 type ApiProfile = {
   profile: { name: string; title: string | null; email: string | null; streak: typeof profile.streak };
@@ -130,16 +131,28 @@ function updatePlan(id: string, change: (p: Plan) => Plan) {
   bump();
 }
 
+/** The Event screen's rows from a plan's flat detail fields, in PlanDetail's shape. */
+function detailOf(p: ApiPlan): PlanDetail {
+  return {
+    ...(p.costNote ? { costNote: p.costNote } : {}),
+    ...(p.fullCost != null ? { fullCost: p.fullCost } : {}),
+    ...(p.leaveBy ? { exit: { leaveBy: p.leaveBy, ...(p.exitNote ? { note: p.exitNote } : {}) } } : {}),
+    ...(p.reminder ? { reminder: p.reminder } : {}),
+  };
+}
+
 /**
  * Plan my exit: the plan keeps its times (as on the Event screen, "7–11 AM · Leave by 10:30"),
- * carries the leave-by, and costs what the shorter stay costs. Shows at once, then saves. The full
- * cost lives in memory only, so after a reload a new exit is weighed from the lowered cost.
+ * carries the leave-by and the nudge, and costs what the shorter stay costs. Shows at once, then saves.
  */
-export function setExit(id: string, energyCost: number, label: string, note: string) {
-  const fullCost = planDetails[id]?.fullCost ?? plans.find((p) => p.id === id)?.energyCost;
-  planDetails[id] = { ...planDetails[id], fullCost, exit: { leaveBy: label, note } };
+export function setExit(id: string, energyCost: number, label: string, note: string, reminder: string) {
+  const kept = planDetails[id]?.fullCost;
+  const fullCost = kept ?? plans.find((p) => p.id === id)?.energyCost;
+  planDetails[id] = { ...planDetails[id], fullCost, exit: { leaveBy: label, note }, reminder };
   updatePlan(id, (p) => ({ ...p, energyCost, leaveBy: label }));
-  void save(id, { energyCost, leaveBy: label, exitNote: note });
+  // The full cost is saved once, before the first exit lowers the cost: later exits are weighed from it.
+  const first = kept === undefined && fullCost !== undefined ? { fullCost } : {};
+  void save(id, { energyCost, leaveBy: label, exitNote: note, reminder, ...first });
 }
 
 export function signOut() {
@@ -238,7 +251,10 @@ export async function loadLive(): Promise<boolean> {
     replace(tentative, waiting);
     replace(invites, waiting.map((p) => inviteFrom(p, people)));
     for (const key of Object.keys(planDetails)) delete planDetails[key];
-    for (const p of [...shown, ...waiting]) if (p.detail && Object.keys(p.detail).length) planDetails[p.id] = p.detail;
+    for (const p of [...shown, ...waiting]) {
+      const detail = detailOf(p);
+      if (Object.keys(detail).length) planDetails[p.id] = detail;
+    }
   }
   if (you) {
     Object.assign(profile, {

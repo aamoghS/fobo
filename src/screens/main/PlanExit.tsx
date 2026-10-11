@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
@@ -13,6 +13,8 @@ import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
 const REMINDERS = [10, 15, 30];
+/** "15 min before": the chip, and the reminder row on the event screen. */
+const nudge = (m: number) => `${m} min before`;
 const pad = (n: number) => String(n).padStart(2, '0');
 const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 /** "8:30" for the leave-by label, as the event screen shows it. */
@@ -40,8 +42,10 @@ export function PlanExit({ id, onClose }: { id: string; onClose: () => void }) {
   );
   const fallback = Math.min(options.length - 1, Math.round(options.length * 0.6));
   const [choice, setChoice] = useState(saved ? initial : fallback);
-  const [remind, setRemind] = useState(15);
-  const [copied, setCopied] = useState(false);
+  // Reopened, it starts from the nudge already set, so saving again doesn't quietly reset it.
+  const [remind, setRemind] = useState(REMINDERS.find((m) => nudge(m) === planDetails[id]?.reminder) ?? 15);
+  // The line that was copied: a new leave time is a new line, not copied yet.
+  const [copied, setCopied] = useState<string | null>(null);
 
   const leave = options[choice];
   const stayed = (leave.getTime() - start.getTime()) / 60000;
@@ -61,10 +65,18 @@ export function PlanExit({ id, onClose }: { id: string; onClose: () => void }) {
   if (!plan) return null;
   const leaveLabel = startTime(`${plan.start.slice(0, 11)}${hm(leave)}`);
 
+  // The web copies; native has no clipboard without a new dependency, so it opens the share sheet,
+  // which has Copy and the messaging apps.
+  const web = Platform.OS === 'web';
   const copy = async () => {
-    if (Platform.OS === 'web') await navigator.clipboard?.writeText(line).catch(() => {});
-    setCopied(true);
+    if (web) {
+      const done = await navigator.clipboard?.writeText(line).then(() => true, () => false);
+      if (done) setCopied(line);
+    } else {
+      await Share.share({ message: line }).catch(() => {});
+    }
   };
+  const isCopied = copied === line;
 
   return (
     <View style={styles.screen}>
@@ -111,14 +123,18 @@ export function PlanExit({ id, onClose }: { id: string; onClose: () => void }) {
         <Text style={[type.bodyStrong, styles.ink, styles.section]}>Nudge me</Text>
         <View style={styles.chips}>
           {REMINDERS.map((m) => (
-            <Chip key={m} label={`${m} min before`} pressed={m === remind} onPress={() => setRemind(m)} />
+            <Chip key={m} label={nudge(m)} pressed={m === remind} onPress={() => setRemind(m)} />
           ))}
         </View>
 
         <Text style={[type.bodyStrong, styles.ink, styles.section]}>Something to say</Text>
         <View style={styles.line}>
           <Text style={[type.body, styles.ink]}>{`“${line}”`}</Text>
-          <Chip label={copied ? 'Copied' : 'Copy'} icon={copied ? 'check' : 'copy'} pressed={copied} onPress={copy} />
+          {web ? (
+            <Chip label={isCopied ? 'Copied' : 'Copy'} icon={isCopied ? 'check' : 'copy'} pressed={isCopied} onPress={copy} />
+          ) : (
+            <Chip label="Share" icon="paper-airplane" pressed={false} onPress={copy} />
+          )}
         </View>
       </ScrollView>
 
@@ -127,7 +143,13 @@ export function PlanExit({ id, onClose }: { id: string; onClose: () => void }) {
           label="Set my exit"
           trailingIcon="arrow"
           onPress={() => {
-            setExit(plan.id, newCost, clock(leave), `Saves ${Math.round((cost - newCost) * 10) / 10} of ${DAY_ROOM} · reminder at ${startTime(`${plan.start.slice(0, 11)}${hm(reminderAt)}`)}`);
+            setExit(
+              plan.id,
+              newCost,
+              clock(leave),
+              `Saves ${Math.round((cost - newCost) * 10) / 10} of ${DAY_ROOM} · reminder at ${startTime(`${plan.start.slice(0, 11)}${hm(reminderAt)}`)}`,
+              nudge(remind),
+            );
             onClose();
           }}
         />

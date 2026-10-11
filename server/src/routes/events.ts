@@ -32,6 +32,8 @@ export const planColumns = {
   exitNote: events.exitNote,
   reminder: events.reminder,
   notes: events.notes,
+  // Not in the Drizzle schema, so read by name (db.ts hands numerics over as numbers).
+  fullCost: sql<number | null>`${events}.full_cost`,
 };
 
 // App field -> column.
@@ -222,7 +224,7 @@ async function onePlan(db: Db, id: string) {
   return row;
 }
 
-// Plan detail adds the app's PlanDetail (src/data/plans.ts): costNote, exit, reminder.
+// Plan detail adds the app's PlanDetail (src/data/plans.ts): costNote, fullCost, exit, reminder.
 export async function planDetail(db: Db, id: string) {
   const { costNote, exitNote, reminder, ...plan } = await onePlan(db, id);
   return {
@@ -232,6 +234,7 @@ export async function planDetail(db: Db, id: string) {
     reminder,
     detail: {
       ...(costNote ? { costNote } : {}),
+      ...(plan.fullCost != null ? { fullCost: plan.fullCost } : {}),
       ...(plan.leaveBy ? { exit: { leaveBy: plan.leaveBy, ...(exitNote ? { note: exitNote } : {}) } } : {}),
       ...(reminder ? { reminder } : {}),
     },
@@ -297,10 +300,13 @@ export const eventRoutes = [
     await withUser(pool, claims, async (db) => {
       const timed = body.start !== undefined && body.end !== undefined;
       const fields = Object.keys(FIELDS).filter((k) => k in body) as (keyof typeof FIELDS)[];
-      if (!fields.length && !timed) throw new HttpError(400, 'nothing to update');
+      const full = 'fullCost' in body;
+      if (!fields.length && !timed && !full) throw new HttpError(400, 'nothing to update');
       const set: Record<string, unknown> = Object.fromEntries(fields.map((k) => [FIELDS[k], body[k]]));
       if (timed) set.time = range(body.start, body.end, claims.sub);
-      await db.update(events).set(set).where(eq(events.id, params.id));
+      if (fields.length || timed) await db.update(events).set(set).where(eq(events.id, params.id));
+      // Drizzle drops keys its schema doesn't know, so fullCost can't go through FIELDS: written by name.
+      if (full) await db.execute(sql`update ${events} set full_cost = ${body.fullCost ?? null} where ${events.id} = ${params.id}`);
     });
     if (current.source === 'capacity') await toGoogle(pool, claims.sub, params.id, body);
     if (current.source === 'google' && body.status === 'accepted' && current.status !== 'accepted') {
