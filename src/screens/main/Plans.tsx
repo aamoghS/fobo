@@ -32,10 +32,9 @@ export function Plans() {
 
   return (
     <View style={styles.screen}>
-      {/* In calendar view the day headings (third child) stick to the top while the hours scroll. */}
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
-        stickyHeaderIndices={view === 'calendar' ? [2] : undefined}>
+        stickyHeaderIndices={[1]}>
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
@@ -46,13 +45,16 @@ export function Plans() {
           <IconButton icon="plus" label="Weigh a plan" onPress={() => router.push('/weigh')} />
         </View>
 
-        <View style={styles.toggle} accessibilityRole="tablist">
-          <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
-          <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
+        {/* Sticks to the top in both views; in calendar view the day headings stick with it. */}
+        <View style={styles.sticky}>
+          <View style={styles.toggle} accessibilityRole="tablist">
+            <Segment label="Agenda" active={view === 'agenda'} onPress={() => setView('agenda')} />
+            <Segment label="Calendar" active={view === 'calendar'} onPress={() => setView('calendar')} />
+          </View>
+          {view === 'calendar' && calendar.header}
         </View>
 
-        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.header}
-        {view === 'calendar' && calendar.grid}
+        {view === 'agenda' ? <Agenda days={days} onOpen={open} /> : calendar.grid}
       </ScrollView>
       <NavFade color={color.ground} />
     </View>
@@ -106,12 +108,16 @@ const minutes = (iso: string) => {
 };
 const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
 
-/** Days the calendar can swipe through: this week and the next. */
+const PAGE = 3;
+const shift = (iso: string, days: number) => {
+  const d = new Date(`${iso}T00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Days the calendar swipes through, in pages of three that start on today: one page back, four ahead. */
 function calendarDays() {
-  const end = new Date(`${week.end}T00:00`);
-  end.setDate(end.getDate() + 7);
-  const last = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
-  return daysBetween(week.start, last);
+  return daysBetween(shift(todayIso, -PAGE), shift(todayIso, PAGE * 4 - 1));
 }
 
 /**
@@ -125,6 +131,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const colW = Math.floor((Math.min(width, 430) - GUTTER) / 3);
   const days = calendarDays();
   const startAt = Math.max(0, days.indexOf(todayIso));
+  const pageW = colW * PAGE;
   const head = useRef<ScrollView>(null);
   const body = useRef<ScrollView>(null);
 
@@ -147,7 +154,8 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const snap = {
     horizontal: true,
     showsHorizontalScrollIndicator: false,
-    snapToInterval: colW,
+    // Three days at a time.
+    snapToInterval: pageW,
     decelerationRate: 'fast' as const,
     disableIntervalMomentum: true,
   };
@@ -160,7 +168,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
           const tile = dateTile(date);
           const isToday = date === todayIso;
           return (
-            <View key={date} style={[styles.calDay, styles.snap, { width: colW }]}>
+            <View key={date} style={[styles.calDay, { width: colW }]}>
               <Text style={[type.foot, isToday ? styles.ink : styles.muted]}>{weekdayInitial(date)}</Text>
               <View style={[styles.dateDot, isToday && styles.dateDotOn]}>
                 <Text style={[type.bodyStrong, isToday ? styles.selInk : styles.ink]}>{tile.day}</Text>
@@ -188,7 +196,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
         scrollEventThrottle={16}
         onScroll={(e) => head.current?.scrollTo({ x: e.nativeEvent.contentOffset.x, animated: false })}>
         {days.map((date) => (
-          <View key={date} style={[styles.calCol, styles.snap, { width: colW, height: gridH }]}>
+          <View key={date} style={[styles.calCol, days.indexOf(date) % PAGE === 0 && styles.snap, { width: colW, height: gridH }]}>
             {plansOn(date).map((p) => {
               const top = ((minutes(p.start) - first * 60) / 60) * HOUR_H;
               const height = Math.max(((minutes(p.end) - minutes(p.start)) / 60) * HOUR_H - 2, 20);
@@ -233,17 +241,18 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heading: { gap: space[4] },
   // Same segmented toggle as Weigh a plan.
-  toggle: { marginTop: space[20], padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
+  sticky: { paddingTop: space[12], paddingBottom: space[4], backgroundColor: color.ground },
+  toggle: { padding: space[4], flexDirection: 'row', borderRadius: radius.full, backgroundColor: color.fill },
   segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   segmentOn: { backgroundColor: color.selBg },
   dayHead: { paddingTop: space[28], paddingBottom: space[12], flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   // Full-bleed, with the ground behind it so the hours pass under it when it sticks.
-  calHead: { marginTop: space[16], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },
+  calHead: { marginTop: space[12], marginBottom: -space[4], marginHorizontal: -space.margin, paddingTop: space[8], paddingBottom: space[8], flexDirection: 'row', backgroundColor: color.ground, borderBottomWidth: 1, borderBottomColor: color.rule },
   strip: { flex: 1 },
   calDay: { alignItems: 'center', gap: 2 },
   dateDot: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   dateDotOn: { backgroundColor: color.selBg },
-  // Web: snap a day at a time (native uses snapToInterval).
+  // Web: snap to the first day of each page of three (native uses snapToInterval).
   snap: { scrollSnapAlign: 'start' } as object,
   calBody: { marginTop: space[12], marginHorizontal: -space.margin },
   gutter: { width: GUTTER },
