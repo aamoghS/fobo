@@ -29,6 +29,9 @@ Return:
 - leave_by: when the plan runs past the point the profile says they fade, or the day would go over
   ${DAY_ROOM}, a local 'HH:MM' inside the plan when leaving keeps them okay. Otherwise null.
 - leave_reason: one short sentence on why that time, or null.
+- notes: for text, what else it says that's worth having on the calendar invite (the place or address,
+  what to bring, a link, a dress code), as short plain lines in the person's words. Null when there's
+  nothing beyond the title, time and people, and always null for a calendar plan.
 
 When wants_exit is true the person asked you to plan their exit: always give leave_by and leave_reason.`;
 
@@ -36,7 +39,7 @@ const str = { type: 'string' };
 const nullableStr = { type: 'string', nullable: true };
 const SCHEMA = {
   type: 'object',
-  required: ['title', 'kind', 'starts_at', 'ends_at', 'with', 'cost', 'reason', 'leave_by', 'leave_reason'],
+  required: ['title', 'kind', 'starts_at', 'ends_at', 'with', 'cost', 'reason', 'leave_by', 'leave_reason', 'notes'],
   properties: {
     title: str,
     kind: { type: 'string', enum: [...KINDS] },
@@ -47,6 +50,7 @@ const SCHEMA = {
     reason: str,
     leave_by: nullableStr,
     leave_reason: nullableStr,
+    notes: nullableStr,
   },
 };
 
@@ -60,6 +64,7 @@ export interface Weighed {
   reason: string;
   leave_by: string | null;
   leave_reason: string | null;
+  notes: string | null;
 }
 
 const LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -85,6 +90,7 @@ export async function weighPlan(input: unknown): Promise<Weighed> {
     // Only a time inside the plan makes sense to leave at.
     leave_by: leave && leave > a.starts_at && leave < (ends ?? plusHour(a.starts_at)) ? a.leave_by : null,
     leave_reason: typeof a.leave_reason === 'string' ? a.leave_reason.trim() : null,
+    notes: typeof a.notes === 'string' && a.notes.trim() ? a.notes.trim().slice(0, 2000) : null,
   };
 }
 

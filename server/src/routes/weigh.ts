@@ -99,6 +99,7 @@ export const weighRoutes = [
           cost: w.cost,
           status: 'proposed',
           withPeople: w.with,
+          notes: w.notes,
           costNote,
           ...leave,
         }).returning({ id: events.id });

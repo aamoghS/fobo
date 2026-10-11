@@ -75,6 +75,8 @@ export async function syncConnection(db: Db, connectionId: string) {
           target: [events.connectionId, events.calendarId, events.externalId],
           set: {
             ...fromGoogle,
+            // A Fobo plan put on Google Calendar keeps its guests as friends; Google lists them by address.
+            withPeople: sql`case when ${events.source} = 'capacity' then ${events.withPeople} else excluded.with_people end`,
             status: sql`case when excluded.status = 'declined' then 'declined'
                              when ${events.status} in ('declined', 'moved') then ${events.status}
                              else excluded.status end`,

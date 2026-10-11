@@ -7,6 +7,7 @@ export interface GoogleEvent {
   id: string;
   status: string;
   summary?: string;
+  description?: string;
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   attendees?: { email: string; self?: boolean; responseStatus?: string; displayName?: string }[];
@@ -100,13 +101,16 @@ export async function patchEvent(access: string, calendar: string, id: string, b
   if (!res.ok) throw new Error(`google patch failed: ${res.status}`);
 }
 
-export async function deleteEvent(access: string, calendar: string, id: string) {
-  const res = await call(access, `${events(calendar)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+// notify: Google emails the guests (the invite, or that it's cancelled).
+const notifying = (notify: boolean) => (notify ? '?sendUpdates=all' : '');
+
+export async function deleteEvent(access: string, calendar: string, id: string, notify = false) {
+  const res = await call(access, `${events(calendar)}/${encodeURIComponent(id)}${notifying(notify)}`, { method: 'DELETE' });
   if (!res.ok && res.status !== 410) throw new Error(`google delete failed: ${res.status}`);
 }
 
-export async function insertEvent(access: string, calendar: string, body: Partial<GoogleEvent>) {
-  const res = await call(access, events(calendar), { method: 'POST', body: JSON.stringify(body) });
+export async function insertEvent(access: string, calendar: string, body: Partial<GoogleEvent>, notify = false) {
+  const res = await call(access, `${events(calendar)}${notifying(notify)}`, { method: 'POST', body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`google insert failed: ${res.status}`);
   return (await res.json()) as GoogleEvent;
 }

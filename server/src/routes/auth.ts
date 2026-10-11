@@ -4,7 +4,7 @@
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type pg from 'pg';
-import { issueSession } from '../auth.ts';
+import { issueSession, verify } from '../auth.ts';
 import { withService } from '../db.ts';
 import { profiles } from '../schema.ts';
 import { HttpError, json, readJson } from '../http.ts';
@@ -51,23 +51,24 @@ function publicUrl(req: Request) {
   return (process.env.PUBLIC_API_URL ?? new URL(req.url).origin).replace(/\/$/, '');
 }
 
-// The state carries the app's return address through Google, signed so it cannot be swapped.
+// The state carries the app's return address through Google, and for linking, who is signed in; it is
+// signed so neither can be swapped.
 function sign(data: string) {
   return createHmac('sha256', env('GOOGLE_WEB_CLIENT_SECRET')).update(data).digest('base64url');
 }
-function packState(returnTo: string) {
-  const data = Buffer.from(JSON.stringify({ r: returnTo, n: randomBytes(8).toString('hex'), t: Date.now() })).toString('base64url');
+function packState(returnTo: string, linkTo?: string) {
+  const data = Buffer.from(JSON.stringify({ r: returnTo, u: linkTo, n: randomBytes(8).toString('hex'), t: Date.now() })).toString('base64url');
   return `${data}.${sign(data)}`;
 }
-function unpackState(state: string | null): string {
+function unpackState(state: string | null): { r: string; u?: string } {
   const [data, mac] = (state ?? '').split('.');
   if (!data || !mac) throw new HttpError(400, 'bad state');
   const a = Buffer.from(mac);
   const b = Buffer.from(sign(data));
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw new HttpError(400, 'bad state');
-  const { r, t } = JSON.parse(Buffer.from(data, 'base64url').toString());
+  const { r, u, t } = JSON.parse(Buffer.from(data, 'base64url').toString());
   if (Date.now() - t > 15 * 60_000) throw new HttpError(400, 'sign-in took too long; try again');
-  return r;
+  return { r, u: typeof u === 'string' ? u : undefined };
 }
 
 function back(returnTo: string, params: Record<string, string>) {
@@ -75,10 +76,7 @@ function back(returnTo: string, params: Record<string, string>) {
   return new Response(null, { status: 302, headers: { Location: url } });
 }
 
-async function start(req: Request) {
-  const url = new URL(req.url);
-  const returnTo = url.searchParams.get('return') ?? '';
-  if (!allowedReturn(returnTo)) throw new HttpError(400, 'return must be the app');
+function googleSignIn(req: Request, state: string) {
   const q = new URLSearchParams({
     client_id: env('GOOGLE_WEB_CLIENT_ID'),
     redirect_uri: `${publicUrl(req)}/auth/google/callback`,
@@ -87,14 +85,32 @@ async function start(req: Request) {
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: 'true',
-    state: packState(returnTo),
+    state,
   });
-  return new Response(null, { status: 302, headers: { Location: `${GOOGLE_AUTH}?${q}` } });
+  return `${GOOGLE_AUTH}?${q}`;
+}
+
+async function start(req: Request) {
+  const url = new URL(req.url);
+  const returnTo = url.searchParams.get('return') ?? '';
+  if (!allowedReturn(returnTo)) throw new HttpError(400, 'return must be the app');
+  return new Response(null, { status: 302, headers: { Location: googleSignIn(req, packState(returnTo)) } });
+}
+
+// Connect Google Calendar to the account already signed in (an email sign-up): answers { url }, Google's
+// sign-in for the app to open. Back from Google, the account stays the same and Calendar is linked to
+// it; the app gets `linked=1`, or `error`.
+async function link(req: Request) {
+  const claims = await verify(req.headers.get('authorization') ?? undefined);
+  if (!claims) return json(401, { error: 'not signed in' });
+  const returnTo = String((await readJson(req)).returnTo ?? '');
+  if (!allowedReturn(returnTo)) throw new HttpError(400, 'return must be the app');
+  return json(200, { url: googleSignIn(req, packState(returnTo, claims.sub)) });
 }
 
 async function callback(req: Request, pool: pg.Pool) {
   const url = new URL(req.url);
-  const returnTo = unpackState(url.searchParams.get('state'));
+  const { r: returnTo, u: linkTo } = unpackState(url.searchParams.get('state'));
   const code = url.searchParams.get('code');
   if (!code) return back(returnTo, { error: url.searchParams.get('error') ?? 'cancelled' });
 
@@ -116,22 +132,29 @@ async function callback(req: Request, pool: pg.Pool) {
   const claims = JSON.parse(Buffer.from(google.id_token.split('.')[1], 'base64url').toString()) as {
     sub: string; email?: string; email_verified?: boolean; name?: string;
   };
-  const userId = `g${claims.sub}`;
   // Only an address Google verified is kept: friends find each other by it.
   const email = claims.email_verified ? claims.email ?? '' : '';
-  await withService(pool, async (db) => {
-    await db.execute(sql`insert into profiles (id, name) values (${userId}, ${claims.name ?? null}) on conflict (id) do nothing`);
+  const userId = await withService(pool, async (db) => {
+    // A Google account belongs to one Fobo account: signing in with it opens that account (one it was
+    // linked to, too), and it can't be linked to a second.
+    const owner = (await db.execute<{ user_id: string }>(sql`select user_id from google_accounts where google_sub = ${claims.sub}`)).rows[0]?.user_id;
+    if (linkTo && owner && owner !== linkTo) return null;
+    const userId = linkTo ?? owner ?? `g${claims.sub}`;
+    if (!linkTo) await db.execute(sql`insert into profiles (id, name) values (${userId}, ${claims.name ?? null}) on conflict (id) do nothing`);
     await db.execute(sql`
       insert into google_accounts (user_id, google_sub, email, scope, refresh_token)
       values (${userId}, ${claims.sub}, ${email}, ${google.scope ?? ''},
               case when ${google.refresh_token ?? null}::text is null then null
                    else pgp_sym_encrypt(${google.refresh_token ?? ''}, ${env('AUTH_SECRET')}) end)
-      on conflict (user_id) do update set email = excluded.email, scope = excluded.scope,
+      on conflict (user_id) do update set google_sub = excluded.google_sub, email = excluded.email, scope = excluded.scope,
         refresh_token = coalesce(excluded.refresh_token, google_accounts.refresh_token)`);
+    return userId;
   });
+  if (!userId) return back(returnTo, { error: 'google-taken' });
   if (google.refresh_token) {
     await withService(pool, (db) => connect(db, userId)).catch((e) => console.warn('calendar link failed', e));
   }
+  if (linkTo) return back(returnTo, { linked: '1' });
   return back(returnTo, { session: await issueSession(userId) });
 }
 
@@ -174,6 +197,7 @@ async function logIn(req: Request, pool: pg.Pool) {
 export const publicRoutes: { method: string; path: string; run: (req: Request, pool: pg.Pool) => Promise<Response> }[] = [
   { method: 'GET', path: '/auth/google/start', run: start },
   { method: 'GET', path: '/auth/google/callback', run: callback },
+  { method: 'POST', path: '/auth/google/link', run: link },
   { method: 'POST', path: '/auth/email/signup', run: signUp },
   { method: 'POST', path: '/auth/email/login', run: logIn },
 ];

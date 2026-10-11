@@ -1,8 +1,8 @@
 import { PLAN_KINDS, UNSORTED_KIND } from '@fobo/core/options';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type pg from 'pg';
 import { withService, withUser, type Db } from '../db.ts';
-import { accessToken, patchEvent } from '../google.ts';
+import { accessToken, deleteEvent, getEvent, insertEvent, patchEvent, type GoogleEvent } from '../google.ts';
 import { HttpError, route } from '../http.ts';
 import { calendarConnections, events, profiles } from '../schema.ts';
 import { googleAccount } from '../sync.ts';
@@ -94,6 +94,93 @@ async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body:
   });
 }
 
+// Fobo's own plans go on the person's Google Calendar once they're going (made, or said yes to after
+// weighing), as an event Google sends to the friends on it, with the plan's notes as its description.
+// Fobo stays the owner: its later changes and removal follow. Best effort: the plan stands when Google
+// says no.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function googleFor(db: Db, userId: string) {
+  const account = await googleAccount(db, userId);
+  if (!account) return null;
+  const conn = (await db.select({ id: calendarConnections.id }).from(calendarConnections)
+    .where(and(eq(calendarConnections.userId, userId), eq(calendarConnections.writeBack, true))).limit(1))[0];
+  if (!conn) return null;
+  const tz = (await db.select({ tz: profiles.timezone }).from(profiles).where(eq(profiles.id, userId)))[0]?.tz ?? 'UTC';
+  return { access: await accessToken(account.refresh_token), tz, connectionId: conn.id };
+}
+
+// Who Google invites: friends on the plan, by the address they signed in with (Google's, which it
+// verified, first), and any address typed into it. Names alone can't be invited.
+async function guests(db: Db, userId: string, people: string[]) {
+  const typed = people.filter((p) => EMAIL.test(p));
+  const ids = people.filter((p) => !EMAIL.test(p));
+  const { rows } = ids.length ? await db.execute<{ email: string | null }>(sql`
+    select coalesce(nullif(g.email, ''), e.email) as email
+    from jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb) as w(id)
+    left join google_accounts g on g.user_id = w.id
+    left join email_accounts e on e.user_id = w.id
+    where exists (select 1 from friendships f where f.status = 'accepted'
+      and ((f.requester_id = ${userId} and f.addressee_id = w.id) or (f.addressee_id = ${userId} and f.requester_id = w.id)))`) : { rows: [] };
+  return [...new Set([...typed, ...rows.flatMap((r) => (r.email ? [r.email] : []))].map((e) => e.toLowerCase()))];
+}
+
+const at = (local: string, tz: string) => ({ dateTime: `${local}:00`, timeZone: tz });
+
+const mirrored = { ...planColumns, externalId: events.externalId, calendarId: events.calendarId };
+
+// After a Fobo plan is made or changed: put it on Google Calendar once it's going, or bring the Google
+// event in line with what changed (`body`, the app's fields).
+async function toGoogle(pool: pg.Pool, userId: string, id: string, body: Record<string, unknown> = {}) {
+  const ready = await withService(pool, async (db) => {
+    const plan = (await db.select(mirrored).from(events).where(and(eq(events.id, id), eq(events.userId, userId))))[0];
+    if (!plan || plan.source !== 'capacity') return null;
+    if (!plan.externalId && plan.status !== 'accepted') return null;
+    const google = await googleFor(db, userId);
+    if (!google) return null;
+    if (plan.externalId) return { google, plan, emails: 'with' in body ? await guests(db, userId, plan.with) : null };
+    // The event takes the plan's id (Google allows 0-9 and a-v), claimed here first, so a sync that runs
+    // while Google answers updates this plan instead of bringing the event in as a second one.
+    const externalId = id.replaceAll('-', '');
+    await db.update(events).set({ connectionId: google.connectionId, calendarId: 'primary', externalId }).where(eq(events.id, id));
+    return { google, plan: { ...plan, externalId, calendarId: 'primary' }, emails: await guests(db, userId, plan.with), insert: true };
+  });
+  if (!ready) return;
+  const { google, plan, emails } = ready;
+  const cal = plan.calendarId ?? 'primary';
+  try {
+    if ('insert' in ready) {
+      await insertEvent(google.access, cal, {
+        id: plan.externalId!,
+        summary: plan.title,
+        ...(plan.notes ? { description: plan.notes } : {}),
+        start: at(plan.start, google.tz),
+        end: at(plan.end, google.tz),
+        attendees: emails!.map((email) => ({ email })),
+      }, true);
+      return;
+    }
+    const patch: Partial<GoogleEvent> = {
+      ...('title' in body ? { summary: plan.title } : {}),
+      ...('notes' in body ? { description: plan.notes ?? '' } : {}),
+      ...(body.start !== undefined && body.end !== undefined ? { start: at(plan.start, google.tz), end: at(plan.end, google.tz) } : {}),
+    };
+    if (emails) {
+      // Guests still on the plan keep their answers; new ones are invited, removed ones are told.
+      const current = (await getEvent(google.access, cal, plan.externalId!)).attendees ?? [];
+      const keep = current.filter((a) => a.self || emails.includes(a.email.toLowerCase()));
+      patch.attendees = [...keep, ...emails.filter((e) => !keep.some((a) => a.email.toLowerCase() === e)).map((email) => ({ email }))];
+    }
+    if (Object.keys(patch).length) await patchEvent(google.access, cal, plan.externalId!, patch);
+  } catch (e) {
+    console.warn('google calendar write failed', id, e);
+    // A plan Google never took is free to try again on its next change.
+    if ('insert' in ready) {
+      await withService(pool, (db) => db.update(events).set({ connectionId: null, calendarId: null, externalId: null }).where(eq(events.id, id)));
+    }
+  }
+}
+
 async function onePlan(db: Db, id: string) {
   const row = (await db.select(planColumns).from(events).where(eq(events.id, id)))[0];
   if (!row) throw new HttpError(404, 'not found');
@@ -129,10 +216,10 @@ export const eventRoutes = [
 
   route('GET', '/plans/:id', ({ pool, claims, params }) => withUser(pool, claims, (db) => planDetail(db, params.id))),
 
-  route('POST', '/plans', ({ pool, claims, body: raw }) => {
+  route('POST', '/plans', async ({ pool, claims, body: raw }) => {
     const body = normalize(raw);
     if (!body.title || !body.start || !body.end) throw new HttpError(400, 'title, start and end are required');
-    return withUser(pool, claims, async (db) => {
+    const plan = await withUser(pool, claims, async (db) => {
       const [row] = await db.insert(events).values({
         userId: claims.sub,
         title: String(body.title),
@@ -151,6 +238,8 @@ export const eventRoutes = [
       }).returning({ id: events.id });
       return planDetail(db, row.id);
     });
+    await toGoogle(pool, claims.sub, plan.id);
+    return plan;
   }),
 
   route('PATCH', '/plans/:id', async ({ pool, claims, params, body: raw }) => {
@@ -163,23 +252,34 @@ export const eventRoutes = [
     if (current.source === 'google' && Object.keys(body).some((k) => GOOGLE_LOCKED.has(k))) {
       await writeToGoogle(pool, claims.sub, current, body);
     }
-    return withUser(pool, claims, async (db) => {
+    await withUser(pool, claims, async (db) => {
       const timed = body.start !== undefined && body.end !== undefined;
       const fields = Object.keys(FIELDS).filter((k) => k in body) as (keyof typeof FIELDS)[];
       if (!fields.length && !timed) throw new HttpError(400, 'nothing to update');
       const set: Record<string, unknown> = Object.fromEntries(fields.map((k) => [FIELDS[k], body[k]]));
       if (timed) set.time = range(body.start, body.end, claims.sub);
       await db.update(events).set(set).where(eq(events.id, params.id));
-      return planDetail(db, params.id);
     });
+    if (current.source === 'capacity') await toGoogle(pool, claims.sub, params.id, body);
+    return withUser(pool, claims, (db) => planDetail(db, params.id));
   }),
 
-  // A plan from Google Calendar is declined (sync would bring it back); Fobo's own plans are removed.
-  route('DELETE', '/plans/:id', ({ pool, claims, params }) =>
-    withUser(pool, claims, async (db) => {
-      const current = (await db.select({ source: events.source }).from(events).where(eq(events.id, params.id)))[0];
-      if (!current) throw new HttpError(404, 'not found');
-      if (current.source === 'google') await db.update(events).set({ status: 'declined' }).where(eq(events.id, params.id));
+  // A plan from Google Calendar is declined (sync would bring it back); Fobo's own plans are removed, and
+  // one that went on Google Calendar is cancelled there, which tells its guests.
+  route('DELETE', '/plans/:id', async ({ pool, claims, params }) => {
+    const current = await withUser(pool, claims, async (db) => {
+      const row = (await db.select({ source: events.source, externalId: events.externalId, calendarId: events.calendarId })
+        .from(events).where(eq(events.id, params.id)))[0];
+      if (!row) throw new HttpError(404, 'not found');
+      if (row.source === 'google') await db.update(events).set({ status: 'declined' }).where(eq(events.id, params.id));
       else await db.delete(events).where(eq(events.id, params.id));
-    })),
+      return row;
+    });
+    if (current.source !== 'capacity' || !current.externalId) return;
+    const google = await withService(pool, (db) => googleFor(db, claims.sub));
+    if (google) {
+      await deleteEvent(google.access, current.calendarId ?? 'primary', current.externalId, true)
+        .catch((e) => console.warn('google calendar cancel failed', params.id, e));
+    }
+  }),
 ];
