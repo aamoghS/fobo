@@ -7,7 +7,7 @@ import { refreshToday } from '@/lib/week';
 import { inviteFrom, invites } from './invites';
 import { people, type Person } from './people';
 import { planDetails, plans, tentative, type PlanDetail } from './plans';
-import { achievements, capacity, profile, widget } from './profile';
+import { achievements, allAchievements, capacity, profile, widget } from './profile';
 import { localDay, mondayOf, setNow, week } from './week';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -188,11 +188,8 @@ export function loadDemo() {
     handle: 'tory',
     streak: { days: 5, of: profile.streak.of, title: '5 day streak!', detail: 'Maintained balanced energy!' },
   });
-  swap(achievements, [
-    { id: 'irish-goodbye', title: 'The Irish Goodbye', icon: 'home', badge: 'red' },
-    { id: 'slow-steady', title: 'Slow and Steady', icon: 'snail', badge: 'pink' },
-    { id: 'merrier', title: 'More the Merrier', icon: 'paper-airplane', badge: 'green' },
-  ]);
+  // Earned: three of the catalog's four (The First Week still to come).
+  swap(achievements, allAchievements.filter((a) => a.id !== 'first-week'));
   Object.assign(widget, { headline: 'Still fuel left in your tank', next: 'Design review · 11:00', nudge: 'Saturday is carrying a lot.' });
   swap(capacity, [
     { label: 'Recharge', value: 'Quiet nights in', step: 'recharge' },
