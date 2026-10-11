@@ -1,10 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
-import { IconButton } from '@/components/IconButton';
 import { NavFade } from '@/components/NavFade';
 import { PlanLine } from '@/components/PlanLine';
 import { Pressable } from '@/components/Pressable';
@@ -15,7 +15,7 @@ import { NOW, week } from '@/data/week';
 import type { Plan } from '@/features/plans/types';
 import { dateTile, daysBetween, timeRange, weekdayInitial, weekRange } from '@/lib/format';
 import { dayLoadOn, plansOn, todayIso } from '@/lib/week';
-import { color, radius, space } from '@/styles/tokens';
+import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '../../../packages/core/src';
 
@@ -35,35 +35,50 @@ export function Plans() {
   const pastDays = daysBetween(week.start, todayIso).reverse();
   const open = (p: Plan) => router.push({ pathname: '/plans/[id]', params: { id: p.id } });
   const calendar = useCalendar(open);
+  const add = () => router.push('/plans/new');
+
+  // Once Add plan scrolls out of view, a round add button floats in at the bottom right.
+  const headerBottom = useRef(0);
+  const [floating, setFloating] = useState(false);
+  const fab = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(fab, { toValue: floating ? 1 : 0, friction: 7, tension: 140, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [floating, fab]);
 
   return (
-    <View style={styles.screen}>
+    // The scroll starts below the status bar, so what sticks stays in view under it.
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
-        // In calendar view the day headings (third child) stick while the hours scroll. The agenda keeps an
-        // empty view in that slot, since changing sticky children remounts the toggle and stops its slide.
-        stickyHeaderIndices={[2]}>
-        <View style={styles.header}>
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(space[48] - insets.top, space[8]) }]}
+        // The Agenda / Calendar toggle sticks at the top, with the day headings under it in Calendar.
+        stickyHeaderIndices={[1]}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          const out = e.nativeEvent.contentOffset.y > headerBottom.current;
+          if (out !== floating) setFloating(out);
+        }}>
+        <View style={styles.header} onLayout={(e) => (headerBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={[type.display, styles.ink]}>
               Plans
             </Text>
             <Text style={[type.sub, styles.muted]}>{weekRange(week.start, week.end)}</Text>
           </View>
-          <IconButton icon="plus" label="Add plan" onPress={() => router.push('/plans/new')} />
+          <Button label="Add plan" icon="plus" size="compact" style={styles.add} onPress={add} />
         </View>
 
-        <Segmented
-          style={styles.toggle}
-          options={[
-            { key: 'agenda', label: 'Agenda' },
-            { key: 'calendar', label: 'Calendar' },
-          ]}
-          value={view}
-          onChange={setView}
-        />
+        <View style={[styles.sticky, view === 'agenda' && styles.stickyAgenda]}>
+          <Segmented
+            options={[
+              { key: 'agenda', label: 'Agenda' },
+              { key: 'calendar', label: 'Calendar' },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+          {view === 'calendar' && calendar.header}
+        </View>
 
-        {view === 'agenda' ? <View /> : calendar.header}
         {view === 'agenda' && (
           <View style={styles.sortRow}>
             <Text accessibilityRole="header" style={[type.title, styles.ink]}>
@@ -92,6 +107,15 @@ export function Plans() {
         {view === 'calendar' && calendar.grid}
       </ScrollView>
       <NavFade color={color.ground} />
+      <Animated.View
+        pointerEvents={floating ? 'box-none' : 'none'}
+        importantForAccessibility={floating ? 'auto' : 'no-hide-descendants'}
+        // Just above the nav bar (64 tall, floating 20 up or on the home indicator).
+        style={[styles.fab, { bottom: Math.max(insets.bottom, 20) + 64 + space[12], opacity: fab, transform: [{ scale: fab.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add plan" onPress={add} style={styles.fabButton}>
+          <Icon name="plus" color={color.selInk} />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -180,15 +204,20 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const gridH = hours.length * HOUR_H;
   const nowY = ((minutes(NOW) - first * 60) / 60) * HOUR_H;
 
-  // Open on today's page, both rows together, once the columns have been laid out.
+  // Open on today's page, both rows together. `contentOffset` places it on iOS and Android; the web
+  // scrolls there once the columns have a width. A new grid (back from Agenda) opens on today again.
+  const todayX = startAt * colW;
   const opened = useRef(false);
-  const openOnToday = () => {
-    if (opened.current) return;
+  const openOnToday = (contentW: number) => {
+    if (opened.current || contentW < todayX + pageW) return;
     opened.current = true;
-    const x = startAt * colW;
     page.current = startAt / PAGE;
-    body.current?.scrollTo({ x, animated: false });
-    head.current?.scrollTo({ x, animated: false });
+    body.current?.scrollTo({ x: todayX, animated: false });
+    head.current?.scrollTo({ x: todayX, animated: false });
+  };
+  const bodyRef = (view: ScrollView | null) => {
+    if (view && view !== body.current) opened.current = false;
+    body.current = view;
   };
 
   // Web paging: when a swipe settles, click into the next page of three (or back), or return if
@@ -218,7 +247,7 @@ function useCalendar(onOpen: (p: Plan) => void) {
   const header = (
     <View style={styles.calHead}>
       <View style={styles.gutter} />
-      <ScrollView ref={head} {...snap} scrollEnabled={false} style={{ width: pageW }}>
+      <ScrollView ref={head} {...snap} scrollEnabled={false} contentOffset={{ x: todayX, y: 0 }} style={{ width: pageW }}>
         {days.map((date) => {
           const tile = dateTile(date);
           const isToday = date === todayIso;
@@ -245,11 +274,11 @@ function useCalendar(onOpen: (p: Plan) => void) {
         </View>
       ))}
       <ScrollView
-        ref={body}
+        ref={bodyRef}
         {...snap}
+        contentOffset={{ x: todayX, y: 0 }}
         style={[styles.columns, { width: pageW }]}
-        onLayout={openOnToday}
-        onContentSizeChange={openOnToday}
+        onContentSizeChange={(w) => openOnToday(w)}
         scrollEventThrottle={16}
         onScroll={(e) => {
           const x = e.nativeEvent.contentOffset.x;
@@ -294,6 +323,10 @@ function useCalendar(onOpen: (p: Plan) => void) {
 }
 
 const styles = StyleSheet.create({
+  fab: { position: 'absolute', right: space.margin },
+  fabButton: { width: 56, height: 56, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: color.selBg, boxShadow: shadow.lift },
+  // An ink pill so the main action stands out, the height of an IconButton.
+  add: { height: 44, paddingLeft: space[12], paddingRight: space[16], gap: space[8] },
   screen: { flex: 1, backgroundColor: color.ground },
   content: { paddingHorizontal: space.margin, paddingBottom: 200 },
   ink: { color: color.ink },
@@ -301,9 +334,12 @@ const styles = StyleSheet.create({
   selInk: { color: color.selInk },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heading: { gap: space[4] },
-  toggle: { marginTop: space[20] },
+  // Full-bleed with the ground behind it, so the page passes under it when it sticks.
+  sticky: { marginHorizontal: -space.margin, paddingHorizontal: space.margin, paddingTop: space[20], backgroundColor: color.ground },
+  // The calendar's day headings bring their own bottom space and rule.
+  stickyAgenda: { paddingBottom: space[12] },
   // Laid out like Your circle and its Sort on People.
-  sortRow: { marginTop: space[28], marginBottom: -space[8], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sortRow: { marginTop: space[20], marginBottom: -space[8], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pastHead: { marginTop: space[48], marginBottom: -space[8] },
   pastNone: { marginTop: space[28] },
   sort: { flexDirection: 'row', alignItems: 'center', gap: space[8] },

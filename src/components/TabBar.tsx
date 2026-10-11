@@ -1,6 +1,7 @@
 import type { TabTriggerSlotProps } from 'expo-router/ui';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { AccessibilityInfo, Animated, PanResponder, Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { color, radius, shadow } from '@/styles/tokens';
@@ -33,11 +34,15 @@ const DRAG_PRESS = {
 /** A drag starts once a finger moves this far sideways, so taps still go to the tabs. */
 const SLOP = 6;
 
+// iOS 26 and later draw the bar in the system's Liquid Glass; elsewhere it's frosted.
+const LIQUID = isLiquidGlassAvailable();
+
 /**
- * Floating bottom nav as drawn on the Final screens (instance of 148:*): 370x64 white pill,
- * rule border, shadow-nav. The DS Tab Bar (31:62) differs slightly; the screens win here.
+ * Floating bottom nav, after the Final screens (instance of 148:*): a 370x64 capsule with shadow-nav,
+ * now glass. The page shows through it, frosted: Liquid Glass on iOS 26+, a blurred see-through white
+ * on the web, and a mostly white capsule on older iOS and Android (no blur there).
  *
- * One ink pill marks the tab you're on and slides between tabs. Like iOS's tab bar, you can also
+ * One white pill marks the tab you're on and slides between tabs. Like iOS's tab bar, you can also
  * press and drag along the bar: the pill lifts, follows your finger, lights the tab under it, and
  * letting go switches to that tab.
  */
@@ -154,9 +159,10 @@ export function TabBar({ children }: { children: ReactNode }) {
       <View
         ref={bar}
         accessibilityRole="tablist"
-        style={styles.bar}
+        style={[styles.bar, !LIQUID && styles.frost]}
         onLayout={() => bar.current?.measureInWindow((left) => (barLeft.current = left))}
         {...drag.panHandlers}>
+        {LIQUID && <GlassView pointerEvents="none" glassEffectStyle="regular" colorScheme="light" style={styles.glass} />}
         {spot && (
           <Animated.View
             pointerEvents="none"
@@ -179,25 +185,19 @@ export function TabBar({ children }: { children: ReactNode }) {
 
 type TabButtonProps = TabTriggerSlotProps & { icon: IconName; label: string; disabled?: boolean };
 
-// About when the sliding pill reaches a tab, so its icon and label turn white over ink, not over the bar.
-const ARRIVE = 170;
-
 export function TabButton({ icon, label, isFocused, disabled, onPress, ...props }: TabButtonProps) {
   const bar = useContext(BarContext);
-  const [lit, setLit] = useState(!!isFocused);
   useEffect(() => {
-    if (!isFocused) return setLit(false);
-    bar?.focus(label);
-    const t = setTimeout(() => setLit(true), bar ? ARRIVE : 0);
-    return () => clearTimeout(t);
+    if (isFocused) bar?.focus(label);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, label]);
   useEffect(() => {
     bar?.press(label, () => onPress?.(DRAG_PRESS as never));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onPress, label]);
-  // While the pill is dragged, the tab under it is the one that's lit.
-  const ink = (bar?.over ? bar.over === label : lit) ? color.selInk : color.ink;
+  // Ink on the glass and on the white pill alike; the pill alone marks the tab you're on. Outside a
+  // TabBar the tab fills itself in ink, so it goes white.
+  const ink = !bar && isFocused ? color.selInk : color.ink;
   return (
     <Pressable
       {...props}
@@ -211,7 +211,8 @@ export function TabButton({ icon, label, isFocused, disabled, onPress, ...props 
       // Without the bar's sliding pill (outside a TabBar), the tab fills itself.
       style={[styles.tab, isFocused && !bar && styles.active]}>
       <Icon name={icon} color={ink} />
-      <Text style={[type.foot, { color: ink }]}>{label}</Text>
+      {/* The tab you're on is set in bold. */}
+      <Text style={[isFocused ? type.label : type.foot, { color: ink }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -235,9 +236,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.nav,
     borderWidth: 1,
     borderColor: color.rule,
-    backgroundColor: color.paper,
     boxShadow: shadow.nav,
   },
+  glass: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: radius.nav },
+  // No glass token: the fill colour (#f1f1ee) at 70% over a 24px blur on the web, so the white pill
+  // stands out; without a blur, nearly solid so it reads over anything.
+  frost: Platform.select<ViewStyle>({
+    web: { backgroundColor: 'rgba(241, 241, 238, 0.7)', backdropFilter: 'blur(24px) saturate(180%)' } as ViewStyle,
+    default: { backgroundColor: 'rgba(241, 241, 238, 0.94)' },
+  }),
   tab: {
     flex: 1,
     height: 55,
@@ -255,6 +262,9 @@ const styles = StyleSheet.create({
     top: 3.5,
     height: 55,
     borderRadius: radius.full,
-    backgroundColor: color.groundDeep,
+    borderWidth: 1,
+    borderColor: color.rule,
+    backgroundColor: color.paper,
+    boxShadow: shadow.soft,
   },
 });

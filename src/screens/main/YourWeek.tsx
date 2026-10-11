@@ -4,6 +4,7 @@ import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
+import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
 import { NavFade } from '@/components/NavFade';
 import { PlanLine } from '@/components/PlanLine';
@@ -62,6 +63,7 @@ export function YourWeek() {
               )}
             </View>
           </View>
+          <IconButton icon="settings" label="Settings" onPress={() => router.push('/settings')} />
         </View>
 
         <View style={styles.overview}>

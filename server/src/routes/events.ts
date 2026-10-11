@@ -88,10 +88,16 @@ async function writeToGoogle(pool: pg.Pool, userId: string, ev: GoogleRef, body:
     return /([zZ]|[+-]\d\d:?\d\d)$/.test(s) ? { dateTime: s } : { dateTime: s.length === 16 ? `${s}:00` : s, timeZone: tz };
   };
   const timed = body.start !== undefined && body.end !== undefined;
-  await patchEvent(await accessToken(account.refresh_token), ev.calendarId ?? 'primary', ev.externalId, {
-    ...(typeof body.title === 'string' ? { summary: body.title } : {}),
-    ...(timed ? { start: at(body.start), end: at(body.end) } : {}),
-  });
+  try {
+    await patchEvent(await accessToken(account.refresh_token), ev.calendarId ?? 'primary', ev.externalId, {
+      ...(typeof body.title === 'string' ? { summary: body.title } : {}),
+      ...(timed ? { start: at(body.start), end: at(body.end) } : {}),
+    });
+  } catch (e) {
+    // Usually an invite someone else organises: only they can rename or move it.
+    console.warn('google calendar edit refused', ev.externalId, e);
+    throw new HttpError(400, "Google Calendar didn't take that change. If someone else made this event, only they can rename or move it.");
+  }
 }
 
 // Fobo's own plans go on the person's Google Calendar once they're going (made, or said yes to after
@@ -246,11 +252,18 @@ export const eventRoutes = [
     const body = normalize(raw);
     const current = (await withUser(pool, claims, (db) => db.select({
       source: events.source, externalId: events.externalId, calendarId: events.calendarId, connectionId: events.connectionId,
+      title: events.title, start: planColumns.start, end: planColumns.end,
     }).from(events).where(eq(events.id, params.id))))[0];
     if (!current) throw new HttpError(404, 'not found');
-    // A Google plan's new name or time goes to Google Calendar first, so the next sync agrees.
-    if (current.source === 'google' && Object.keys(body).some((k) => GOOGLE_LOCKED.has(k))) {
-      await writeToGoogle(pool, claims.sub, current, body);
+    if (current.source === 'google') {
+      // The edit form sends the name and times every time: only real changes count as changing them.
+      if (body.title === current.title) delete body.title;
+      if (String(body.start ?? '').slice(0, 16) === current.start && String(body.end ?? '').slice(0, 16) === current.end) {
+        delete body.start;
+        delete body.end;
+      }
+      // A Google plan's new name or time goes to Google Calendar first, so the next sync agrees.
+      if (Object.keys(body).some((k) => GOOGLE_LOCKED.has(k))) await writeToGoogle(pool, claims.sub, current, body);
     }
     await withUser(pool, claims, async (db) => {
       const timed = body.start !== undefined && body.end !== undefined;
