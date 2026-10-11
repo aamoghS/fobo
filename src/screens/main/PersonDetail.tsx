@@ -8,13 +8,16 @@ import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
 import { Pressable } from '@/components/Pressable';
-import { useLiveScreen } from '@/data/live';
+import { Sheet } from '@/components/Sheet';
+import { loadLive, useLiveScreen } from '@/data/live';
 import { bioFor, getPerson } from '@/data/people';
 import { plans } from '@/data/plans';
 import { localDay, NOW } from '@/data/week';
 import { isOver, type FriendDay } from '@/features/friends/types';
-import { api } from '@/lib/api';
-import { dateTile, shortDateRange } from '@/lib/format';
+import type { Plan } from '@/features/plans/types';
+import { api, send } from '@/lib/api';
+import { dateTile, shortDateRange, timeRange } from '@/lib/format';
+import { notify } from '@/lib/notify';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 import { DAY_ROOM } from '@fobo/core/constants';
@@ -35,19 +38,55 @@ export function PersonDetail({ id }: { id: string }) {
   const checkAvailability = async () => {
     const to = new Date();
     to.setDate(to.getDate() + 6);
-    setDays((await api<FriendDay[]>('GET', `/friends/${id}/days?from=${localDay(new Date())}&to=${localDay(to)}`)) ?? []);
+    const found = await api<FriendDay[]>('GET', `/friends/${id}/days?from=${localDay(new Date())}&to=${localDay(to)}`);
+    // Null is a failed call, not "isn't sharing" (that's an empty list): say so and keep what's shown.
+    if (!found) return notify("Couldn't check availability. Try again in a moment.");
+    setDays(found);
+  };
+
+  const [more, setMore] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const remove = async () => {
+    setRemoving(true);
+    const result = await send('DELETE', `/friends/${id}`);
+    setRemoving(false);
+    if ('error' in result) return notify(result.error);
+    setMore(false);
+    await loadLive().catch(() => false);
+    back();
   };
 
   const together = plans
     .filter((p) => p.with?.includes(id) && p.start >= NOW)
     .sort((a, b) => a.start.localeCompare(b.start));
+  // Past together lists what's loaded (a few weeks back); the count comes from the API and goes further.
+  const [showPast, setShowPast] = useState(false);
+  const past = plans
+    .filter((p) => p.with?.includes(id) && p.end < NOW)
+    .sort((a, b) => b.start.localeCompare(a.start));
+
+  const planRow = (p: Plan) => (
+    <Pressable
+      key={p.id}
+      accessibilityRole="button"
+      accessibilityLabel={`${p.title}, ${shortDateRange(p.start, p.end)}`}
+      onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
+      style={[styles.planRow, styles.rule]}>
+      <Icon name={p.icon ?? 'box'} color={color.ink2} />
+      <View style={styles.planText}>
+        <Text style={[type.bodyStrong, styles.ink]}>{p.title}</Text>
+        <Text style={[type.foot, styles.muted]}>{shortDateRange(p.start, p.end)}</Text>
+      </View>
+      <Icon name="chevron" size={17} />
+    </Pressable>
+  );
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}>
       <View style={styles.topBar}>
         {/* Design system Icon Button: back and more in the nav row. */}
         <IconButton icon="back" label="Back to People" onPress={back} />
-        <IconButton icon="more" label="More" />
+        <IconButton icon="more" label="More" onPress={() => person && setMore(true)} />
       </View>
 
       {person && (
@@ -80,20 +119,29 @@ export function PersonDetail({ id }: { id: string }) {
                   )}
                   {days.map((d, i) => {
                     const tile = dateTile(d.date);
-                    const state = isOver(d) ? 'Too full' : d.busy || d.load > 0 ? `${d.load} of ${DAY_ROOM}` : 'Free';
+                    // Without their day load (they share only busy times), busy or free.
+                    const state =
+                      d.load === null ? (d.busy ? 'Busy' : 'Free')
+                      : isOver(d) ? 'Too full'
+                      : d.busy || d.load > 0 ? `${d.load} of ${DAY_ROOM}`
+                      : 'Free';
+                    const spans = d.blocks?.map((b) => timeRange(b.start, b.end)).join(', ');
                     return (
                       <View
                         key={d.date}
                         accessible
-                        accessibilityLabel={`${tile.weekday} ${tile.day}: ${state}`}
+                        accessibilityLabel={[`${tile.weekday} ${tile.day}: ${state}`, spans, d.sharedPlanTitles?.join(', ')].filter(Boolean).join(', ')}
                         style={[styles.day, i < days.length - 1 && styles.rule]}>
                         <Text style={[type.foot, styles.muted, styles.dayName]}>{`${tile.weekday} ${tile.day}`}</Text>
                         <Text style={[type.bodyStrong, styles.ink]}>{state}</Text>
-                        {d.sharedPlanTitles?.length ? (
-                          <Text style={[type.foot, styles.muted, styles.dayPlans]} numberOfLines={1}>
-                            {d.sharedPlanTitles.join(', ')}
-                          </Text>
-                        ) : null}
+                        <View style={styles.dayPlans}>
+                          {!!spans && <Text style={[type.foot, styles.muted, styles.dayPlansText]}>{spans}</Text>}
+                          {d.sharedPlanTitles?.length ? (
+                            <Text style={[type.foot, styles.muted, styles.dayPlansText]} numberOfLines={1}>
+                              {d.sharedPlanTitles.join(', ')}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
                     );
                   })}
@@ -106,29 +154,31 @@ export function PersonDetail({ id }: { id: string }) {
             <Text accessibilityRole="header" style={[type.title, styles.ink]}>
               Next together
             </Text>
-            {together.map((p) => (
-              <Pressable
-                key={p.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${p.title}, ${shortDateRange(p.start, p.end)}`}
-                onPress={() => router.push({ pathname: '/plans/[id]', params: { id: p.id } })}
-                style={[styles.planRow, styles.rule]}>
-                <Icon name={p.icon ?? 'box'} color={color.ink2} />
-                <View style={styles.planText}>
-                  <Text style={[type.bodyStrong, styles.ink]}>{p.title}</Text>
-                  <Text style={[type.foot, styles.muted]}>{shortDateRange(p.start, p.end)}</Text>
-                </View>
-                <Icon name="chevron" size={17} />
-              </Pressable>
-            ))}
+            {together.map(planRow)}
             {person.pastTogether !== undefined && (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Past together, ${person.pastTogether} plans`} style={styles.past}>
+              // Opens to the past plans loaded here; a plain row when none are.
+              <Pressable
+                accessibilityRole={past.length ? 'button' : undefined}
+                accessibilityLabel={`Past together, ${person.pastTogether} plans`}
+                accessibilityState={past.length ? { expanded: showPast } : undefined}
+                disabled={!past.length}
+                onPress={() => setShowPast(!showPast)}
+                style={[styles.past, showPast && styles.rule]}>
                 <Text style={[type.bodyStrong, styles.ink, styles.pastTitle]}>Past together</Text>
                 <Text style={[type.foot, styles.muted, styles.pastCount]}>{`${person.pastTogether} plans`}</Text>
-                <Icon name="chevron" size={17} />
+                {past.length > 0 && (
+                  <View style={showPast && styles.chevronOpen}>
+                    <Icon name="chevron" size={17} />
+                  </View>
+                )}
               </Pressable>
             )}
+            {showPast && past.map(planRow)}
           </View>
+
+          <Sheet visible={more} onClose={() => !removing && setMore(false)} title={person.name}>
+            <Button label="Remove friend" disabled={removing} onPress={remove} />
+          </Sheet>
         </>
       )}
     </ScrollView>
@@ -160,7 +210,8 @@ const styles = StyleSheet.create({
   days: { marginTop: space[12] },
   day: { minHeight: 44, paddingVertical: space[8], gap: space[12], flexDirection: 'row', alignItems: 'center' },
   dayName: { width: 56 },
-  dayPlans: { flex: 1, textAlign: 'right' },
+  dayPlans: { flex: 1 },
+  dayPlansText: { textAlign: 'right' },
   together: { paddingTop: space[28], paddingHorizontal: space.margin },
   planRow: { paddingVertical: space[12], gap: space[16], flexDirection: 'row', alignItems: 'center' },
   rule: { borderBottomWidth: 1, borderBottomColor: color.rule },
@@ -168,4 +219,5 @@ const styles = StyleSheet.create({
   past: { minHeight: 64, flexDirection: 'row', alignItems: 'center' },
   pastTitle: { flex: 1 },
   pastCount: { paddingRight: space[12] },
+  chevronOpen: { transform: [{ rotate: '90deg' }] },
 });

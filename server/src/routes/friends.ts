@@ -17,17 +17,21 @@ const person = {
 type Together = { nextPlan: { title: string; start: string } | null; pastTogether: number };
 
 // What People shows for each person (src/data/people.ts): the caller's next plan with them, and how many
-// past plans they shared. Plans name people by id in `with`. One query for everyone.
+// past plans they shared. Fobo plans name people by id in `with`; Google events by address (sync.ts), so a
+// friend's sign-in address (friend_addresses, migration 025) matches too. One query for everyone.
 async function togetherAll(db: Db, me: string, ids: string[]): Promise<Map<string, Together>> {
   if (!ids.length) return new Map();
+  const list = sql`array[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}]::text[]`;
+  const withThem = sql`exists (select 1 from unnest(e.with_people) w where w = o.id or lower(w) = any(k.addresses))`;
   const { rows } = await db.execute<{ id: string; title: string | null; start: string | null; past: number }>(sql`
     select o.id, n.title, to_char(lower(n.time) at time zone p.timezone, 'YYYY-MM-DD"T"HH24:MI') as start,
-           (select count(*)::int from events e where e.user_id = ${me} and o.id = any(e.with_people)
+           (select count(*)::int from events e where e.user_id = ${me} and ${withThem}
               and not e.declined and upper(e.time) <= now()) as past
-    from unnest(array[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}]::text[]) as o(id)
+    from unnest(${list}) as o(id)
     join profiles p on p.id = ${me}
+    left join (select id, array_agg(address) as addresses from friend_addresses(${list}) group by id) k on k.id = o.id
     left join lateral (
-      select title, time from events e where e.user_id = ${me} and o.id = any(e.with_people)
+      select title, time from events e where e.user_id = ${me} and ${withThem}
         and not e.declined and lower(e.time) > now() order by lower(e.time) limit 1
     ) n on true`);
   return new Map(rows.map((r) => [r.id, {
@@ -46,8 +50,8 @@ function checkDates(...dates: (string | null)[]) {
   }
 }
 
-// Friends never read events: blocks and scores come from these two database functions, which
-// check the friendship and the owner's sharing switches.
+// Friends never read events: blocks and scores come from these database functions (and which of them
+// a friend shares from friend_sharing), which check the friendship and the owner's sharing switches.
 async function friendBlocks(db: Db, friendId: string, date: string | null) {
   const { rows } = await db.execute<{ start: string; end: string; title: string | null; category: string | null }>(
     sql`select start_local as start, end_local as end, title, category from friend_blocks(${friendId}, ${date}::date)`,
@@ -158,26 +162,39 @@ export const friendRoutes = [
     return withUser(pool, claims, (db) => friendBlocks(db, params.id, query.get('date')));
   }),
 
-  // The app's FriendDay (src/features/friends/types.ts) for each day in from..to, at most MAX_FRIEND_DAYS.
-  // Empty when the friend shares neither blocks nor scores.
+  // The app's FriendDay (src/features/friends/types.ts) for each day in from..to, at most MAX_FRIEND_DAYS:
+  // the day's busy blocks when the friend shares them, its load when they share scores (null when not).
+  // Empty when they share neither, or aren't an accepted friend.
   route('GET', '/friends/:id/days', ({ pool, claims, params, query }) =>
     withUser(pool, claims, async (db) => {
       const from = query.get('from');
       const to = query.get('to');
       checkDates(from, to);
-      const last = from ? new Date(Date.parse(from) + (MAX_FRIEND_DAYS - 1) * 864e5).toISOString().slice(0, 10) : null;
-      // One query: each day's score with that day's blocks, instead of one query per day.
-      const { rows } = await db.execute<{ day: string; load: number; blocks: number; titles: string[] }>(sql`  
-        select to_char(s.day, 'YYYY-MM-DD') as day, s.load, count(b.*)::int as blocks,
-               coalesce(array_agg(b.title) filter (where b.title is not null), '{}') as titles
-        from day_scores(${params.id}, ${from}::date, ${to && last && to > last ? last : to}::date) s
-        left join lateral friend_blocks(${params.id}, s.day) b on true
-        group by s.day, s.load
-        order by s.day`);
+      if (!from || !to) throw new HttpError(400, 'from and to are required');
+      const last = new Date(Date.parse(from) + (MAX_FRIEND_DAYS - 1) * 864e5).toISOString().slice(0, 10);
+      const until = to > last ? last : to;
+      // One query. Days come from the calendar, not day_scores, which has none unless scores are shared;
+      // friend_sharing has no row for a non-friend, so then there are no days at all.
+      const { rows } = await db.execute<{
+        day: string; load: number | null; blocks: { start: string; end: string }[] | null; titles: string[];
+      }>(sql`
+        select to_char(d.day, 'YYYY-MM-DD') as day, s.load,
+               case when sh.blocks then coalesce(json_agg(json_build_object('start', b.start_local, 'end', b.end_local)
+                 order by b.start_local) filter (where b.start_local is not null), '[]') end as blocks,
+               coalesce(array_agg(b.title order by b.start_local) filter (where b.title is not null), '{}') as titles
+        from friend_sharing(${params.id}) sh
+        cross join (select g::date as day from generate_series(${from}::date, ${until}::date, interval '1 day') g) d
+        left join day_scores(${params.id}, ${from}::date, ${until}::date) s on s.day = d.day
+        left join lateral friend_blocks(${params.id}, d.day) b on true
+        where sh.blocks or sh.scores
+        group by d.day, s.load, sh.blocks
+        order by d.day`);
       return rows.map((r) => ({
         date: r.day,
-        busy: r.blocks > 0,
+        // From their blocks when they share them, else from the day's load.
+        busy: r.blocks ? r.blocks.length > 0 : (r.load ?? 0) > 0,
         load: r.load,
+        ...(r.blocks ? { blocks: r.blocks } : {}),
         ...(r.titles.length ? { sharedPlanTitles: r.titles } : {}),
       }));
     })),

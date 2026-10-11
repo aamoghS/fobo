@@ -13,8 +13,8 @@ let today = isoDay(NOW);
 export const plansOn = (day: string) =>
   plans.filter((p) => isoDay(p.start) === day).sort((a, b) => a.start.localeCompare(b.start));
 
-/** Load on a day, out of DAY_ROOM. */
-export const dayLoadOn = (date: string) => Math.round(dayLoad(plansOn(date)));
+/** Load on a day, out of DAY_ROOM, in tenths like friends see it (3.5). */
+export const dayLoadOn = (date: string) => dayLoad(plansOn(date));
 
 /** How far Your week can swipe from this week: the weeks of plans live.ts loads. */
 export const WEEKS_BACK = 4;
