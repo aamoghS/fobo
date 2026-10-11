@@ -17,7 +17,7 @@ const COPY = {
   room: (day: string) => ({ title: `${day} has room`, sub: 'This fits under your limit.' }),
 };
 
-/** "7 PM" plus 90 minutes, for the shorter-visit suggestion. */
+/** "7 PM" plus 90 minutes: the shorter-visit suggestion when weighing gave no leave-by time. */
 function leaveBy(start: string) {
   const d = new Date(start);
   d.setMinutes(d.getMinutes() + 90);
@@ -34,17 +34,22 @@ export function WeighResult({
   onBack,
   onClose,
   onAdd,
+  onShorten,
 }: {
-  candidate: Candidate;
+  /** With the planner's answer: why it costs what it does, and a leave-by time when one helps. */
+  candidate: Candidate & { costNote?: string; leaveBy?: string };
   onBack: () => void;
   onClose: () => void;
   onAdd: () => void;
+  /** Says yes to the shorter visit: adds the plan and opens Plan my exit. */
+  onShorten: () => void;
 }) {
   const [landed, setLanded] = useState(false);
   const reveal = useRef(new Animated.Value(0)).current;
   const day = weekdayLong(candidate.start);
   const result = verdict(candidate);
   const copy = COPY[result](day);
+  const leave = candidate.leaveBy ?? leaveBy(candidate.start);
   // The face the day will wear once it lands, so nothing changes at the handover.
   const landedMood = previewWeek(candidate, true).find((d) => d.selected)?.mood ?? 'fine';
 
@@ -80,14 +85,20 @@ export function WeighResult({
                 {copy.title}
               </Text>
               <Text style={[type.body, styles.muted, styles.sub]}>{copy.sub}</Text>
+              {!!candidate.costNote && <Text style={[type.sub, styles.muted, styles.sub]}>{candidate.costNote}</Text>}
             </Animated.View>
           ) : (
             <View>
               <Text accessibilityRole="header" style={[type.display, styles.ink]}>{`Trying it on ${day}`}</Text>
-              {/* Holds the verdict's second line so the shelf doesn't jump when it arrives. */}
+              {/* Holds the verdict's lines so the shelf doesn't jump when they arrive. */}
               <Text style={[type.body, styles.sub, styles.hidden]} importantForAccessibility="no">
                 {copy.sub}
               </Text>
+              {!!candidate.costNote && (
+                <Text style={[type.sub, styles.sub, styles.hidden]} importantForAccessibility="no">
+                  {candidate.costNote}
+                </Text>
+              )}
             </View>
           )}
 
@@ -105,15 +116,21 @@ export function WeighResult({
 
           {!landed && <Text style={[type.foot, styles.muted, styles.center]}>Preview only</Text>}
           {landed && result === 'over' && (
-            <Animated.View style={[styles.suggestion, rise]}>
-              <View style={styles.suggestionIcon}>
-                <Icon name="clock" size={22} />
-              </View>
-              <View style={styles.summaryText}>
-                <Text style={[type.bodyStrong, styles.ink]}>Try a shorter visit</Text>
-                <Text style={[type.sub, styles.muted]}>{`Leave by ${leaveBy(candidate.start)}`}</Text>
-              </View>
-              <Icon name="chevron" size={18} color={color.ink2} />
+            <Animated.View style={rise}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Try a shorter visit, leave by ${leave}`}
+                onPress={onShorten}
+                style={styles.suggestion}>
+                <View style={styles.suggestionIcon}>
+                  <Icon name="clock" size={22} />
+                </View>
+                <View style={styles.summaryText}>
+                  <Text style={[type.bodyStrong, styles.ink]}>Try a shorter visit</Text>
+                  <Text style={[type.sub, styles.muted]}>{`Leave by ${leave}`}</Text>
+                </View>
+                <Icon name="chevron" size={18} color={color.ink2} />
+              </Pressable>
             </Animated.View>
           )}
         </View>

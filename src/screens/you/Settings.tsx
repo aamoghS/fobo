@@ -29,6 +29,9 @@ type Google =
   | { kind: 'email' };
 type Editing = { field: 'name' | 'handle'; value: string; error?: string } | null;
 
+// What the database takes for a username (profiles.handle in db/migrations/001_schema.sql).
+const HANDLE = /^[a-z0-9_]{3,24}$/;
+
 /**
  * Settings, after Settings (443:3555), refreshed to the app's card rows: your account (name and
  * username edit in a sheet), Google Calendar, what friends can see, your profile, and the fine print.
@@ -98,13 +101,19 @@ export function Settings() {
 
   const save = async () => {
     if (!editing) return;
-    const value = editing.value.trim().replace(/^@/, '');
-    if (!value) return setEditing({ ...editing, error: editing.field === 'name' ? 'Add your name.' : 'Add a username.' });
+    const isHandle = editing.field === 'handle';
+    const trimmed = editing.value.trim().replace(/^@/, '');
+    // Usernames are stored lowercase, so "Mia_K" saves as "mia_k".
+    const value = isHandle ? trimmed.toLowerCase() : trimmed;
+    if (!value) return setEditing({ ...editing, error: isHandle ? 'Add a username.' : 'Add your name.' });
+    if (isHandle && !HANDLE.test(value)) return setEditing({ ...editing, error: 'Use 3 to 24 letters, numbers or underscores.' });
     setSaving(true);
     const res = await send<Me>('PATCH', '/me', { [editing.field]: value });
     setSaving(false);
     if ('error' in res) {
-      return setEditing({ ...editing, error: editing.field === 'handle' ? 'That username is taken. Try another.' : "Couldn't save that. Try again." });
+      // The API answers 'invalid input' when the database says no; with the pattern checked above, that's a taken username.
+      const taken = isHandle && res.error === 'invalid input';
+      return setEditing({ ...editing, error: taken ? 'That username is taken. Try another.' : "Couldn't save that. Try again." });
     }
     setMe(res.data);
     setEditing(null);

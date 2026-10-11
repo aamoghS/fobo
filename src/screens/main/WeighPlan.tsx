@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -13,7 +14,6 @@ import { people } from '@/data/people';
 import type { Plan } from '@/features/plans/types';
 import { api, send } from '@/lib/api';
 import { notify } from '@/lib/notify';
-import type { Candidate } from '@/lib/weigh';
 import { dayHeading, isoDay, startTime } from '@/lib/format';
 import { color, radius, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
@@ -26,13 +26,15 @@ type Tab = 'tentative' | 'write';
 export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   'use no memo'; // Reads the in-memory data, which changes without new props; see live.ts.
   useLiveScreen();
-  const [tab, setTab] = useState<Tab>('tentative');
+  const router = useRouter();
+  // No invites waiting: start on writing one, rather than an empty list.
+  const [tab, setTab] = useState<Tab>(() => (invites.length ? 'tentative' : 'write'));
   // Nothing chosen until you pick one; the button waits for it.
   const [selected, setSelected] = useState<string>();
   // Kind starts on Guess for me: weighing works it out.
   const [draft, setDraft] = useState<PlanDraft>(() => emptyDraft(null));
   const [writtenId, setWrittenId] = useState<string>();
-  const [weighing, setWeighing] = useState<Candidate>();
+  const [weighing, setWeighing] = useState<Invite>();
   const [busy, setBusy] = useState(false);
 
   // A written plan is saved as tentative first (POST /plans), so weighing reads exactly what was filled in.
@@ -56,7 +58,8 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setBusy(true);
     const planId = tab === 'tentative' ? selected : await written();
     if (!planId) return setBusy(false);
-    const weighed = await api<Plan>('POST', '/weigh', { planId });
+    // The answer carries the planner's costNote and leaveBy, which the result shows.
+    const weighed = await api<Plan & { costNote?: string | null }>('POST', '/weigh', { planId });
     if (weighed) await loadLive();
     setBusy(false);
     if (!weighed) return notify("Couldn't weigh that plan. Try again in a moment.");
@@ -65,13 +68,25 @@ export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: 
 
   if (weighing) {
     // Saying yes: the plan stops being tentative.
-    const add = async () => {
+    const accept = async () => {
       const accepted = await api('PATCH', `/plans/${weighing.id}`, { status: 'accepted' });
-      if (!accepted) return notify("Couldn't add that plan. Try again in a moment.");
+      if (!accepted) {
+        notify("Couldn't add that plan. Try again in a moment.");
+        return false;
+      }
       await loadLive();
-      onAdded();
+      return true;
     };
-    return <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} onAdd={add} />;
+    const add = async () => {
+      if (await accept()) onAdded();
+    };
+    // The shorter visit: say yes, then plan the exit. It takes this sheet's place, so closing it doesn't come back here.
+    const shorten = async () => {
+      if (await accept()) router.replace({ pathname: '/exit/[id]', params: { id: weighing.id } });
+    };
+    return (
+      <WeighResult candidate={weighing} onBack={() => setWeighing(undefined)} onClose={onClose} onAdd={add} onShorten={shorten} />
+    );
   }
 
   const days = [...new Set(invites.map((i) => isoDay(i.start)))];

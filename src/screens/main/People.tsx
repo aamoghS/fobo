@@ -62,28 +62,31 @@ export function People() {
           </Pressable>
         )}
 
-        <Text accessibilityRole="header" style={[type.title, styles.ink, styles.section]}>
-          Plans with people
-        </Text>
+        {/* No plan with people coming up: no heading over nothing. */}
         {featured && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${featured.title}, ${featuredWhen}`}
-            onPress={() => router.push({ pathname: '/plans/[id]', params: { id: featured.id } })}
-            style={styles.card}>
-            <Image source={require('@/assets/people/comal-card.png')} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <View style={styles.cardText}>
-              <Text style={[type.title, styles.onArt]} numberOfLines={2}>
-                {featured.title}
-              </Text>
-              <Text style={[type.sub, styles.onArt, styles.cardWhen]} numberOfLines={1}>
-                {featuredWhen}
-              </Text>
-            </View>
-            <View style={styles.cardChevron}>
-              <Icon name="chevron" size={20} color={color.paper} />
-            </View>
-          </Pressable>
+          <>
+            <Text accessibilityRole="header" style={[type.title, styles.ink, styles.section]}>
+              Plans with people
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${featured.title}, ${featuredWhen}`}
+              onPress={() => router.push({ pathname: '/plans/[id]', params: { id: featured.id } })}
+              style={styles.card}>
+              <Image source={require('@/assets/people/comal-card.png')} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <View style={styles.cardText}>
+                <Text style={[type.title, styles.onArt]} numberOfLines={2}>
+                  {featured.title}
+                </Text>
+                <Text style={[type.sub, styles.onArt, styles.cardWhen]} numberOfLines={1}>
+                  {featuredWhen}
+                </Text>
+              </View>
+              <View style={styles.cardChevron}>
+                <Icon name="chevron" size={20} color={color.paper} />
+              </View>
+            </Pressable>
+          </>
         )}
 
         <View style={styles.circleHeader}>

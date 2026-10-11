@@ -14,6 +14,10 @@ export type Invite = {
   energyCost: number;
   /** A plan already on the week that this invite is (so weighing doesn't count it twice). */
   replaces?: string;
+  /** Why it costs what it does, from weighing (the planner's answer). */
+  costNote?: string;
+  /** "8:30", when weighing found a leave-by time that helps. */
+  leaveBy?: string;
 };
 
 export const invites: Invite[] = [];
@@ -27,7 +31,7 @@ const KIND_LABEL: Record<PlanKind, string> = {
 };
 
 /** A plan you haven't answered, as Weigh a plan's row shows it. */
-export function inviteFrom(plan: Plan, circle: Person[]): Invite {
+export function inviteFrom(plan: Plan & { costNote?: string | null }, circle: Person[]): Invite {
   // People are friend ids for Fobo plans, and names or emails for Google invites.
   const names = (plan.with ?? []).map((w) => circle.find((p) => p.id === w)?.name ?? w.split('@')[0]);
   return {
@@ -39,5 +43,8 @@ export function inviteFrom(plan: Plan, circle: Person[]): Invite {
     energyCost: plan.energyCost,
     // The invite is that plan on the week, so weighing doesn't count it twice.
     replaces: plan.id,
+    // What weighing worked out, so the result can show the planner's answer (null from the API when unset).
+    costNote: plan.costNote ?? undefined,
+    leaveBy: plan.leaveBy ?? undefined,
   };
 }
