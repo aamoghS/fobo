@@ -15,7 +15,7 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-/** Radio rows in a radiogroup (Q2 378:11668, Q3 378:11902). Selected state isn't drawn; it fills with ink. */
+/** Radio rows in a radiogroup (Q2 378:11668, Q3 378:11902). Selected state isn't drawn; like Q1's answer cards, it fills with ink. */
 export function RadioGroup({ label, options, value, onChange }: Props) {
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.group}>
@@ -34,9 +34,8 @@ export function RadioRow({ label, selected, onPress }: { label: string; selected
       aria-checked={selected}
       accessibilityLabel={label}
       onPress={onPress}
-      style={styles.row}>
-      <View style={[styles.circle, selected && styles.circleOn]}>{selected && <View style={styles.dot} />}</View>
-      <Text style={[type.sub, styles.label]}>{label}</Text>
+      style={[styles.row, selected && styles.rowOn]}>
+      <Text style={[type.sub, styles.label, selected && styles.labelOn]}>{label}</Text>
     </Pressable>
   );
 }
@@ -44,25 +43,16 @@ export function RadioRow({ label, selected, onPress }: { label: string; selected
 const styles = StyleSheet.create({
   group: { gap: 8 },
   row: {
+    // As tall as the drawn row, which had a 25px radio circle in it.
+    minHeight: 57,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     borderRadius: radius.md,
     backgroundColor: color.paper2,
   },
-  circle: {
-    width: 25,
-    height: 25,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: color.ink3,
-    backgroundColor: color.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleOn: { borderColor: color.ink },
-  dot: { width: 13, height: 13, borderRadius: radius.full, backgroundColor: color.ink },
+  rowOn: { backgroundColor: color.selBg },
   label: { flex: 1, color: color.ink },
+  labelOn: { color: color.selInk },
 });

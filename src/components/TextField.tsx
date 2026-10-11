@@ -19,10 +19,12 @@ type Props = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
   error?: string;
   /** Bump to shake the field once. */
   shake?: number;
+  /** A multi-line box this many lines tall. */
+  rows?: number;
 };
 
 /** Label + paper-2 input (DESIGN.md §3). Spec from the auth screens; verify when building them. */
-export function TextField({ label, password = false, invalid = false, error, shake = 0, onFocus, onBlur, ...props }: Props) {
+export function TextField({ label, password = false, invalid = false, error, shake = 0, rows, onFocus, onBlur, ...props }: Props) {
   const [hidden, setHidden] = useState(true);
   const [focused, setFocused] = useState(false);
   const x = useRef(new Animated.Value(0)).current;
@@ -48,13 +50,14 @@ export function TextField({ label, password = false, invalid = false, error, sha
     <View style={[styles.field, invalid && !!error && styles.withTooltip]}>
       <Text style={[type.label, styles.label]}>{label}</Text>
       <Animated.View
-        style={[styles.input, invalid && styles.invalid, focused && focusRing, focused && invalid && styles.invalidFocus, { transform: [{ translateX: x }] }]}>
+        style={[styles.input, !!rows && styles.tall, invalid && styles.invalid, focused && focusRing, focused && invalid && styles.invalidFocus, { transform: [{ translateX: x }] }]}>
         <TextInput
           {...props}
           accessibilityLabel={label}
           accessibilityHint={invalid && error ? error : props.accessibilityHint}
           aria-invalid={invalid}
           secureTextEntry={password && hidden}
+          multiline={!!rows || props.multiline}
           placeholderTextColor={color.ink2}
           onFocus={(e) => {
             setFocused(true);
@@ -64,7 +67,7 @@ export function TextField({ label, password = false, invalid = false, error, sha
             setFocused(false);
             onBlur?.(e);
           }}
-          style={[type.sub, styles.text]}
+          style={[type.sub, styles.text, !!rows && { minHeight: rows * 21, textAlignVertical: 'top' }]}
         />
         {password && (
           <Pressable
@@ -95,6 +98,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: color.paper2,
   },
+  tall: { alignItems: 'flex-start' },
   // An outline, so turning red doesn't nudge the layout.
   invalid: { outlineColor: color.error, outlineStyle: 'solid', outlineWidth: 1.5, outlineOffset: 0 },
   invalidFocus: { outlineColor: color.error },

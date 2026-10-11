@@ -5,7 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { DayPicker } from '@/components/DayPicker';
+import { Icon } from '@/components/Icon';
 import { IconButton } from '@/components/IconButton';
+import { MiniScrap } from '@/components/MiniScrap';
+import { Pressable } from '@/components/Pressable';
+import { SelectField } from '@/components/SelectField';
+import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
 import { loadLive, useLiveScreen } from '@/data/live';
 import { people } from '@/data/people';
@@ -14,6 +20,7 @@ import { localDay } from '@/data/week';
 import { dayLoad } from '@/features/capacity/day-load';
 import type { PlanKind } from '@/features/plans/types';
 import { send } from '@/lib/api';
+import { costFromLength } from '@/lib/energy';
 import { dateTile } from '@/lib/format';
 import { plansOn } from '@/lib/week';
 import { color, space } from '@/styles/tokens';
@@ -47,14 +54,6 @@ const clock = (hhmm: string) => {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')}`;
 };
 
-/** The next two weeks, plus the plan's own day when editing. */
-function dayChoices(current?: string) {
-  const days: string[] = [];
-  const d = new Date();
-  for (let i = 0; i < 14; i++, d.setDate(d.getDate() + 1)) days.push(localDay(d));
-  if (current && !days.includes(current)) days.unshift(current);
-  return days;
-}
 
 function dayLabel(day: string, today: string) {
   const tomorrow = new Date(`${today}T00:00`);
@@ -67,10 +66,12 @@ function dayLabel(day: string, today: string) {
 
 /**
  * Add a plan (Plans +), or edit one (`id`): Edit, Move it (`focus: 'time'`) and the leave-by Edit
- * (`focus: 'exit'`) on Event detail. The day's load updates as the plan changes. Not in Figma yet:
- * built from the design system's text fields, chips and buttons.
+ * (`focus: 'exit'`) on Event detail. A new plan asks only what, when and what kind (its cost starts
+ * as a guess from its length); editing adds the cost and leave-by. `then: 'back'` returns to where it
+ * was opened (onboarding) instead of the new plan. Not in Figma yet: built from the design system's
+ * text fields, chips and buttons.
  */
-export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
+export function PlanForm({ id, focus, then }: { id?: string; focus?: string; then?: string }) {
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -87,6 +88,7 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
   const [leaveBy, setLeaveBy] = useState(plan?.leaveBy ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [picking, setPicking] = useState<'day' | 'kind' | null>(null);
 
   const before = dayLoad(plansOn(day).filter((p) => p.id !== id));
   const after = before + cost;
@@ -109,7 +111,7 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
       start: `${day}T${s}`,
       end: `${endDay}T${e}`,
       kind,
-      energyCost: cost,
+      energyCost: plan ? cost : costFromLength(`${day}T${s}`, `${endDay}T${e}`),
       // Google invites keep their own guest list.
       ...(plan?.source === 'google' ? {} : { with: withIds }),
       leaveBy: exit ? clock(exit) : null,
@@ -117,7 +119,8 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
     setSaving(false);
     if ('error' in result) return setError(result.error);
     await loadLive();
-    router.replace({ pathname: '/plans/[id]', params: { id: result.data.id } });
+    if (then === 'back') close();
+    else router.replace({ pathname: '/plans/[id]', params: { id: result.data.id } });
   };
 
   const remove = async () => {
@@ -133,7 +136,8 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]), paddingBottom: Math.max(insets.bottom, space[48]) }]}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, space[48]) }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.topBar}>
           <IconButton icon="close" label="Close" onPress={close} />
@@ -145,17 +149,15 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
         <TextField label="What" placeholder="Dinner at Comal" value={title} onChangeText={setTitle} autoFocus={!plan} />
         {plan?.source === 'google' && <Text style={[type.foot, styles.muted]}>Changes to the name and time go to Google Calendar too.</Text>}
 
-        <Section label="Kind">
-          {KINDS.map((k) => (
-            <Chip key={k.key} label={k.label} pressed={kind === k.key} onPress={() => setKind(k.key)} />
-          ))}
-        </Section>
-
-        <Section label="Day" scroll>
-          {dayChoices(plan?.start.slice(0, 10)).map((d) => (
-            <Chip key={d} label={dayLabel(d, today)} pressed={day === d} onPress={() => setDay(d)} />
-          ))}
-        </Section>
+        <View style={styles.pair}>
+          <SelectField label="Day" value={dayLabel(day, today)} onPress={() => setPicking('day')} />
+          <SelectField
+            label="Kind"
+            value={KINDS.find((k) => k.key === kind)!.label}
+            leading={<MiniScrap kind={kind} id="kind" size={20} />}
+            onPress={() => setPicking('kind')}
+          />
+        </View>
         <View style={styles.times}>
           <View style={styles.time}>
             <TextField label="Starts" placeholder="7pm" value={starts} onChangeText={setStarts} autoCapitalize="none" autoFocus={focus === 'time'} />
@@ -165,14 +167,19 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
           </View>
         </View>
 
-        <Section label={`Energy it takes: ${cost} of ${DAY_ROOM}`} scroll>
-          {COSTS.map((c) => (
-            <Chip key={c} label={String(c)} pressed={cost === c} onPress={() => setCost(c)} />
-          ))}
-        </Section>
-        <Text style={[type.sub, after > DAY_ROOM ? styles.over : styles.muted]}>
-          {`${dayLabel(day, today)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
-        </Text>
+        {/* A new plan's cost starts as a guess; it's corrected here, once it's on the week. */}
+        {plan && (
+          <>
+            <Section label={`Energy it takes: ${cost} of ${DAY_ROOM}`} scroll>
+              {COSTS.map((c) => (
+                <Chip key={c} label={String(c)} pressed={cost === c} onPress={() => setCost(c)} />
+              ))}
+            </Section>
+            <Text style={[type.sub, after > DAY_ROOM ? styles.over : styles.muted]}>
+              {`${dayLabel(day, today)} goes from ${before} to ${after} of ${DAY_ROOM}.${after > DAY_ROOM ? ' That’s over the line.' : ''}`}
+            </Text>
+          </>
+        )}
 
         {people.length > 0 && plan?.source !== 'google' && (
           <Section label="With" scroll>
@@ -190,19 +197,53 @@ export function PlanForm({ id, focus }: { id?: string; focus?: string }) {
           </Section>
         )}
 
-        <TextField
-          label="Leave by (optional)"
-          placeholder="8:30pm"
-          value={leaveBy}
-          onChangeText={setLeaveBy}
-          autoCapitalize="none"
-          autoFocus={focus === 'exit'}
-        />
+        {plan && (
+          <TextField
+            label="Leave by (optional)"
+            placeholder="8:30pm"
+            value={leaveBy}
+            onChangeText={setLeaveBy}
+            autoCapitalize="none"
+            autoFocus={focus === 'exit'}
+          />
+        )}
 
         {error ? <Text style={[type.sub, styles.over]}>{error}</Text> : null}
+      </ScrollView>
+      {/* Pinned 40 from the bottom, like onboarding's buttons. */}
+      <View style={[styles.pinned, { paddingBottom: Math.max(insets.bottom, 40) }]}>
         <Button label={plan ? 'Save plan' : 'Add plan'} onPress={save} disabled={saving} />
         {plan && <Button label="Delete plan" variant="quiet" onPress={remove} disabled={saving} />}
-      </ScrollView>
+      </View>
+
+      <Sheet visible={picking === 'day'} onClose={() => setPicking(null)} title="Pick a day">
+        <DayPicker
+          value={day}
+          onChange={(d) => {
+            setDay(d);
+            setPicking(null);
+          }}
+        />
+      </Sheet>
+      <Sheet visible={picking === 'kind'} onClose={() => setPicking(null)} title="What kind of plan?">
+        <View accessibilityRole="radiogroup">
+          {KINDS.map((k, i) => (
+            <Pressable
+              key={k.key}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: kind === k.key }}
+              onPress={() => {
+                setKind(k.key);
+                setPicking(null);
+              }}
+              style={[styles.kindRow, i > 0 && styles.rule]}>
+              <MiniScrap kind={k.key} id={k.key} size={28} />
+              <Text style={[type.bodyStrong, styles.ink, styles.grow]}>{k.label}</Text>
+              {kind === k.key && <Icon name="check" />}
+            </Pressable>
+          ))}
+        </View>
+      </Sheet>
     </KeyboardAvoidingView>
   );
 }
@@ -224,7 +265,8 @@ function Section({ label, scroll = false, children }: { label: string; scroll?: 
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.ground },
-  content: { paddingHorizontal: space.margin, gap: space[20] },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: space.margin, paddingBottom: space[20], gap: space[20] },
   topBar: { flexDirection: 'row' },
   ink: { color: color.ink },
   muted: { color: color.ink2 },
@@ -234,5 +276,10 @@ const styles = StyleSheet.create({
   chips: { gap: space[8], paddingHorizontal: space.margin },
   wrap: { gap: space[8], flexDirection: 'row', flexWrap: 'wrap' },
   times: { flexDirection: 'row', gap: space[12] },
+  pair: { flexDirection: 'row', gap: space[12] },
+  pinned: { paddingHorizontal: space.margin, paddingTop: space[12], gap: space[8] },
+  kindRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space[12] },
+  rule: { borderTopWidth: 1, borderTopColor: color.rule },
+  grow: { flex: 1 },
   time: { flex: 1 },
 });
