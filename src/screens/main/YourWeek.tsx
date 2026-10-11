@@ -17,6 +17,8 @@ import { DAY_ROOM } from '../../../packages/core/src';
 import { color, radius, shadow, space } from '@/styles/tokens';
 import { type } from '@/styles/type';
 
+import { PlanReview } from './PlanReview';
+
 /** Your week (439:2323). */
 export function YourWeek() {
   'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
@@ -90,6 +92,8 @@ export function YourWeek() {
           {/* Figma reads "Weight a plan"; DESIGN.md §5 flags it as a typo. */}
           <Button label="Weigh a plan" trailingArrow style={styles.weigh} onPress={() => router.push('/weigh')} />
         </View>
+
+        <PlanReview />
 
         <View style={styles.upNext}>
           <View style={styles.listHead}>
