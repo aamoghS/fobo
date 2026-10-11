@@ -7,13 +7,14 @@ import { events, profiles } from './schema.ts';
 type Kind = (typeof PLAN_KINDS)[number];
 
 // Plain words in a title that settle its kind, checked in this order (a "team dinner" is social, a
-// "doctor's appointment" an obligation). Whole words, any case.
+// "doctor's appointment" an obligation). Whole words, any case. A word beside a telling neighbour
+// is skipped so a later kind can take it (a "pitch practice" is work, a "due date" no date).
 const RULES: [Kind, RegExp][] = [
-  ['obligation', /\b(dentist|doctor|dr\.?|appointment|appt|therapy|clinic|vet|dmv|bank|taxes?|bills?|errands?|laundry|groceries|grocery|chores?|cleaning|haircut|car service|oil change|deadline|exam|midterm|final|jury|visa|passport|commute|drive|flight|travel|airport)\b/i],
-  ['social', /\b(dinner|brunch|drinks?|coffee|party|birthday|bday|wedding|hang ?out|hangout|date|bbq|potluck|game night|reunion|catch ?up|visit|with mom|with dad|family)\b/i],
-  ['rest', /\b(nap|sleep|rest|meditat\w*|spa|massage|self[- ]care|day off|vacation|holiday|pto|recharge|quiet time|me time)\b/i],
-  ['enjoy', /\b(gym|workout|work out|yoga|pilates|run|running|jog|hike|hiking|swim|climb\w*|leg day|arm day|cardio|strength|training|upper body|lower body|full body|core|mobility|stretch\w*|walk|bike|cycling|movie|film|concert|show|museum|gallery|game|gaming|book club|hobby|paint\w*|draw\w*|music|guitar|piano|practice)\b/i],
-  ['work', /\b(meeting|mtg|standup|stand-up|sync|1:1|one on one|retro\w*|review|sprint|planning|interview|call|presentation|demo|workshop|onboarding|office hours|shift|lecture|class|seminar|lab|study|homework|project|hackathon|architecture|debrief|wrap[- ]up|backlog|team)\b/i],
+  ['obligation', /\b(dentist|doctor|dr\.?|appointment|appt|therapy|clinic|vet|dmv|bank|taxes?|bills?|errands?|laundry|groceries|grocery|chores?|cleaning|haircut|car service|oil change|deadline|exams?|midterms?|finals|final(?! [a-z])|jury|visa|passport|commute|(?<!google )drive(?!-in)|flight|travel|airport|pharmacy|rent|pay|meal prep)\b/i],
+  ['social', /\b(dinner|brunch|drinks?|coffee|party|birthday|bday|wedding|hang ?out|hangout|(?<!due )date|bbq|potluck|game night|reunion|catch ?up|visit\w*|(?:with|call) (?:mom|dad)|family|volunteer\w*|church|tailgat\w*)\b/i],
+  ['rest', /\b(nap|sleep|rest|meditat\w*|spa|massage|self[- ]care|day off|vacation|holiday|pto|recharge|quiet time|me time|netflix|tv|break)\b/i],
+  ['enjoy', /\b(gym|workout|work out|yoga|pilates|(?<!dry )run|running|jog|hike|hiking|swim|climb\w*|leg day|arm day|cardio|strength|(?<!safety )training|upper body|lower body|full body|core|mobility|stretch\w*|walk|bike|cycling|movie|film|concert|show|museum|gallery|game(?! theory)|gaming|book club|hobby|paint\w*|draw\w*|music(?! theory)|guitar|piano|band|choir|orchestra|(?<!(?:pitch|interview|leetcode) )practice(?! talk)|spin|danc\w*|barre|zumba|basketball|soccer)\b/i],
+  ['work', /\b(meeting|mtg|standup|stand-up|sync|1:1|one on one|retro\w*|review|sprint|planning|interview|call|presentation|demo|workshop|onboarding|office hours|shift|lecture|class|seminar|lab|study|homework|project|hackathon|architecture|debrief|wrap[- ]up|backlog|team|practice|training|dry run|rehearsal|recitation|discussion|quiz(?:zes)?|problem sets?|p-?sets?|hw\d*|assignments?|essays?|tutor\w*|career|showcase|google drive)\b/i],
 ];
 
 // A meal on its own is a break; with people, it's social.
