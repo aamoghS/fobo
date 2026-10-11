@@ -27,7 +27,9 @@ type ApiProfile = {
 const pad = (n: number) => String(n).padStart(2, '0');
 const localDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// Screens that show profile data call useLive() so they redraw after each load.
+// Screens that show profile data call useLive() so they redraw after each load. The data lives in
+// module-level arrays that change in place, so those screens opt out of React Compiler's
+// memoisation ('use no memo'); otherwise the compiler keeps their first reads.
 let version = 0;
 const listeners = new Set<() => void>();
 export function useLive() {
@@ -79,6 +81,29 @@ export function addPlan(plan: Plan, replaces?: string) {
   if (at >= 0) plans.splice(at, 1);
   plans.push(plan);
   bump();
+}
+
+/** Move it: same times, another day ("2026-10-11"). Sample data only for now. */
+export function movePlan(id: string, date: string) {
+  updatePlan(id, (p) => ({ ...p, start: `${date}${p.start.slice(10)}`, end: `${date}${p.end.slice(10)}` }));
+}
+
+// Plans are replaced, never edited in place: screens are memoised by object identity (React Compiler).
+function updatePlan(id: string, change: (p: Plan) => Plan) {
+  const at = plans.findIndex((p) => p.id === id);
+  if (at < 0) return;
+  plans[at] = change(plans[at]);
+  bump();
+}
+
+/**
+ * Plan my exit: the plan keeps its times (as on the Event screen, "7–11 AM · Leave by 10:30"),
+ * carries the leave-by, and costs what the shorter stay costs. Sample data only for now.
+ */
+export function setExit(id: string, energyCost: number, label: string, note: string) {
+  const fullCost = planDetails[id]?.fullCost ?? plans.find((p) => p.id === id)?.energyCost;
+  planDetails[id] = { ...planDetails[id], fullCost, exit: { leaveBy: label, note } };
+  updatePlan(id, (p) => ({ ...p, energyCost, leaveBy: label }));
 }
 
 export function signOut() {

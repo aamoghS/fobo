@@ -22,6 +22,7 @@ type Tab = 'tentative' | 'write';
 
 /** Weigh a plan: pick an invite you haven't accepted, or write one. From Tory's mockup (not in Figma yet). */
 export function WeighPlan({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   const [tab, setTab] = useState<Tab>('tentative');
   // Nothing chosen until you pick one; the button waits for it.
   const [selected, setSelected] = useState<string>();

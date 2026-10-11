@@ -21,6 +21,7 @@ type View_ = 'agenda' | 'calendar';
 
 /** Plans: the rest of the week as an agenda, or three days as a calendar. Simplified from Tory's references. */
 export function Plans() {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();

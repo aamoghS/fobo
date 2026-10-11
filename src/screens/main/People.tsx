@@ -22,6 +22,7 @@ const FEATURED = 'comal';
 
 /** People (387:1456). */
 export function People() {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();

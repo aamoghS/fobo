@@ -18,6 +18,7 @@ import { DAY_ROOM } from '../../../packages/core/src';
 
 /** Event detail (368:9064). */
 export function PlanDetail({ id }: { id: string }) {
+  'use no memo'; // Reads the in-memory sample data, which changes without new props; see live.ts.
   useLiveScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export function PlanDetail({ id }: { id: string }) {
               icon="scissors"
               title={`Leave by ${detail.exit.leaveBy}`}
               detail={detail.exit.note}
-              trailing={<Button label="Edit" variant="quiet" size="small" />}
+              trailing={<Button label="Edit" variant="quiet" size="small" onPress={() => router.push({ pathname: '/exit/[id]', params: { id: plan.id } })} />}
             />
           )}
           {detail.reminder && <Row icon="bell" title={detail.reminder} />}
@@ -75,8 +76,8 @@ export function PlanDetail({ id }: { id: string }) {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 40) }]}>
-        <Button label="Move it" variant="quiet" style={styles.footerButton} />
-        <Button label="Plan my exit" variant="ink" style={styles.footerButton} />
+        <Button label="Move it" variant="quiet" style={styles.footerButton} onPress={() => router.push({ pathname: '/move/[id]', params: { id: plan.id } })} />
+        <Button label="Plan my exit" variant="ink" style={styles.footerButton} onPress={() => router.push({ pathname: '/exit/[id]', params: { id: plan.id } })} />
       </View>
     </View>
   );
