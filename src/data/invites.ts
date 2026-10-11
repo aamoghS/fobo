@@ -8,10 +8,13 @@ export type Invite = {
   title: string;
   kind: PlanKind;
   start: string;
+  end: string;
   /** Who it's with, as the row words it ("Dani + 2", "Work"). */
   with: string;
   /** Estimated cost out of DAY_ROOM, for weighing. */
   energyCost: number;
+  /** "Leave by" time from weighing, e.g. "8:30". */
+  leaveBy?: string;
   /** A plan already on the week that this invite is (so weighing doesn't count it twice). */
   replaces?: string;
 };
@@ -35,8 +38,10 @@ export function inviteFrom(plan: Plan, circle: Person[]): Invite {
     title: plan.title,
     kind: plan.kind,
     start: plan.start,
+    end: plan.end,
     with: names.length ? (names.length > 1 ? `${names[0]} + ${names.length - 1}` : names[0]) : KIND_LABEL[plan.kind],
     energyCost: plan.energyCost,
+    leaveBy: plan.leaveBy,
     // The invite is that plan on the week, so weighing doesn't count it twice.
     replaces: plan.id,
   };

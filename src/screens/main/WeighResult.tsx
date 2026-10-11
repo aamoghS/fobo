@@ -17,7 +17,7 @@ const COPY = {
   room: (day: string) => ({ title: `${day} has room`, sub: 'This fits under your limit.' }),
 };
 
-/** "7 PM" plus 90 minutes, for the shorter-visit suggestion. */
+/** "7 PM" plus 90 minutes, for the shorter-visit suggestion when weighing gave no leave-by time. */
 function leaveBy(start: string) {
   const d = new Date(start);
   d.setMinutes(d.getMinutes() + 90);
@@ -111,7 +111,7 @@ export function WeighResult({
               </View>
               <View style={styles.summaryText}>
                 <Text style={[type.bodyStrong, styles.ink]}>Try a shorter visit</Text>
-                <Text style={[type.sub, styles.muted]}>{`Leave by ${leaveBy(candidate.start)}`}</Text>
+                <Text style={[type.sub, styles.muted]}>{`Leave by ${candidate.leaveBy ?? leaveBy(candidate.start)}`}</Text>
               </View>
               <Icon name="chevron" size={18} color={color.ink2} />
             </Animated.View>
