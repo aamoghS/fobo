@@ -1,6 +1,6 @@
 // Applies db/migrations in order, once each. Reads DATABASE_URL. Uses the same connection as the
 // API, so Neon is reached over port 443.
-//   npm run migrate   (from server/, loads ../.env.local)
+//   bun run migrate   (from server/, loads ../.env.local)
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPool } from '../src/db.ts';

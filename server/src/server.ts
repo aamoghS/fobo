@@ -1,6 +1,6 @@
 // Serves the API handler with Node, for local runs. Production runs functions/api.ts
 // on Neon Functions.
-//   npm run dev   (from server/, loads ../.env.local)
+//   bun run dev   (from server/, loads ../.env.local)
 import http from 'node:http';
 import type pg from 'pg';
 import { createHandler } from './app.ts';

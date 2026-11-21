@@ -18,7 +18,7 @@ const SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.ev
 
 // Where the browser may be sent back to with a session: the app build (fobo://), the hosted web app
 // (WEB_APP_ORIGINS), web pages on this computer, and Expo Go dev servers the team registered by exact host
-// (dev_returns, added by npm run dev:all). Anywhere else could be a page someone else reads.
+// (dev_returns, added by bun run dev:all). Anywhere else could be a page someone else reads.
 const list = (name: string) => (process.env[name] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
 async function allowedReturn(pool: pg.Pool, returnTo: string) {

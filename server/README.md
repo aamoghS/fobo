@@ -44,7 +44,7 @@ Neon Auth tokens. Neon Auth cannot sign in from an ID token, so it cannot serve 
 
 The session goes back only to the app build (`fobo://`), a hosted web origin in `WEB_APP_ORIGINS`, web pages on
 `localhost`, or an Expo Go dev server registered by exact host in `dev_returns` within the last 7 days.
-`npm run dev:all` registers the one it starts (it needs `DATABASE_URL`). Matching tunnels by Expo username let
+`bun run dev:all` registers the one it starts (it needs `DATABASE_URL`). Matching tunnels by Expo username let
 anyone name a tunnel after a teammate and receive sessions, so it was dropped. The app adds a
 one-time nonce to its return address and keeps the session only when it comes back with that nonce. Only an
 email Google verified is stored.
@@ -152,36 +152,36 @@ plan (`proposed`): it waits on Weigh a plan and doesn't fill a day until accepte
 
 ## Running
 
-The repo is one npm workspace: the app at the root, the API in `server/`, shared logic in
+The repo is one Bun workspace: the app at the root, the API in `server/`, shared logic in
 `packages/core` (`@fobo/core`). From the repo root:
 
 ```
-npm install                 # everything: app, server, core
-npx expo login              # optional: the dev server then shows up in Expo Go on that account
-npm run dev:all             # Expo over a tunnel: scan the QR code in Expo Go from any network
-npm run dev:all -- --web    # also the browser build
-npm run dev:all -- --lan    # same Wi-Fi only, no tunnel
-npm run dev:all -- --local  # also runs the API here on :8787 (Google sign-in needs the deployed one)
-npm run allow-expo-go -- <host>  # let Google sign-in return to a teammate's dev server (needs .env.local)
+bun install                 # everything: app, server, core
+bunx expo login             # optional: the dev server then shows up in Expo Go on that account
+bun run dev:all             # Expo over a tunnel: scan the QR code in Expo Go from any network
+bun run dev:all -- --web    # also the browser build
+bun run dev:all -- --lan    # same Wi-Fi only, no tunnel
+bun run dev:all -- --local  # also runs the API here on :8787 (Google sign-in needs the deployed one)
+bun run allow-expo-go -- <host>  # let Google sign-in return to a teammate's dev server (needs .env.local)
 ```
 
-Without `.env.local` the app still uses the deployed API and email sign-in works. `npm start` (same as
+Without `.env.local` the app still uses the deployed API and email sign-in works. `bun start` (same as
 `dev:all`) registers its dev server for Google sign-in when `.env.local` has `DATABASE_URL`; otherwise it prints
 the host for a teammate to allow with `allow-expo-go`.
 
 No Expo account is needed: scan the QR code in Expo Go. Signed in to the same account, the dev server also shows
-up in Expo Go. `npm start` also uses the
-tunnel; `npm run start:lan` does not.
+up in Expo Go. `bun start` also uses the
+tunnel; `bun run start:lan` does not.
 
 The API is deployed as the `api` Neon Function. After API changes, from the repo root, with
-`../.env.local` loaded into the environment: `npx neonctl deploy --no-env-pull`. Migrations:
-`npm run migrate`. The API reaches Neon with its serverless driver over port 443.
+`../.env.local` loaded into the environment: `bunx neonctl deploy --no-env-pull`. Migrations:
+`bun run migrate`. The API reaches Neon with its serverless driver over port 443.
 
 
 ## Setup still needed
 
 1. Google verification (needs a domain we own) to drop the unverified-app warning and the 100-user cap.
-2. Store builds: `npx eas-cli build` needs an Apple Developer account for iPhone.
+2. Store builds: `bunx eas-cli build` needs an Apple Developer account for iPhone.
 
 ## Known gaps
 

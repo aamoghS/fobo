@@ -29,8 +29,8 @@ Team: Thashin (UI design), Tory Deutsch (UX design), Mariem Touati (UX writing +
 
 ## Conventions
 
-- **Expo (React Native) + TypeScript + expo-router**, targeting iOS, Android and web. Run `npm run dev` for web, `npm start` for devices.
-- Styling: `src/styles/tokens.css` is the source. `npm run tokens` regenerates `src/styles/tokens.ts`, which components import (`color`, `radius`, `shadow`, `type`). Never edit `tokens.ts` by hand. Styles are colocated `StyleSheet`s. Don't add Tailwind.
+- **Expo (React Native) + TypeScript + expo-router**, targeting iOS, Android and web. Run `bun run dev` for web, `bun start` for devices.
+- Styling: `src/styles/tokens.css` is the source. `bun run tokens` regenerates `src/styles/tokens.ts`, which components import (`color`, `radius`, `shadow`, `type`). Never edit `tokens.ts` by hand. Styles are colocated `StyleSheet`s. Don't add Tailwind.
 - The Figma class hints map to components: `.btn.ink|quiet|text` → `<Button variant>`, `.circ` → `<IconButton>`, `.chip[aria-pressed]` → `<Chip pressed>`, `.ins-row` → `<InsightRow>`, plus `<Icon>`, `<PaperSpirit>`, `scrapPath()`.
 - SVGs import as components (`react-native-svg-transformer`). Ink strokes use `currentColor`; pass `color`.
 - Folder shape:

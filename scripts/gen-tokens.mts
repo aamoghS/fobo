@@ -1,5 +1,5 @@
 // Generates src/styles/tokens.ts from src/styles/tokens.css so React Native can use the same tokens.
-// Run: npm run tokens
+// Run: bun run tokens
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
