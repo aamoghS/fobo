@@ -1,8 +1,8 @@
 // Runs the app for phones (Expo Go over a tunnel, any network) against the API on Neon.
-//   npm run dev:all                 Expo with --tunnel; the app uses the deployed API (EXPO_PUBLIC_API_URL)
-//   npm run dev:all -- --web        also opens the browser build
-//   npm run dev:all -- --lan        same Wi-Fi only, no tunnel
-//   npm run dev:all -- --local      also runs the API here on :8787 (Google sign-in needs the deployed one)
+//   bun run dev:all                 Expo with --tunnel; the app uses the deployed API (EXPO_PUBLIC_API_URL)
+//   bun run dev:all -- --web        also opens the browser build
+//   bun run dev:all -- --lan        same Wi-Fi only, no tunnel
+//   bun run dev:all -- --local      also runs the API here on :8787 (Google sign-in needs the deployed one)
 import { execSync, spawn } from 'node:child_process';
 import os from 'node:os';
 import { allowDevReturn } from './dev-returns.mjs';
@@ -17,7 +17,7 @@ const children = [];
 // also shows up in Expo Go on that account.
 if (!lan) {
   try {
-    const who = execSync('npx expo whoami', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n').pop();
+    const who = execSync('bunx expo whoami', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n').pop();
     console.log(`Expo account: ${who} (the dev server shows up in Expo Go on the same account)`);
   } catch {
     console.log('Not signed in to Expo, which is fine: scan the QR code below with the phone camera or Expo Go.');
@@ -43,9 +43,9 @@ const expoEnv = {};
 if (local) {
   expoEnv.EXPO_PUBLIC_API_URL = `http://${lanAddress()}:8787`;
   console.log(`Local API on ${expoEnv.EXPO_PUBLIC_API_URL}`);
-  run('API', 'npm', ['run', 'dev'], 'server');
+  run('API', 'bun', ['run', 'dev'], 'server');
 }
-run('Expo', 'npx', ['expo', 'start', ...expoArgs], '.', expoEnv);
+run('Expo', 'bunx', ['expo', 'start', ...expoArgs], '.', expoEnv);
 
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => children.forEach((c) => c.kill()));
 
@@ -68,6 +68,6 @@ async function registerDevReturn() {
     console.log(`\nGoogle sign-in can return to exp://${host}`);
   } catch (e) {
     console.warn(`\nGoogle sign-in can't return to exp://${host} yet (${e.message}). Email sign-in works.`
-      + `\nAsk a teammate with the project's .env.local to run: npm run allow-expo-go -- ${host}`);
+      + `\nAsk a teammate with the project's .env.local to run: bun run allow-expo-go -- ${host}`);
   }
 }

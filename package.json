@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "version": "1.0.0",
+  "packageManager": "bun@1.4.5",
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo/ui": "~57.0.22",
@@ -50,8 +51,8 @@
     "build:android": "eas build --profile development --platform android",
     "build:ios": "eas build --profile development --platform ios",
     "build:ios:store": "eas build --profile production --platform ios --auto-submit",
-    "server": "npm run dev -w fobo-server",
-    "migrate": "npm run migrate -w fobo-server",
+    "server": "bun run --filter fobo-server dev",
+    "migrate": "bun run --filter fobo-server migrate",
     "start": "node scripts/dev-all.mjs",
     "start:lan": "node scripts/dev-all.mjs --lan",
     "web": "expo start --web",
